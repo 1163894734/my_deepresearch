@@ -108,7 +108,7 @@ test = [
   "mlx[cpu]",  # GH-1588
 ]
 dev = [
-  "smolagents[quality,test]",
+  "smolagents[quality]",
   "sqlalchemy", # for ./examples
 ]
 

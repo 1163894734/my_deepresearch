@@ -153,3 +153,5 @@ tool_output/
 
 # Gradio runtime
 .gradio/
+
+examples/open_deep_research/downloads_folder/
