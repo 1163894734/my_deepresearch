@@ -1,6 +1,9 @@
 import argparse
 import os
 import threading
+import time
+from smolagents import InferenceClientModel
+from smolagents import OpenAIModel
 
 from dotenv import load_dotenv
 from huggingface_hub import login
@@ -65,8 +68,26 @@ def create_agent(model_id="o1"):
     }
     if model_id == "o1":
         model_params["reasoning_effort"] = "high"
-    model = LiteLLMModel(**model_params)
+    # model = LiteLLMModel(**model_params)
 
+    model = OpenAIModel(
+        model_id="Qwen3-235B-A22B-Instruct-2507",
+        api_base="https://llmapi.paratera.com/v1",
+        api_key=os.environ["DYM_API_KEY"]
+    )
+    # model = OpenAIModel(
+    #     model_id="deepseek-chat",  # 根据DeepSeek V3的实际模型ID调整
+    #     api_base="https://api.deepseek.com/v1",  # 替换为DeepSeek V3的API基础地址
+    #     api_key=os.environ["DEEPSEEK_API_KEY"],  # 需设置环境变量存储API密钥
+    # )
+
+    # model = OpenAIModel(
+    #     model_id="gpt-5",  # 根据DeepSeek V3的实际模型ID调整
+    #     api_base="https://api.gptsapi.net/v1",  # 替换为DeepSeek V3的API基础地址
+    #     api_key=os.environ["GPTSAPI_KEY"],  # 需设置环境变量存储API密钥
+    #     # max_tokens=2048,  # 强制必填：设置生成的最大 tokens 数（根据 GPTs 限制调整）
+    #     # temperature=0.7,  # 可选：保持原有配置
+    # )
     text_limit = 100000
     browser = SimpleTextBrowser(**BROWSER_CONFIG)
     WEB_TOOLS = [
@@ -101,11 +122,12 @@ def create_agent(model_id="o1"):
     manager_agent = CodeAgent(
         model=model,
         tools=[visualizer, TextInspectorTool(model, text_limit)],
-        max_steps=12,
+        max_steps=20,
         verbosity_level=2,
         additional_authorized_imports=["*"],
-        planning_interval=4,
+        planning_interval=2,
         managed_agents=[text_webbrowser_agent],
+
     )
 
     return manager_agent
@@ -114,7 +136,7 @@ def create_agent(model_id="o1"):
 def main():
     args = parse_args()
 
-    agent = create_agent(model_id=args.model_id)
+    agent = create_agent(model_id="ollama/qwen2.5:1.5b")
 
     answer = agent.run(args.question)
 
