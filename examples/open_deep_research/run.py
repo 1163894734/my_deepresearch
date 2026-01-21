@@ -23,6 +23,7 @@ from scripts.visual_qa import visualizer
 from smolagents import (
     CodeAgent,
     GoogleSearchTool,
+    DuckDuckGoSearchTool,
     # InferenceClientModel,
     LiteLLMModel,
     ToolCallingAgent,
@@ -94,7 +95,8 @@ def create_agent(model_id="o1"):
     text_limit = 100000
     browser = SimpleTextBrowser(**BROWSER_CONFIG)
     WEB_TOOLS = [
-        GoogleSearchTool(provider="serper"),
+        # GoogleSearchTool(provider="serper"),
+        DuckDuckGoSearchTool(),
         VisitTool(browser),
         PageUpTool(browser),
         PageDownTool(browser),
