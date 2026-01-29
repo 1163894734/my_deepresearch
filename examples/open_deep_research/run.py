@@ -8,7 +8,7 @@ from smolagents import OpenAIModel
 from dotenv import load_dotenv
 from huggingface_hub import login
 from scripts.text_inspector_tool import TextInspectorTool
-from scripts.long_writer_tool import LongWriterTool
+from scripts.custom_tools import LongWriterTool
 from scripts.text_web_browser import (
     ArchiveSearchTool,
     FinderTool,

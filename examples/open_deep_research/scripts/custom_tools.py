@@ -60,6 +60,17 @@ class LongWriterTool(Tool):
         # ==============================================================================
         # Step 1: Adaptive Plan (大纲生成)
         # ==============================================================================
+        debug_file = "final_context_summary.txt"
+        try:
+            print(f">> [LongWriter] 正在将完整的参考资料保存至 {debug_file} ...")
+            with open(debug_file, "w", encoding="utf-8") as f:
+                f.write(f"【写作指令】:\n{instruction}\n\n")
+                f.write(f"{'='*20} 完整参考资料 (Context Summary) {'='*20}\n\n")
+                f.write(context)
+            print(f">> [LongWriter] 保存成功！(文件大小: {len(context)} 字符)")
+        except Exception as e:
+            print(f">> [Error] 保存 Context 失败: {e}")
+
         print(f">> [LongWriter] 正在规划大纲...")
         
         plan_input = f"""
@@ -121,7 +132,10 @@ class LongWriterTool(Tool):
            [ID] 作者/机构. 标题. (年份/来源)
         5. **数量控制**：
            - 如果用户未指定数量，至少提取 10-20 条（如果资料足够）。
-           - 如果用户要求了数量（如“至少30条”），请全力满足。
+           - 如果用户要求了数量（如“至少30条”），请尽量满足。
+        6. 请基于提供的 Context 整理参考文献列表。
+        7. **绝对禁止捏造**：如果 Context 中的真实文献不足用户要求的数量篇，请**按实际数量输出**，严禁为了凑数而编造不存在的论文。
+        8. 真实性优先级高于数量要求。
         
         【输出】仅输出文献列表，不要包含任何对话开头。
         """
@@ -210,3 +224,84 @@ class LongWriterTool(Tool):
                 full_content += f"\n\n[Section Error]"
 
         return full_content
+import datetime
+import requests
+from smolagents import Tool
+
+class TimeTool(Tool):
+    name = "get_current_time"
+    description = "获取当前的系统日期和时间。可以用于回答关于'现在几点了'、'今天是星期几'等问题。"
+    inputs = {
+        "format": {
+            "type": "string", 
+            "description": "可选。时间格式字符串（遵循Python datetime格式），默认为 '%Y-%m-%d %H:%M:%S'。",
+            "nullable": True
+        }
+    }
+    output_type = "string"
+
+    def forward(self, format: str = "%Y-%m-%d %H:%M:%S") -> str:
+        try:
+            # 如果模型没传参数，使用默认格式
+            if not format:
+                format = "%Y-%m-%d %H:%M:%S"
+            
+            now = datetime.datetime.now()
+            # 获取星期几
+            weekday_map = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
+            weekday = weekday_map[now.weekday()]
+            
+            time_str = now.strftime(format)
+            return f"当前时间: {time_str} ({weekday})"
+        except Exception as e:
+            return f"获取时间失败: {str(e)}"
+
+class LocationTool(Tool):
+    name = "get_current_location"
+    description = "基于当前网络的IP地址获取地理位置信息（国家、城市、经纬度等）。注意：这代表的是网络接入点的位置，而非精确的GPS位置。"
+    inputs = {} # 不需要输入参数
+    output_type = "string"
+
+    def forward(self) -> str:
+        try:
+            # 使用 ip-api.com 的免费接口获取位置信息
+            # 这是一个不需要 API Key 的公共接口，适合演示和轻量级使用
+            response = requests.get('http://ip-api.com/json/', timeout=5)
+            response.raise_for_status()
+            data = response.json()
+
+            if data['status'] == 'fail':
+                return "无法获取位置信息：IP查询失败"
+
+            country = data.get('country', '未知国家')
+            region = data.get('regionName', '未知地区')
+            city = data.get('city', '未知城市')
+            lat = data.get('lat', 0)
+            lon = data.get('lon', 0)
+            timezone = data.get('timezone', '')
+
+            return (f"当前位置信息 (基于IP):\n"
+                    f"- 国家: {country}\n"
+                    f"- 地区: {region}\n"
+                    f"- 城市: {city}\n"
+                    f"- 时区: {timezone}\n"
+                    f"- 坐标: ({lat}, {lon})")
+            
+        except requests.RequestException as e:
+            return f"网络请求错误，无法获取位置: {str(e)}"
+        except Exception as e:
+            return f"获取位置时发生未知错误: {str(e)}"
+
+# ==========================================
+# 使用示例
+# ==========================================
+if __name__ == "__main__":
+    # 1. 测试时间工具
+    time_tool = TimeTool()
+    print(">> 测试时间工具:")
+    print(time_tool.forward())
+
+    # 2. 测试位置工具
+    loc_tool = LocationTool()
+    print("\n>> 测试位置工具:")
+    print(loc_tool.forward())

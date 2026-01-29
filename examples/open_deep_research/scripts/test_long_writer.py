@@ -1,6 +1,6 @@
 import os
 from smolagents import OpenAIModel
-from long_writer_tool import LongWriterTool # 确保路径正确
+from examples.open_deep_research.scripts.custom_tools import LongWriterTool # 确保路径正确
 
 def test_long_writer():
     # 1. 初始化模型 (建议用你现有的配置)
