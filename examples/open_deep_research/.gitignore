@@ -1,0 +1,72 @@
+# ======================
+# Python 通用
+# ======================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# ======================
+# Jupyter / 实验文件
+# ======================
+.ipynb_checkpoints/
+*.ipynb~
+
+# 如果 notebook 只是实验用（可选）
+# analysis.ipynb
+# visual_vs_text_browser.ipynb
+
+# ======================
+# 编辑器 / IDE
+# ======================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ======================
+# 本地运行 & 下载内容
+# ======================
+downloads/
+downloads_folder/
+
+# gradio 本地状态（非常重要）
+.gradio/
+
+# ======================
+# 缓存 / 临时文件
+# ======================
+.cache/
+logs/
+*.log
+tmp/
+temp/
+
+# ======================
+# 系统文件
+# ======================
+.DS_Store
+Thumbs.db
+
+# ======================
+# 密钥 / 凭证（强烈建议）
+# ======================
+.env
+.env.*
+*.key
+*.pem
+cookies.txt
+
+# 如果 cookies.py 里包含真实 cookie，建议忽略
+# scripts/cookies.py
