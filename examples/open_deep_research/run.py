@@ -6,7 +6,6 @@ from smolagents import InferenceClientModel
 from smolagents import OpenAIModel
 
 from dotenv import load_dotenv
-from huggingface_hub import login
 from scripts.text_inspector_tool import TextInspectorTool
 from scripts.custom_tools import LongWriterTool
 from scripts.text_web_browser import (
@@ -28,10 +27,10 @@ from smolagents import (
     LiteLLMModel,
     ToolCallingAgent,
 )
+from scripts.skill_loader import load_skills_from_directory
 
 
 load_dotenv(override=True)
-login(os.getenv("HF_TOKEN"))
 
 append_answer_lock = threading.Lock()
 
@@ -77,8 +76,13 @@ def create_agent(model_id="o1"):
         api_base="https://llmapi.paratera.com/v1",
         api_key=os.environ["DYM_API_KEY"]
     )
-
-    long_writer_tool = LongWriterTool(model)
+    skills_dir = "./skills" 
+    
+    print(f"Loading skills from {skills_dir}...")
+    custom_tools = load_skills_from_directory(skills_dir, model=model)
+    
+    print(f"Loaded {len(custom_tools)} custom tools: {[t.name for t in custom_tools]}")
+    # long_writer_tool = LongWriterTool(model)
     # model = OpenAIModel(
     #     model_id="deepseek-chat",  # 根据DeepSeek V3的实际模型ID调整
     #     api_base="https://api.deepseek.com/v1",  # 替换为DeepSeek V3的API基础地址
@@ -126,7 +130,7 @@ def create_agent(model_id="o1"):
 
     manager_agent = CodeAgent(
         model=model,
-        tools=[visualizer, TextInspectorTool(model, text_limit), long_writer_tool],
+        tools=[visualizer, TextInspectorTool(model, text_limit)] + custom_tools,
         max_steps=20,
         verbosity_level=2,
         additional_authorized_imports=["*"],

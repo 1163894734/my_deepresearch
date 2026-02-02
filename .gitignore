@@ -155,3 +155,4 @@ tool_output/
 .gradio/
 
 examples/open_deep_research/downloads_folder/
+examples/open_deep_research/output/
