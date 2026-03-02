@@ -28,6 +28,7 @@ from smolagents import (
     ToolCallingAgent,
 )
 from scripts.skill_loader import load_skills_from_directory
+from scripts.long_writer_agent_v3 import LongWriterAgent
 
 
 load_dotenv(override=True)
@@ -128,6 +129,34 @@ def create_agent(model_id="o1"):
     If a non-html page is in another format, especially .pdf or a Youtube video, use tool 'inspect_file_as_text' to inspect it.
     Additionally, if after some searching you find out that you need more information to answer the question, you can use `final_answer` with your request for clarification as argument to request for more information."""
 
+    # 创建 LongWriterAgent V3（多阶段长文本生成代理）
+    long_writer_agent = LongWriterAgent(
+        model=model,
+        tools=custom_tools,  # 传入所有 skills
+        max_steps=30,
+        verbosity_level=2,
+        name="long_writer_agent",
+        description="""**专门负责长文本学术写作的智能体（论文、综述、调研报告）**
+
+**何时必须委托给我**：
+- 用户要求写"综述"、"调研报告"、"学术论文"、"技术报告"
+- 要求字数超过 5000 字或 1 万字
+- 需要"参考文献"、"引用文献"、"列出文献"
+- 需要多章节结构化内容（引言、正文、结论等）
+- 要求"完整"、"详尽"、"系统性"的文档
+
+**我的核心能力**：
+- 自动生成学术大纲 + 迭代优化
+- 分段撰写 + 证据引用管理
+- 反思循环确保质量
+- 自动整理参考文献列表
+
+**委托方式**：
+直接调用 `long_writer_agent(task="用户的完整任务描述")`，不要自己调用 outline_generation、section_write 等工具。
+""",
+        provide_run_summary=True,
+    )
+
     manager_agent = CodeAgent(
         model=model,
         tools=[visualizer, TextInspectorTool(model, text_limit)] + custom_tools,
@@ -135,8 +164,8 @@ def create_agent(model_id="o1"):
         verbosity_level=2,
         additional_authorized_imports=["*"],
         planning_interval=2,
-        # managed_agents=[text_webbrowser_agent],
-        managed_agents=[],
+        # 将 long_writer_agent 和 search_agent 注册为 managed agents
+        managed_agents=[long_writer_agent],
 
     )
 

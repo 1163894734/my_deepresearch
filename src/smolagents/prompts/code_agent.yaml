@@ -222,6 +222,7 @@ planning:
     {% endfor %}
     ```
     {%- endif %}
+    Please be sure to follow this rule: If an agent can fully accomplish the user's task, then there is only one step in your plan: delegate full authority to it without hesitation.
 
     ---
     Now begin! Here is your task:
