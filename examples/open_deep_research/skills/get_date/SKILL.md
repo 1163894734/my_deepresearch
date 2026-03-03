@@ -1,6 +1,7 @@
 ---
 name: get_date
 description: 获取当前系统日期和时间
+enabled: true
 ---
 # Get Date Skill
 ## 功能说明

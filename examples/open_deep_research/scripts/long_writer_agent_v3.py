@@ -15,6 +15,7 @@ LongWriterAgent V2 - 多阶段长文本生成代理
 from typing import List, Dict, Any, Optional, Generator
 import json
 import re
+import time
 
 from smolagents import ToolCallingAgent
 from smolagents.agents import ToolOutput, ActionOutput
@@ -77,6 +78,8 @@ class LongWriterAgent(ToolCallingAgent):
         self.max_prev_section_chars = 900
         self.max_fine_rag_chars = 1600
         self.max_bibliography_chars = 2200
+        self.max_skill_log_chars = 1200
+        self._current_step = "init"
     
     def _ensure_output_dir(self):
         """确保输出目录存在"""
@@ -88,15 +91,34 @@ class LongWriterAgent(ToolCallingAgent):
             f.write(f"生成时间: {self.task}\n\n")
             f.write("---\n\n")
     
-    def _append_section_to_file(self, section_title: str, content: str):
-        """将段落内容追加到输出文件"""
+    def _append_section_to_file(self, section_title: str, content: str, section_index: int = 0, total_sections: int = 0, section_type: str = "body"):
+        """将段落内容追加到输出文件
+        
+        Args:
+            section_title: 段落标题
+            content: 段落内容
+            section_index: 当前段落序号 (1-based)
+            total_sections: 总段落数
+            section_type: 段落类型 ("body", "references", "introduction", "conclusion")
+        """
         try:
             with open(self._output_file, 'a', encoding='utf-8') as f:
-                f.write(f"## {section_title}\n\n")
-                f.write(content)
+                # 添加进度标识
+                progress = f" [{section_index}/{total_sections}]" if section_index > 0 and total_sections > 0 else ""
+                f.write(f"## {section_title}{progress}\n\n")
+                
+                # 非参考文献段落：过滤掉参考文献内容
+                if section_type != "references":
+                    # 去除参考文献部分（如果有）
+                    filtered_content = self._filter_references_from_content(content)
+                    f.write(filtered_content)
+                else:
+                    # 参考文献段落正常输出
+                    f.write(content)
+                    
                 f.write("\n\n")
             
-            self.logger.log(f"✅ 段落已保存到文件: {self._output_file}", level=LogLevel.INFO)
+            self.logger.log(f"✅ 段落已保存到文件{progress}: {self._output_file}", level=LogLevel.INFO)
         except Exception as e:
             self.logger.log(f"⚠️ 保存段落失败: {e}", level=LogLevel.ERROR)
     
@@ -126,6 +148,7 @@ class LongWriterAgent(ToolCallingAgent):
         except Exception as e:
             self.logger.log(f"⚠️ 保存大纲失败: {e}", level=LogLevel.ERROR)
     
+
     def _log_reflection_to_file(self, stage: str, score: int, report: str):
         """将反思评审结果写入日志文件"""
         try:
@@ -159,6 +182,175 @@ class LongWriterAgent(ToolCallingAgent):
         except Exception as e:
             self.logger.log(f"⚠️ 写入修订日志失败: {e}", level=LogLevel.ERROR)
     
+    def _filter_references_from_content(self, content: str) -> str:
+        """从正文内容中过滤掉参考文献部分
+        
+        Args:
+            content: 原始内容
+            
+        Returns:
+            过滤后的内容（不包含参考文献）
+        """
+        import re
+        
+        # 匹配常见的参考文献标题模式
+        reference_patterns = [
+            r'\n#+\s*参考文献.*',
+            r'\n#+\s*References.*',
+            r'\n#+\s*引用.*',
+            r'\n#+\s*Bibliography.*',
+            r'\n\*\*参考文献\*\*.*',
+            r'\n\*\*References\*\*.*',
+        ]
+        
+        filtered_content = content
+        for pattern in reference_patterns:
+            # 找到参考文献标题后，截断内容
+            match = re.search(pattern, filtered_content, re.IGNORECASE | re.DOTALL)
+            if match:
+                # 只保留参考文献标题之前的内容
+                filtered_content = filtered_content[:match.start()]
+                self.logger.log(f"🔍 检测到参考文献部分，已从正文中移除", level=LogLevel.DEBUG)
+                break
+        
+        return filtered_content.strip()
+
+    def _clean_task_description(self) -> str:
+        """清理任务描述，移除框架自动添加的系统提示
+        
+        框架会在 self.task 中自动添加类似以下的内容：
+        - "You're a helpful agent named..."
+        - "Your final_answer WILL HAVE to contain these parts..."
+        - "### 1. Task outcome (short version):"
+        
+        此方法提取纯净的用户任务描述。
+        
+        Returns:
+            清理后的任务描述
+        """
+        task = self.task
+        
+        # 查找 "Task:" 标记，提取其后的实际任务内容
+        task_marker = "Task:\n"
+        if task_marker in task:
+            # 提取 Task: 后的内容
+            task_start = task.find(task_marker) + len(task_marker)
+            task_content = task[task_start:]
+            
+            # 查找分隔符 "---"，这通常标记任务描述的结束
+            separator = "\n---\n"
+            if separator in task_content:
+                task_content = task_content.split(separator)[0]
+            
+            return task_content.strip()
+        
+        # 如果没有找到标记，返回原始任务
+        return task
+
+    def _preview_for_log(self, value: Any, max_len: Optional[int] = None) -> str:
+        """将任意对象转换为可读、可截断的日志预览文本。"""
+        limit = max_len or self.max_skill_log_chars
+        try:
+            if isinstance(value, (dict, list)):
+                text = json.dumps(value, ensure_ascii=False, indent=2)
+            else:
+                text = str(value)
+        except Exception:
+            text = repr(value)
+
+        text = text.strip()
+        if len(text) <= limit:
+            return text
+        return text[:limit] + f"\n... (已截断，原始长度 {len(text)} 字符)"
+
+    def _log_skill_call(
+        self,
+        tool_name: str,
+        arguments: Any,
+        output: Any = None,
+        status: str = "success",
+        elapsed_ms: Optional[int] = None,
+        error_message: str = "",
+    ) -> None:
+        """结构化记录Skill调用日志（控制台 + 文件）。"""
+        try:
+            input_preview = self._preview_for_log(arguments)
+            output_preview = self._preview_for_log(output) if output is not None else ""
+
+            # 控制台简要日志
+            cost = f" | {elapsed_ms}ms" if elapsed_ms is not None else ""
+            if status == "success":
+                self.logger.log(f"🧩 Skill调用: {tool_name}{cost}", level=LogLevel.INFO)
+                self.logger.log(f"   输入: {input_preview[:240]}", level=LogLevel.DEBUG)
+                self.logger.log(f"   输出: {output_preview[:240]}", level=LogLevel.DEBUG)
+            else:
+                self.logger.log(f"❌ Skill调用失败: {tool_name}{cost}", level=LogLevel.ERROR)
+                self.logger.log(f"   输入: {input_preview[:240]}", level=LogLevel.DEBUG)
+                self.logger.log(f"   错误: {error_message}", level=LogLevel.ERROR)
+
+            # 文件详细结构化日志（完整内容不截断）
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # 将完整内容转换为字符串
+            import json
+            try:
+                full_input = json.dumps(arguments, ensure_ascii=False, indent=2) if isinstance(arguments, (dict, list)) else str(arguments)
+            except:
+                full_input = str(arguments)
+            
+            try:
+                full_output = json.dumps(output, ensure_ascii=False, indent=2) if isinstance(output, (dict, list)) else str(output) if output is not None else ""
+            except:
+                full_output = str(output) if output is not None else ""
+            
+            with open(self._log_file, 'a', encoding='utf-8') as f:
+                f.write(f"\n{'='*80}\n")
+                f.write(f"【Skill调用】{timestamp}\n")
+                f.write(f"current_step: {getattr(self, '_current_step', 'unknown')}\n")
+                f.write(f"tool_name: {tool_name}\n")
+                f.write(f"status: {status}\n")
+                if elapsed_ms is not None:
+                    f.write(f"elapsed_ms: {elapsed_ms}\n")
+                f.write(f"{'-'*80}\n")
+                f.write("[input]\n")
+                f.write(full_input + "\n")
+                if status == "success":
+                    f.write(f"{'-'*80}\n")
+                    f.write("[output]\n")
+                    f.write(full_output + "\n")
+                else:
+                    f.write(f"{'-'*80}\n")
+                    f.write("[error]\n")
+                    f.write(error_message + "\n")
+                f.write(f"{'='*80}\n")
+        except Exception as e:
+            self.logger.log(f"⚠️ Skill日志写入失败: {e}", level=LogLevel.ERROR)
+
+    def execute_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
+        """统一拦截并结构化记录所有Skill调用。"""
+        start = time.perf_counter()
+        try:
+            result = super().execute_tool_call(tool_name, arguments)
+            elapsed_ms = int((time.perf_counter() - start) * 1000)
+            self._log_skill_call(
+                tool_name=tool_name,
+                arguments=arguments,
+                output=result,
+                status="success",
+                elapsed_ms=elapsed_ms,
+            )
+            return result
+        except Exception as e:
+            elapsed_ms = int((time.perf_counter() - start) * 1000)
+            self._log_skill_call(
+                tool_name=tool_name,
+                arguments=arguments,
+                status="failed",
+                elapsed_ms=elapsed_ms,
+                error_message=str(e),
+            )
+            raise
+    
     def _step_stream(self, memory_step: ActionStep) -> Generator[ToolOutput | ActionOutput]:
         """
         重写 _step_stream：多阶段长文本生成
@@ -171,12 +363,15 @@ class LongWriterAgent(ToolCallingAgent):
                 self.logger.log_rule("📋 长文本生成流程启动", level=LogLevel.INFO)
                 
                 # 阶段 1：规划
+                self._current_step = "planner"
                 self._planning_phase(memory_step)
                 
                 # 阶段 2：写作
+                self._current_step = "writer"
                 self._writing_phase(memory_step)
                 
                 # 阶段 3：整合
+                self._current_step = "finalizer"
                 self._finalization_phase(memory_step)
                 
                 # 返回最终答案
@@ -184,6 +379,7 @@ class LongWriterAgent(ToolCallingAgent):
                 yield ActionOutput(output=final_output, is_final_answer=True)
             else:
                 # 非写作任务，用父类的 ReAct 流程
+                self._current_step = "react"
                 yield from super()._step_stream(memory_step)
         
         except Exception as e:
@@ -221,9 +417,12 @@ class LongWriterAgent(ToolCallingAgent):
         self.logger.log_rule("📋 Planning Phase", level=LogLevel.INFO)
         
         try:
+            # 清理任务描述，移除框架系统提示
+            cleaned_task = self._clean_task_description()
+            
             # 1. 问题分解：将主任务分解为多个子问题
             self.logger.log("📍 问题分解...", level=LogLevel.INFO)
-            sub_questions = self._decompose_task(self.task)
+            sub_questions = self._decompose_task(cleaned_task)
             self.logger.log(f"✅ 生成 {len(sub_questions)} 个子问题", level=LogLevel.INFO)
             
             # 2. 多角度检索：为每个子问题检索相关材料
@@ -262,7 +461,7 @@ class LongWriterAgent(ToolCallingAgent):
             raise
 
     def _decompose_task(self, task: str) -> list[str]:
-        """将主任务分解为多个子问题"""
+        """将主任务分解为多个子问题，并使用智能选择选出最有代表性的5个"""
         try:
             self.logger.log("📍 调用 task_decompose Skill...", level=LogLevel.DEBUG)
             response = self.execute_tool_call("task_decompose", {"input": task})
@@ -270,7 +469,7 @@ class LongWriterAgent(ToolCallingAgent):
             
             # 解析子问题
             lines = response.strip().split('\n')
-            sub_questions = []
+            all_questions = []
             for line in lines:
                 line = line.strip()
                 # 提取格式 "1. ..." 或 "1. [...]" 的问题
@@ -280,33 +479,43 @@ class LongWriterAgent(ToolCallingAgent):
                     # 移除方括号（如果有）
                     q = q.replace('[', '').replace(']', '').strip()
                     if q and len(q) > 5:  # 确保问题足够长
-                        sub_questions.append(q)
+                        all_questions.append(q)
             
-            if sub_questions:
-                total_count = len(sub_questions)
-                max_questions = 5
-                selected_questions = sub_questions[:max_questions]
-                
-                if total_count > max_questions:
-                    self.logger.log(f"✅ 解析了 {total_count} 个子问题，选取前 {max_questions} 个用于检索", level=LogLevel.INFO)
-                else:
-                    self.logger.log(f"✅ 成功分解为 {total_count} 个子问题", level=LogLevel.INFO)
-                
-                # 打印选中的子问题
-                for i, q in enumerate(selected_questions, 1):
-                    self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
-                
-                if total_count > max_questions:
-                    self.logger.log(f"  ... (还有 {total_count - max_questions} 个子问题未使用)", level=LogLevel.DEBUG)
-                
-                return selected_questions
-            else:
+            if not all_questions:
                 self.logger.log("⚠️ 未能解析子问题，使用简单分解", level=LogLevel.INFO)
                 fallback_questions = self._simple_decompose(task)
                 self.logger.log(f"📋 简单分解结果（{len(fallback_questions)} 个）：", level=LogLevel.INFO)
                 for i, q in enumerate(fallback_questions, 1):
                     self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
                 return fallback_questions
+            
+            total_count = len(all_questions)
+            self.logger.log(f"✅ 成功分解为 {total_count} 个子问题", level=LogLevel.INFO)
+            
+            # 如果问题数量 <= 5，直接返回所有问题
+            if total_count <= 5:
+                self.logger.log(f"📋 子问题数量 ≤ 5，无需筛选，直接使用全部 {total_count} 个问题", level=LogLevel.INFO)
+                for i, q in enumerate(all_questions, 1):
+                    self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
+                return all_questions
+            
+            # 问题数量 > 5，调用智能选择
+            self.logger.log(f"📍 问题数量 {total_count} > 5，调用智能选择 Skill 选出最有代表性的 5 个...", level=LogLevel.INFO)
+            selected_questions = self._select_representative_questions(task, all_questions)
+            
+            if selected_questions and len(selected_questions) == 5:
+                self.logger.log(f"✅ 智能选择完成，选中 5 个最具代表性的问题：", level=LogLevel.INFO)
+                for i, q in enumerate(selected_questions, 1):
+                    self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
+                self.logger.log(f"  ... (还有 {total_count - 5} 个子问题未使用)", level=LogLevel.DEBUG)
+                return selected_questions
+            else:
+                # 如果智能选择失败，使用前5个
+                self.logger.log(f"⚠️ 智能选择失败，降级使用前 5 个问题", level=LogLevel.INFO)
+                selected_questions = all_questions[:5]
+                for i, q in enumerate(selected_questions, 1):
+                    self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
+                return selected_questions
         
         except Exception as e:
             self.logger.log(f"⚠️ task_decompose Skill 调用失败: {e}，使用简单分解", level=LogLevel.INFO)
@@ -315,6 +524,104 @@ class LongWriterAgent(ToolCallingAgent):
             for i, q in enumerate(fallback_questions, 1):
                 self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
             return fallback_questions
+
+    def _select_representative_questions(self, task: str, all_questions: list[str]) -> list[str]:
+        """使用智能选择 Skill 从众多子问题中选出最有代表性的 5 个"""
+        try:
+            # 构建问题列表的输入格式
+            questions_text = "\n".join([f"{i}. {q}" for i, q in enumerate(all_questions, 1)])
+            
+            selection_input = f"""研究主题：{task}
+
+生成的子问题列表（共{len(all_questions)}个）：
+{questions_text}"""
+            
+            self.logger.log("📝 发送智能选择请求...", level=LogLevel.DEBUG)
+            response = self.execute_tool_call("question_selection", {"input": selection_input})
+            response = str(response)
+            
+            # 从响应中提取最终选择的5个问题
+            selected_questions = self._parse_selected_questions(response, all_questions)
+            
+            if selected_questions and len(selected_questions) == 5:
+                self.logger.log(f"✅ 智能选择成功", level=LogLevel.DEBUG)
+                return selected_questions
+            else:
+                self.logger.log(f"⚠️ 解析智能选择结果失败，得到 {len(selected_questions) if selected_questions else 0} 个问题", level=LogLevel.DEBUG)
+                return None
+        
+        except Exception as e:
+            self.logger.log(f"⚠️ 智能选择 Skill 调用失败: {e}", level=LogLevel.DEBUG)
+            return None
+
+    def _parse_selected_questions(self, response: str, all_questions: list[str]) -> list[str]:
+        """从智能选择 Skill 的响应中提取选中的5个问题"""
+        try:
+            selected = []
+
+            def _normalize_text(s: str) -> str:
+                # 轻量归一化，提升匹配鲁棒性
+                s = (s or "").strip().lower()
+                s = s.replace("（", "(").replace("）", ")")
+                s = re.sub(r"\s+", "", s)
+                return s
+
+            # 去除可能的代码块包装
+            cleaned = (response or "").replace("```text", "").replace("```", "")
+            lines = cleaned.split("\n")
+
+            # 兼容当前 question_selection 输出：
+            # 1. [概念基石]：<原问题> | 理由：...
+            # 2. [核心机制]：<原问题> | 理由：...
+            for raw_line in lines:
+                line = raw_line.strip()
+                if not line:
+                    continue
+
+                m = re.match(r"^\s*\d+[\.)]\s*(.+)$", line)
+                if not m:
+                    continue
+
+                question_part = m.group(1).strip()
+
+                # 去掉理由字段
+                question_part = re.split(r"\|\s*理由\s*[：:]", question_part, maxsplit=1)[0].strip()
+
+                # 去掉维度前缀，如 [概念基石]：
+                question_part = re.sub(r"^\[[^\]]+\]\s*[：:]\s*", "", question_part).strip()
+
+                # 去掉可能残留的列表符号
+                question_part = question_part.lstrip("-• ").strip()
+
+                # 在原始问题列表中做匹配
+                normalized_candidate = _normalize_text(question_part)
+                matched = None
+                for orig_q in all_questions:
+                    normalized_orig = _normalize_text(orig_q)
+                    if (
+                        normalized_orig == normalized_candidate
+                        or normalized_orig in normalized_candidate
+                        or normalized_candidate in normalized_orig
+                    ):
+                        matched = orig_q
+                        break
+
+                if matched and matched not in selected:
+                    selected.append(matched)
+
+                if len(selected) >= 5:
+                    break
+
+            if len(selected) == 5:
+                return selected
+
+            self.logger.log(f"⚠️ 解析出 {len(selected)} 个问题，期望5个", level=LogLevel.DEBUG)
+            return None
+        
+        except Exception as e:
+            self.logger.log(f"⚠️ 解析选择结果异常: {e}", level=LogLevel.DEBUG)
+            return None
+
 
     def _simple_decompose(self, task: str) -> list[str]:
         """简单的问题分解降级方案"""
@@ -326,39 +633,44 @@ class LongWriterAgent(ToolCallingAgent):
         ]
 
     def _retrieve_for_subquestion(self, sub_question: str) -> str:
-        """为单个子问题检索相关材料"""
+        """为单个子问题检索相关材料（粗粒度RAG）"""
         try:
-            # 尝试调用粗粒度 RAG
-            rag_query = f"{sub_question}\n\n请返回最相关的背景信息、关键概念、代表性研究和观点。"
+            # 按要求：检索输入仅使用当前子问题本身
+            rag_input = (sub_question or "").strip()
+            if not rag_input:
+                return ""
+            
+            self.logger.log(f"🔎 为子问题【{sub_question[:50]}...】调用粗粒度RAG", level=LogLevel.DEBUG)
             
             for tool_name in self.coarse_rag_tool_candidates:
                 try:
-                    result = self.execute_tool_call(tool_name, {"input": rag_query})
+                    result = self.execute_tool_call(tool_name, {"input": rag_input})
                     if result:
                         result_str = str(result)
                         result_len = len(result_str)
-                        self.logger.log(f"✅ 检索成功: {tool_name} ({result_len} 字符)", level=LogLevel.INFO)
-                        # 打印检索结果摘要（前500字）
-                        summary = result_str[:500] + "..." if result_len > 500 else result_str
-                        self.logger.log(f"   📄 检索摘要: {summary}", level=LogLevel.DEBUG)
+                        self.logger.log(f"✅ 粗粒度检索成功: {tool_name} ({result_len} 字)", level=LogLevel.INFO)
+                        # 打印检索结果摘要（前300字）
+                        summary = result_str[:300] + "..." if result_len > 300 else result_str
+                        self.logger.log(f"   📄 检索摘要:\n{summary}", level=LogLevel.DEBUG)
                         return result_str
                 except Exception as e:
-                    self.logger.log(f"  ❌ {tool_name} 检索失败: {e}", level=LogLevel.DEBUG)
+                    self.logger.log(f"  ⚠️ {tool_name} 检索失败: {e}", level=LogLevel.DEBUG)
                     continue
             
-            # 如果没有 RAG 工具，返回空字符串
-            self.logger.log(f"⚠️ 无可用检索工具，该子问题将依赖大模型知识", level=LogLevel.INFO)
+            # 如果没有可用的粗粒度RAG工具，记录警告
+            self.logger.log(f"⚠️ 无可用粗粒度RAG工具，该子问题【{sub_question[:50]}...】将依赖大模型内部知识", level=LogLevel.INFO)
             return ""
         
         except Exception as e:
-            self.logger.log(f"⚠️ 检索失败: {e}", level=LogLevel.DEBUG)
+            self.logger.log(f"⚠️ 粗粒度RAG调用异常: {e}", level=LogLevel.DEBUG)
             return ""
 
     def _build_outline_input(self, sub_questions: list[str], retrieval_results: dict[str, str]) -> str:
         """综合子问题和检索结果，构建大纲生成的输入"""
         self.logger.log("📊 汇总规划输入...", level=LogLevel.INFO)
         
-        input_text = f"写作任务：{self.task}\n\n"
+        cleaned_task = self._clean_task_description()
+        input_text = f"写作任务：{cleaned_task}\n\n"
         
         input_text += "=== 问题分解 ===\n"
         for i, q in enumerate(sub_questions, 1):
@@ -442,40 +754,29 @@ class LongWriterAgent(ToolCallingAgent):
                 report = str(report)  # 确保返回值是字符串
                 data = self._parse_json(report)
                 score = data.get("score", 0)
-                coverage_ok = data.get("coverage_of_subquestions", True)  # 默认通过，兼容旧版本
+                is_pass = data.get("is_pass", False)
+                coverage_of_subquestions = data.get("coverage_of_subquestions", False)
                 
                 # 写入日志文件
                 self._log_reflection_to_file(f"大纲反思第{i+1}轮", score, report)
                 
-                # 判断是否通过（需要同时满足：分数达标 + 覆盖所有子问题）
-                if score >= self.outline_score_threshold and coverage_ok:
-                    self.logger.log(f"  ✅ 得分 {score}，覆盖性 {'✓' if coverage_ok else '✗'}", level=LogLevel.DEBUG)
+                # 判断是否通过：
+                # 1. is_pass 为 true 且 coverage_of_subquestions 为 true，OR
+                # 2. score > 80 且 coverage_of_subquestions 为 true
+                if coverage_of_subquestions and (is_pass or score > 80):
+                    self.logger.log(f"  ✅ 得分 {score}，子问题覆盖 ✓，大纲通过", level=LogLevel.DEBUG)
                     return current
-                
-                # 如果覆盖性不足，记录警告
-                if not coverage_ok:
-                    self.logger.log(f"  ⚠️ 大纲未覆盖所有子问题，需要补充", level=LogLevel.INFO)
-                
-                if not data.get("need_revision") and coverage_ok:
-                    return current
+                elif not coverage_of_subquestions:
+                    self.logger.log(f"  ⚠️ 得分 {score}，但子问题覆盖不完整，需要修订", level=LogLevel.DEBUG)
+                else:
+                    self.logger.log(f"  ⚠️ 得分 {score}，未达到通过标准，需要修订", level=LogLevel.DEBUG)
                 
                 # 修正 - 明确要求输出最终版本，不带修改标记
-                # 如果覆盖性不足，在提示中强调补充缺失的子问题
                 revision_prompt = f"""大纲:
 {current}
 
 评审报告:
 {report}"""
-                
-                if sub_questions and not coverage_ok:
-                    revision_prompt += f"""
-
-【子问题列表】请确保大纲覆盖以下所有问题：
-"""
-                    for idx, sq in enumerate(sub_questions, 1):
-                        revision_prompt += f"{idx}. {sq}\n"
-                    revision_prompt += """
-特别注意：检查大纲是否遗漏了某些子问题，如有遗漏请在相应章节补充。"""
                 
                 revision_prompt += """
 
@@ -502,17 +803,21 @@ class LongWriterAgent(ToolCallingAgent):
         self.logger.log_rule("✍️ Writing Phase", level=LogLevel.INFO)
         
         sections = self._parse_sections(self._current_outline)
-        self.logger.log(f"解析出 {len(sections)} 章", level=LogLevel.INFO)
+        total_sections = len(sections)
+        self.logger.log(f"解析出 {total_sections} 章", level=LogLevel.INFO)
         
         for idx, section in enumerate(sections):
             try:
+                # 当前段落序号 (1-based)
+                current_section_num = idx + 1
+                
                 # 识别段落类型
                 section_type = self._classify_section_type(
                     section['title'], 
                     idx, 
                     len(sections)
                 )
-                self.logger.log(f"📝 {section['title']} [{section_type}]", level=LogLevel.INFO)
+                self.logger.log(f"📝 [{current_section_num}/{total_sections}] {section['title']} [{section_type}]", level=LogLevel.INFO)
 
                 # 仅在正文章节调用细粒度 RAG，避免额外 token 占用
                 fine_rag_context = ""
@@ -541,16 +846,49 @@ class LongWriterAgent(ToolCallingAgent):
                     )
                     final = self._section_reflection_loop(content, section['goal'], word_count_target)
                 else:
-                    body_input = self._build_section_input(section, section_type, fine_rag_context)
-                    content = self.execute_tool_call(
-                        "section_write",
-                        {"input": body_input}
-                    )
+                    # 使用两步 Skills 管道处理 body 章节（已移除 data_evidence_extraction 冗余步骤）
+                    # fine_rag 已提供 5-8 个知识点，无需再提纯
+                    # Step 1: 骨架规划 (Skill A)
+                    skeleton_input = self._build_skeleton_planning_input(section, fine_rag_context)
+                    try:
+                        skeleton = self.execute_tool_call(
+                            "section_skeleton_planning",
+                            {"input": skeleton_input}
+                        )
+                        self.logger.log(f"✅ 骨架规划完成", level=LogLevel.DEBUG)
+                    except Exception as e:
+                        self.logger.log(f"⚠️ 骨架规划失败: {e}，降级使用原始 section_write", level=LogLevel.INFO)
+                        # 降级：使用原有的 section_write
+                        body_input = self._build_section_input(section, section_type, fine_rag_context)
+                        content = self.execute_tool_call("section_write", {"input": body_input})
+                        final = self._section_reflection_loop(content, section['goal'], word_count_target)
+                        self._generated_sections.append({
+                            "title": section['title'],
+                            "content": final,
+                            "type": section_type
+                        })
+                        self._update_memory(section['title'], final)
+                        continue
+                    
+                    # Step 2: 文本组装 (Skill B)
+                    composition_input = self._build_composition_input(section, fine_rag_context, skeleton, word_count_target)
+                    try:
+                        content = self.execute_tool_call(
+                            "section_composition_styling",
+                            {"input": composition_input}
+                        )
+                        self.logger.log(f"✅ 文本组装完成", level=LogLevel.DEBUG)
+                    except Exception as e:
+                        self.logger.log(f"⚠️ 文本组装失败: {e}，降级为骨架展开", level=LogLevel.INFO)
+                        content = skeleton  # 降级使用骨架作为内容
+                    
+                    # Step 3: 反思循环检查
                     final = self._section_reflection_loop(content, section['goal'], word_count_target)
                 
                 # 更新内存（参考文献不参与正文记忆）
                 if section_type != "references":
                     self._update_memory(section['title'], final)
+                    self._collect_citations_from_text(str(final))
                 
                 self._generated_sections.append({
                     "title": section['title'],
@@ -559,38 +897,84 @@ class LongWriterAgent(ToolCallingAgent):
                 })
                 
                 # 👇 关键：立即保存到文件，防止丢失
-                self._append_section_to_file(section['title'], final)
+                self._append_section_to_file(
+                    section['title'], 
+                    final, 
+                    current_section_num, 
+                    total_sections,
+                    section_type
+                )
                 section_len = len(str(final))
-                self.logger.log(f"✅ {section['title']} 完成 ({section_len} 字)", level=LogLevel.INFO)
+                self.logger.log(f"✅ [{current_section_num}/{total_sections}] {section['title']} 完成 ({section_len} 字)", level=LogLevel.INFO)
             
             except Exception as e:
-                self.logger.log(f"⚠️ {section['title']} 失败: {e}", level=LogLevel.ERROR)
+                self.logger.log(f"⚠️ [{current_section_num}/{total_sections}] {section['title']} 失败: {e}", level=LogLevel.ERROR)
 
     def _run_fine_rag_for_section(self, section: Dict[str, str]) -> str:
         """正文章节使用细粒度 RAG，返回最小必要检索上下文。"""
-        rag_query = (
-            f"写作主题：{self.task}\n"
-            f"章节：{section.get('title', '')}\n"
-            f"目标：{section.get('goal', '')}\n\n"
-            "请返回该章节最相关的细粒度证据：关键概念定义、代表性研究、对比结论。"
-        )
+        # 构建结构化的RAG查询输入
+        section_title = section.get('title', '未命名章节')
+        section_goal = section.get('goal', '')
+        cleaned_task = self._clean_task_description()
+        
+        rag_input = f"""研究主题：{cleaned_task}
 
+章节信息：
+- 标题：{section_title}
+- 目标：{section_goal}
+- 问题：该章节需要回答什么核心问题？
+
+前期内容摘要：
+{self._previous_section_content[:300] if self._previous_section_content else '无'}
+"""
+        
+        self.logger.log(f"🔍 为章节【{section_title}】调用细粒度RAG", level=LogLevel.DEBUG)
+        
         for tool_name in self.fine_rag_tool_candidates:
-            for args in ({"input": rag_query}, {"query": rag_query}):
-                try:
-                    result = self.execute_tool_call(tool_name, args)
-                    if isinstance(result, str) and result.strip():
-                        self.logger.log(f"✅ 细粒度RAG成功: {tool_name}", level=LogLevel.DEBUG)
-                        return self._trim_text(result, self.max_fine_rag_chars)
-                except Exception:
-                    continue
+            try:
+                # 首先尝试使用 "input" 参数
+                result = self.execute_tool_call(tool_name, {"input": rag_input})
+                if isinstance(result, str) and result.strip():
+                    # 兜底：如果返回了被框架污染的 Task outcome 包装，提取其中有效内容
+                    raw_result = result.strip()
+                    markers = [
+                        "### 1. Task outcome (short version):",
+                        '"### 1. Task outcome (short version)":',
+                        "\"final_answer\"",
+                        "```tool_code",
+                    ]
+                    if any(m in raw_result for m in markers):
+                        short_match = re.search(
+                            r"###\s*1\.\s*Task outcome \(short version\):\s*(.*?)(?:\n###\s*2\.|$)",
+                            raw_result,
+                            re.IGNORECASE | re.DOTALL,
+                        )
+                        if short_match:
+                            result = short_match.group(1).strip()
+                        else:
+                            json_match = re.search(
+                                r'"###\s*1\.\s*Task outcome \(short version\)"\s*:\s*"(.*?)"\s*,\s*"###\s*2\.',
+                                raw_result,
+                                re.IGNORECASE | re.DOTALL,
+                            )
+                            result = json_match.group(1).replace('\\n', '\n').strip() if json_match else raw_result
+                    else:
+                        result = raw_result
 
-        self.logger.log("⚠️ 细粒度RAG不可用，正文将基于已有上下文生成", level=LogLevel.INFO)
+                    result_len = len(result)
+                    self.logger.log(f"✅ 细粒度RAG成功: {tool_name} ({result_len} 字)", level=LogLevel.DEBUG)
+                    trimmed = self._trim_text(result, self.max_fine_rag_chars)
+                    return trimmed
+            except Exception as e:
+                self.logger.log(f"  ⚠️ {tool_name} RAG调用失败: {e}", level=LogLevel.DEBUG)
+                continue
+        
+        self.logger.log(f"⚠️ 细粒度RAG不可用，章节【{section_title}】将基于已有上下文生成", level=LogLevel.INFO)
         return ""
 
     def _build_section_input(self, section: Dict[str, str], section_type: str, fine_rag_context: str = "") -> str:
         """按章节语义构造最小必要输入，降低 token 占用并减少模型混淆。"""
-        task_text = self._trim_text(self.task, 600)
+        task_text = self._trim_text(self._clean_task_description(), 600)
         outline_text = self._trim_text(self._current_outline, self.max_outline_context_chars)
         prev_text = self._trim_text(self._previous_section_content, self.max_prev_section_chars)
         coarse_text = self._trim_text(self.state.get("coarse_rag_context", ""), 800)
@@ -636,6 +1020,84 @@ class LongWriterAgent(ToolCallingAgent):
             f"全文摘要:\n{self._trim_text(self._global_summary, 600) or '（无）'}\n\n"
             f"当前章节: {section.get('title', '')}{word_count_hint}"
         )
+
+    def _build_data_extraction_input(self, section: Dict[str, str], rag_context: str) -> str:
+        """构造 Skill A (data_evidence_extraction) 的输入"""
+        task_text = self._trim_text(self._clean_task_description(), 600)
+        
+        return (
+            f"段落标题：{section.get('title', '')}\n"
+            f"段落目标：{section.get('goal', '')}\n\n"
+            f"背景资料库：\n{rag_context or '（无）'}\n\n"
+            f"用户主题：{task_text}\n\n"
+            f"请从背景资料中提取所有与该段落直接相关的数据、事实和论据，\n"
+            f"组织成结构化的事实清单，标注每个数据对应的 APA 文内引用（作者, 年份）。"
+        )
+
+    def _build_skeleton_planning_input(self, section: Dict[str, str], fact_list: str) -> str:
+        """构造 Skill B (section_skeleton_planning) 的输入"""
+        outline_text = self._trim_text(self._current_outline, 500)
+        prev_summary = self._trim_text(self._previous_section_content[:300], 200)
+        
+        return (
+            f"段落标题：{section.get('title', '')}\n"
+            f"位置：{section.get('position', 'body')}\n"
+            f"前文关键要点：{prev_summary or '（无）'}\n\n"
+            f"大纲（全局上下文）：\n{outline_text}\n\n"
+            f"事实清单：\n{fact_list}\n\n"
+            f"请基于事实清单，设计 3-5 句的段落逻辑骨架，\n"
+            f"遵循 Answer First 原则（第一句给出核心论点），\n"
+            f"明确每句使用的核心数据和论证关系。"
+        )
+
+    def _build_composition_input(self, section: Dict[str, str], fact_list: str, skeleton: str, word_count_target: int = 0) -> str:
+        """构造 Skill C (section_composition_styling) 的输入"""
+        word_count_hint = ""
+        if word_count_target > 0:
+            word_count_tolerance = int(word_count_target * 0.2)
+            word_count_hint = (
+                f"\n\n【字数要求】\n"
+                f"目标字数: {word_count_target}字\n"
+                f"允许范围: {word_count_target - word_count_tolerance}-{word_count_target + word_count_tolerance}字"
+            )
+        
+        return (
+            f"段落标题：{section.get('title', '')}\n"
+            f"风格要求：冷静、笃定、权威、数据驱动（麦肯锡风格）{word_count_hint}\n\n"
+            f"逻辑骨架：\n{skeleton}\n\n"
+            f"事实清单：\n{fact_list}\n\n"
+            f"请严格按照骨架的逻辑顺序，用顶级咨询公司的语言风格，\n"
+            f"将数据融合为完整、流畅的段落文本。\n"
+            f"确保：\n"
+            f"- 遵循骨架的 3-5 句逻辑顺序\n"
+            f"- 所有关键数据都有 APA 文内标注（作者, 年份）\n"
+            f"- 避免第一人称和模糊表述\n"
+            f"- 使用冷静、权威的表达方式"
+        )
+
+    def _collect_citations_from_text(self, text: str) -> None:
+        """从正文中提取 APA 文内引用并写入内部引用库。"""
+        if not text:
+            return
+
+        # 匹配 (Author, 2023) / (张三, 2022) / (Smith et al., 2021)
+        pattern = r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)"
+        matches = re.findall(pattern, str(text))
+        if not matches:
+            return
+
+        for author_raw, year_raw in matches:
+            author = author_raw.strip()
+            year = year_raw.strip()
+            key = f"{author} ({year})"
+            if key not in self._citations:
+                self._citation_counter += 1
+                self._citations[key] = {
+                    "id": self._citation_counter,
+                    "authors": author,
+                    "year": year,
+                    "title": "Title unavailable",
+                }
 
     def _write_references_section(self, section: Dict[str, str]) -> str:
         """参考文献章节：仅传 {用户prompt, 大纲, 参考文献库}。"""
@@ -731,7 +1193,11 @@ class LongWriterAgent(ToolCallingAgent):
             # ========== 步骤2: 证据反思（字数已合理，专注于质量） ==========
             self.logger.log(f"  🔍 证据反思...", level=LogLevel.DEBUG)
             
-            reflection_input = f"目标: {goal}\n\n内容:\n{current}"
+            # 清洁化目标：去掉冒号和AI味的格式
+            clean_goal = goal.split('|')[0].strip() if '|' in goal else goal
+            clean_goal = re.sub(r'[：:].*$', '', clean_goal).strip()
+            
+            reflection_input = f"章节目标\n\n{clean_goal}\n\n内容\n\n{current}"
             
             report = self.execute_tool_call(
                 "evidence_reflection",
@@ -740,7 +1206,8 @@ class LongWriterAgent(ToolCallingAgent):
             report = str(report)
             data = self._parse_json(report)
             score = data.get("score", 0)
-            evidence_satisfied = data.get("evidence_satisfied", False)
+            # is_pass 为 true 或 score > 80 即认为通过（无需再修订）
+            evidence_satisfied = data.get("is_pass", False) or (score > 80)
             
             # 写入日志文件
             self._log_reflection_to_file(f"证据反思 - {goal[:30]}...", score, report)
@@ -841,13 +1308,14 @@ class LongWriterAgent(ToolCallingAgent):
         self._global_summary = summary
     
     def _parse_sections(self, outline: str) -> List[Dict[str, str]]:
-        """解析大纲为章节，支持数字编号和 Markdown 格式，提取字数要求"""
+        """解析大纲为章节，支持多种格式，提取字数要求"""
         self.logger.log("📑 解析大纲章节...", level=LogLevel.DEBUG)
         self.logger.log(f"大纲内容（前500字）:\n{outline[:500]}...", level=LogLevel.DEBUG)
         
         sections = []
         lines = outline.split("\n")
         
+        # 第一遍：尝试解析数字编号和 Markdown 格式
         for line in lines:
             line = line.strip()
             if not line:
@@ -858,6 +1326,7 @@ class LongWriterAgent(ToolCallingAgent):
             if match_numbered:
                 title = match_numbered.group(2).strip()
                 word_count_target = 0
+                metadata = {}
                 
                 # 提取字数要求（格式: "(800字)" 或 "[800字]"）
                 word_count_match = re.search(r'[\(\[]\s*(\d+)\s*字\s*[\)\]]', title)
@@ -865,19 +1334,30 @@ class LongWriterAgent(ToolCallingAgent):
                     word_count_target = int(word_count_match.group(1))
                     title = re.sub(r'\s*[\(\[]\s*\d+\s*字\s*[\)\]]', '', title).strip()
                 
-                # 提取目标描述（如果有）
-                goal_match = re.search(r'目标[：:](\s*(.+?))?(?:\(|\[|$)', title)
-                if goal_match:
-                    goal = goal_match.group(2).strip() if goal_match.group(2) else title
-                    title = re.sub(r'\s*目标[：:].*', '', title).strip()
-                else:
-                    goal = title
+                # 提取元数据（目标、数据、问题）用 | 分隔
+                if ' | ' in title:
+                    parts = title.split(' | ')
+                    clean_title = parts[0].strip()
+                    
+                    for part in parts[1:]:
+                        part = part.strip()
+                        if part.startswith('目标'):
+                            metadata['goal'] = re.sub(r'^目标[：:]\s*', '', part)
+                        elif part.startswith('数据'):
+                            metadata['data'] = re.sub(r'^数据[：:]\s*', '', part)
+                        elif part.startswith('问题'):
+                            metadata['question'] = re.sub(r'^问题[：:]\s*', '', part)
+                    
+                    title = clean_title
+                
+                goal = metadata.get('goal', title)
                 
                 sections.append({
                     "title": title,
                     "goal": goal,
                     "word_count_target": word_count_target,
-                    "number": match_numbered.group(1)
+                    "number": match_numbered.group(1),
+                    "metadata": metadata
                 })
                 continue
             
@@ -887,6 +1367,7 @@ class LongWriterAgent(ToolCallingAgent):
                 level = len(match_markdown.group(1))
                 title = match_markdown.group(2).strip()
                 word_count_target = 0
+                metadata = {}
                 
                 # 提取字数要求
                 word_count_match = re.search(r'[\(\[]\s*(\d+)\s*字\s*[\)\]]', title)
@@ -894,13 +1375,53 @@ class LongWriterAgent(ToolCallingAgent):
                     word_count_target = int(word_count_match.group(1))
                     title = re.sub(r'\s*[\(\[]\s*\d+\s*字\s*[\)\]]', '', title).strip()
                 
+                # 提取元数据（如果有）
+                if ' | ' in title:
+                    parts = title.split(' | ')
+                    clean_title = parts[0].strip()
+                    
+                    for part in parts[1:]:
+                        part = part.strip()
+                        if part.startswith('目标'):
+                            metadata['goal'] = re.sub(r'^目标[：:]\s*', '', part)
+                        elif part.startswith('数据'):
+                            metadata['data'] = re.sub(r'^数据[：:]\s*', '', part)
+                        elif part.startswith('问题'):
+                            metadata['question'] = re.sub(r'^问题[：:]\s*', '', part)
+                    
+                    title = clean_title
+                
                 sections.append({
                     "title": title,
-                    "goal": title,
+                    "goal": metadata.get('goal', title),
                     "word_count_target": word_count_target,
-                    "level": level
+                    "level": level,
+                    "metadata": metadata
                 })
                 continue
+        
+        # 如果解析失败，尝试容错方案：提取所有非空行作为章节标题
+        if not sections:
+            self.logger.log("⚠️ 标准格式解析失败，尝试容错方案...", level=LogLevel.INFO)
+            for line in lines:
+                line = line.strip()
+                # 过滤掉明显的说明文字和目标/字数描述行
+                if (line and 
+                    not line.startswith("- ") and 
+                    not line.startswith("目标") and 
+                    not "字" in line and 
+                    not any(keyword in line for keyword in ["任务", "包含", "要求", "说明", "输出格式"])):
+                    
+                    # 清理字符
+                    title = re.sub(r'[\(\[\-].*', '', line).strip()
+                    
+                    if title and len(title) > 2:
+                        sections.append({
+                            "title": title,
+                            "goal": title,
+                            "word_count_target": 0,
+                            "fallback": True
+                        })
         
         self.logger.log(f"✅ 解析完成，共 {len(sections)} 个章节", level=LogLevel.INFO)
         if sections:
@@ -910,8 +1431,12 @@ class LongWriterAgent(ToolCallingAgent):
             if len(sections) > 10:
                 self.logger.log(f"  ... 还有 {len(sections) - 10} 个章节", level=LogLevel.INFO)
         else:
-            self.logger.log("⚠️ 未能解析出任何章节，大纲格式可能不符合预期", level=LogLevel.ERROR)
-            self.logger.log(f"完整大纲内容:\n{outline}", level=LogLevel.ERROR)
+            self.logger.log("⚠️ 未能解析出任何章节！", level=LogLevel.ERROR)
+            self.logger.log("问题诊断:", level=LogLevel.ERROR)
+            self.logger.log(f"  - 大纲总行数: {len(lines)}", level=LogLevel.ERROR)
+            self.logger.log(f"  - 非空行数: {len([l for l in lines if l.strip()])}", level=LogLevel.ERROR)
+            self.logger.log(f"  - 完整大纲内容:\n{outline}", level=LogLevel.ERROR)
+            self.logger.log("  💡 建议: 检查大纲生成是否成功，或大纲格式是否符合预期", level=LogLevel.ERROR)
         
         return sections
     
@@ -942,17 +1467,20 @@ class LongWriterAgent(ToolCallingAgent):
         if not self._citations:
             return "暂无引用文献。"
         
-        # 按引用 ID 排序
-        sorted_refs = sorted(self._citations.items(), key=lambda x: x[1].get('id', 0))
+        # 按作者-年份排序（APA 风格）
+        sorted_refs = sorted(
+            self._citations.items(),
+            key=lambda x: (str(x[1].get('authors', '')).lower(), str(x[1].get('year', '')))
+        )
         
         lines = []
-        for title, info in sorted_refs:
-            ref_id = info.get('id', '?')
+        for _, info in sorted_refs:
             authors = info.get('authors', '未知作者')
             year = info.get('year', 'n.d.')
+            source_title = info.get('title', 'Title unavailable')
             
-            # 格式：[1] 作者. 标题. 年份.
-            lines.append(f"[{ref_id}] {authors}. {title}. {year}.")
+            # APA 近似兜底格式
+            lines.append(f"{authors}. ({year}). {source_title}.")
         
         return "\n".join(lines)
     
