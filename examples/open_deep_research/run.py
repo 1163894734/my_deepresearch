@@ -129,10 +129,15 @@ def create_agent(model_id="o1"):
     If a non-html page is in another format, especially .pdf or a Youtube video, use tool 'inspect_file_as_text' to inspect it.
     Additionally, if after some searching you find out that you need more information to answer the question, you can use `final_answer` with your request for clarification as argument to request for more information."""
 
+    # 为 LongWriterAgent 添加 web_search 工具
+    web_search_tool = DuckDuckGoSearchTool()
+    web_search_tool.name = "web_search"  # 确保名称匹配
+    
     # 创建 LongWriterAgent V3（多阶段长文本生成代理）
     long_writer_agent = LongWriterAgent(
         model=model,
-        tools=custom_tools,  # 传入所有 skills
+        tools=custom_tools + [web_search_tool],  # 传入所有 skills + web_search
+        managed_agents=[text_webbrowser_agent],  # 细粒度检索时可调用 search_agent
         max_steps=30,
         verbosity_level=2,
         name="long_writer_agent",
@@ -165,7 +170,7 @@ def create_agent(model_id="o1"):
         additional_authorized_imports=["*"],
         planning_interval=2,
         # 将 long_writer_agent 和 search_agent 注册为 managed agents
-        managed_agents=[long_writer_agent],
+        managed_agents=[long_writer_agent, text_webbrowser_agent],
 
     )
 

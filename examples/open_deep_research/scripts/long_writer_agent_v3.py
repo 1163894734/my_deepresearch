@@ -8,11 +8,12 @@ LongWriterAgent V2 - 多阶段长文本生成代理
 ✅ 严格的上下文控制（只保留前一段+摘要）
 ✅ 内置文献管理（自动编号，避免重复）
 ✅ 证据达标机制（段落必须满足证据要求才停止）
+✅ 学术引用验证系统（5步验证流程：Search→Verify→Retrieve→Validate→Add）
 
 关键：不重新实现 Agent 循环，只自定义 _step_stream() 的处理逻辑
 """
 
-from typing import List, Dict, Any, Optional, Generator
+from typing import List, Dict, Any, Optional, Generator, Tuple
 import json
 import re
 import time
@@ -21,6 +22,13 @@ from smolagents import ToolCallingAgent
 from smolagents.agents import ToolOutput, ActionOutput
 from smolagents.memory import ActionStep
 from smolagents.monitoring import LogLevel
+
+# 导入引用验证系统
+try:
+    from .citation_validator import CitationValidator, CitationRecord
+except ImportError:
+    # 兼容直接脚本运行场景
+    from citation_validator import CitationValidator, CitationRecord
 
 
 class LongWriterAgent(ToolCallingAgent):
@@ -54,12 +62,19 @@ class LongWriterAgent(ToolCallingAgent):
         self._citations: Dict[str, Dict[str, Any]] = {}
         self._citation_counter = 0
         
+        # 学术引用验证系统
+        self._citation_validator = CitationValidator(model=model)
+        self._unverified_citations: List[Tuple[str, str, str, str]] = []  # (author, year, title, claim)
+        self.enable_citation_validation = False  # 默认禁用（API调用较多）
+        self.citation_validation_timeout = 5  # API超时时间
+        
         # 输出文件管理（实时保存）
         import time
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         self._output_dir = f"outputs/report_{timestamp}"
         self._output_file = f"{self._output_dir}/report.md"
         self._log_file = f"{self._output_dir}/generation_log.txt"
+        self._citations_validation_log = f"{self._output_dir}/citations_validation.json"
         self._ensure_output_dir()
         
         # 配置（可调）
@@ -68,18 +83,33 @@ class LongWriterAgent(ToolCallingAgent):
         self.outline_score_threshold = 90
         self.section_score_threshold = 88
         self.max_summary_length = 300
-        self.coarse_rag_tool_candidates = [
-            "coarse_rag",
-        ]
-        self.fine_rag_tool_candidates = [
-            "fine_rag",
-        ]
+        self.search_tool_name = "web_search"  # 使用 DuckDuckGoSearchTool 的名称
         self.max_outline_context_chars = 1200
         self.max_prev_section_chars = 900
         self.max_fine_rag_chars = 1600
         self.max_bibliography_chars = 2200
         self.max_skill_log_chars = 1200
         self._current_step = "init"
+        
+        # 粗细力度RAG控制开关
+        self.enable_coarse_rag_web_search = True  # 是否启用粗细力度RAG的web_search
+        # 可用模式: 'web_search' (web搜索), 'knowledge' (仅模型知识), 'disabled' (不使用粗细RAG)
+        self.coarse_rag_mode = 'web_search'
+        
+        # 细粒度RAG配置（调用text_webbrowser_agent进行深度检索）
+        self.enable_fine_rag_web_search = True  # 是否启用细粒度RAG的web检索
+        # 可用模式: 'web_agent' (调用text_webbrowser_agent), 'web_search' (DuckDuckGo搜索), 'disabled' (禁用)
+        self.fine_rag_mode = 'web_agent'
+        self.text_webbrowser_agent_name = "search_agent"  # text_webbrowser_agent 的名称
+    
+    def set_text_webbrowser_agent_name(self, agent_name: str):
+        """设置text_webbrowser_agent的名称（用于调用managed agent）
+        
+        Args:
+            agent_name: managed agent 的名称，默认为 "search_agent"
+        """
+        self.text_webbrowser_agent_name = agent_name
+        self.logger.log(f"✅ text_webbrowser_agent 已配置: {agent_name}", level=LogLevel.INFO)
     
     def _ensure_output_dir(self):
         """确保输出目录存在"""
@@ -123,7 +153,7 @@ class LongWriterAgent(ToolCallingAgent):
             self.logger.log(f"⚠️ 保存段落失败: {e}", level=LogLevel.ERROR)
     
     def _save_outline_to_file(self):
-        """将大纲写入文件开头"""
+        """将大纲写入文件开头，格式已在解析时清理"""
         try:
             # 读取现有内容
             with open(self._output_file, 'r', encoding='utf-8') as f:
@@ -181,6 +211,7 @@ class LongWriterAgent(ToolCallingAgent):
                 f.write(f"\n{'='*80}\n\n")
         except Exception as e:
             self.logger.log(f"⚠️ 写入修订日志失败: {e}", level=LogLevel.ERROR)
+
     
     def _filter_references_from_content(self, content: str) -> str:
         """从正文内容中过滤掉参考文献部分
@@ -461,7 +492,7 @@ class LongWriterAgent(ToolCallingAgent):
             raise
 
     def _decompose_task(self, task: str) -> list[str]:
-        """将主任务分解为多个子问题，并使用智能选择选出最有代表性的5个"""
+        """将主任务分解为多个子问题，根据 task_decompose Skill 的结果决定数量"""
         try:
             self.logger.log("📍 调用 task_decompose Skill...", level=LogLevel.DEBUG)
             response = self.execute_tool_call("task_decompose", {"input": task})
@@ -491,31 +522,11 @@ class LongWriterAgent(ToolCallingAgent):
             
             total_count = len(all_questions)
             self.logger.log(f"✅ 成功分解为 {total_count} 个子问题", level=LogLevel.INFO)
+            for i, q in enumerate(all_questions, 1):
+                self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
             
-            # 如果问题数量 <= 5，直接返回所有问题
-            if total_count <= 5:
-                self.logger.log(f"📋 子问题数量 ≤ 5，无需筛选，直接使用全部 {total_count} 个问题", level=LogLevel.INFO)
-                for i, q in enumerate(all_questions, 1):
-                    self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
-                return all_questions
-            
-            # 问题数量 > 5，调用智能选择
-            self.logger.log(f"📍 问题数量 {total_count} > 5，调用智能选择 Skill 选出最有代表性的 5 个...", level=LogLevel.INFO)
-            selected_questions = self._select_representative_questions(task, all_questions)
-            
-            if selected_questions and len(selected_questions) == 5:
-                self.logger.log(f"✅ 智能选择完成，选中 5 个最具代表性的问题：", level=LogLevel.INFO)
-                for i, q in enumerate(selected_questions, 1):
-                    self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
-                self.logger.log(f"  ... (还有 {total_count - 5} 个子问题未使用)", level=LogLevel.DEBUG)
-                return selected_questions
-            else:
-                # 如果智能选择失败，使用前5个
-                self.logger.log(f"⚠️ 智能选择失败，降级使用前 5 个问题", level=LogLevel.INFO)
-                selected_questions = all_questions[:5]
-                for i, q in enumerate(selected_questions, 1):
-                    self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
-                return selected_questions
+            # 直接返回全部子问题，数量由 Skill 层决定（task_decompose 生成6-12个）
+            return all_questions
         
         except Exception as e:
             self.logger.log(f"⚠️ task_decompose Skill 调用失败: {e}，使用简单分解", level=LogLevel.INFO)
@@ -524,104 +535,6 @@ class LongWriterAgent(ToolCallingAgent):
             for i, q in enumerate(fallback_questions, 1):
                 self.logger.log(f"  {i}. {q}", level=LogLevel.INFO)
             return fallback_questions
-
-    def _select_representative_questions(self, task: str, all_questions: list[str]) -> list[str]:
-        """使用智能选择 Skill 从众多子问题中选出最有代表性的 5 个"""
-        try:
-            # 构建问题列表的输入格式
-            questions_text = "\n".join([f"{i}. {q}" for i, q in enumerate(all_questions, 1)])
-            
-            selection_input = f"""研究主题：{task}
-
-生成的子问题列表（共{len(all_questions)}个）：
-{questions_text}"""
-            
-            self.logger.log("📝 发送智能选择请求...", level=LogLevel.DEBUG)
-            response = self.execute_tool_call("question_selection", {"input": selection_input})
-            response = str(response)
-            
-            # 从响应中提取最终选择的5个问题
-            selected_questions = self._parse_selected_questions(response, all_questions)
-            
-            if selected_questions and len(selected_questions) == 5:
-                self.logger.log(f"✅ 智能选择成功", level=LogLevel.DEBUG)
-                return selected_questions
-            else:
-                self.logger.log(f"⚠️ 解析智能选择结果失败，得到 {len(selected_questions) if selected_questions else 0} 个问题", level=LogLevel.DEBUG)
-                return None
-        
-        except Exception as e:
-            self.logger.log(f"⚠️ 智能选择 Skill 调用失败: {e}", level=LogLevel.DEBUG)
-            return None
-
-    def _parse_selected_questions(self, response: str, all_questions: list[str]) -> list[str]:
-        """从智能选择 Skill 的响应中提取选中的5个问题"""
-        try:
-            selected = []
-
-            def _normalize_text(s: str) -> str:
-                # 轻量归一化，提升匹配鲁棒性
-                s = (s or "").strip().lower()
-                s = s.replace("（", "(").replace("）", ")")
-                s = re.sub(r"\s+", "", s)
-                return s
-
-            # 去除可能的代码块包装
-            cleaned = (response or "").replace("```text", "").replace("```", "")
-            lines = cleaned.split("\n")
-
-            # 兼容当前 question_selection 输出：
-            # 1. [概念基石]：<原问题> | 理由：...
-            # 2. [核心机制]：<原问题> | 理由：...
-            for raw_line in lines:
-                line = raw_line.strip()
-                if not line:
-                    continue
-
-                m = re.match(r"^\s*\d+[\.)]\s*(.+)$", line)
-                if not m:
-                    continue
-
-                question_part = m.group(1).strip()
-
-                # 去掉理由字段
-                question_part = re.split(r"\|\s*理由\s*[：:]", question_part, maxsplit=1)[0].strip()
-
-                # 去掉维度前缀，如 [概念基石]：
-                question_part = re.sub(r"^\[[^\]]+\]\s*[：:]\s*", "", question_part).strip()
-
-                # 去掉可能残留的列表符号
-                question_part = question_part.lstrip("-• ").strip()
-
-                # 在原始问题列表中做匹配
-                normalized_candidate = _normalize_text(question_part)
-                matched = None
-                for orig_q in all_questions:
-                    normalized_orig = _normalize_text(orig_q)
-                    if (
-                        normalized_orig == normalized_candidate
-                        or normalized_orig in normalized_candidate
-                        or normalized_candidate in normalized_orig
-                    ):
-                        matched = orig_q
-                        break
-
-                if matched and matched not in selected:
-                    selected.append(matched)
-
-                if len(selected) >= 5:
-                    break
-
-            if len(selected) == 5:
-                return selected
-
-            self.logger.log(f"⚠️ 解析出 {len(selected)} 个问题，期望5个", level=LogLevel.DEBUG)
-            return None
-        
-        except Exception as e:
-            self.logger.log(f"⚠️ 解析选择结果异常: {e}", level=LogLevel.DEBUG)
-            return None
-
 
     def _simple_decompose(self, task: str) -> list[str]:
         """简单的问题分解降级方案"""
@@ -633,36 +546,55 @@ class LongWriterAgent(ToolCallingAgent):
         ]
 
     def _retrieve_for_subquestion(self, sub_question: str) -> str:
-        """为单个子问题检索相关材料（粗粒度RAG）"""
+        """为单个子问题检索相关材料
+        
+        支持多种模式（由 self.coarse_rag_mode 控制）：
+        - 'web_search': 使用web_search工具
+        - 'knowledge': 仅依赖模型内部知识
+        - 'disabled': 不进行粗细力度RAG检索
+        """
         try:
-            # 按要求：检索输入仅使用当前子问题本身
-            rag_input = (sub_question or "").strip()
-            if not rag_input:
+            # 检查是否禁用粗细力度RAG
+            if self.coarse_rag_mode == 'disabled':
+                self.logger.log(f"⏸️ 粗细力度RAG已禁用，子问题【{sub_question[:50]}...】将依赖大模型内部知识", level=LogLevel.DEBUG)
                 return ""
             
-            self.logger.log(f"🔎 为子问题【{sub_question[:50]}...】调用粗粒度RAG", level=LogLevel.DEBUG)
+            # 模式：仅使用模型知识
+            if self.coarse_rag_mode == 'knowledge':
+                self.logger.log(f"📚 使用模型内部知识处理子问题【{sub_question[:50]}...】", level=LogLevel.DEBUG)
+                return ""
             
-            for tool_name in self.coarse_rag_tool_candidates:
-                try:
-                    result = self.execute_tool_call(tool_name, {"input": rag_input})
-                    if result:
-                        result_str = str(result)
-                        result_len = len(result_str)
-                        self.logger.log(f"✅ 粗粒度检索成功: {tool_name} ({result_len} 字)", level=LogLevel.INFO)
-                        # 打印检索结果摘要（前300字）
-                        summary = result_str[:300] + "..." if result_len > 300 else result_str
-                        self.logger.log(f"   📄 检索摘要:\n{summary}", level=LogLevel.DEBUG)
-                        return result_str
-                except Exception as e:
-                    self.logger.log(f"  ⚠️ {tool_name} 检索失败: {e}", level=LogLevel.DEBUG)
-                    continue
+            # 模式：web_search
+            if self.coarse_rag_mode != 'web_search':
+                self.logger.log(f"⚠️ 未知的粗细力度RAG模式: {self.coarse_rag_mode}", level=LogLevel.INFO)
+                return ""
             
-            # 如果没有可用的粗粒度RAG工具，记录警告
-            self.logger.log(f"⚠️ 无可用粗粒度RAG工具，该子问题【{sub_question[:50]}...】将依赖大模型内部知识", level=LogLevel.INFO)
+            search_query = (sub_question or "").strip()
+            if not search_query:
+                return ""
+            
+            self.logger.log(f"🔎 为子问题【{sub_question[:50]}...】调用web_search", level=LogLevel.DEBUG)
+            
+            try:
+                # DuckDuckGoSearchTool 使用 query 参数
+                result = self.execute_tool_call(self.search_tool_name, {"query": search_query})
+                if result:
+                    result_str = str(result)
+                    result_len = len(result_str)
+                    self.logger.log(f"✅ 检索成功: {self.search_tool_name} ({result_len} 字)", level=LogLevel.INFO)
+                    # 打印检索结果摘要（前300字）
+                    summary = result_str[:300] + "..." if result_len > 300 else result_str
+                    self.logger.log(f"   📄 检索摘要:\n{summary}", level=LogLevel.DEBUG)
+                    return result_str
+            except Exception as e:
+                self.logger.log(f"  ⚠️ {self.search_tool_name} 检索失败: {e}", level=LogLevel.DEBUG)
+            
+            # 如果web_search不可用，记录警告
+            self.logger.log(f"⚠️ web_search工具不可用，该子问题【{sub_question[:50]}...】将依赖大模型内部知识", level=LogLevel.INFO)
             return ""
         
         except Exception as e:
-            self.logger.log(f"⚠️ 粗粒度RAG调用异常: {e}", level=LogLevel.DEBUG)
+            self.logger.log(f"⚠️ web_search调用异常: {e}", level=LogLevel.DEBUG)
             return ""
 
     def _build_outline_input(self, sub_questions: list[str], retrieval_results: dict[str, str]) -> str:
@@ -693,46 +625,39 @@ class LongWriterAgent(ToolCallingAgent):
                 input_text += f"\n关于「{q}」: [无检索结果]\n"
                 self.logger.log(f"   ⚠️ {q[:50]}... [无检索结果]", level=LogLevel.DEBUG)
         
-        input_text += "\n=== 大纲规划要求 ===\n"
-        input_text += "1. 确保大纲涵盖所有子问题的关键方面\n"
-        input_text += "2. 逻辑递进清晰，避免重复\n"
-        input_text += "3. 各章节权重合理\n"
-        input_text += "4. 使用标准的大纲格式（使用 # ## ### 标记）\n"
-        
         total_chars = len(input_text)
         self.logger.log(f"✅ 规划输入准备完成（总长: {total_chars} 字）", level=LogLevel.INFO)
         
         return input_text
     
 
-        for tool_name in self.coarse_rag_tool_candidates:
+        # 根据粗细力度RAG模式决定是否进行web搜索
+        if self.coarse_rag_mode == 'web_search' and self.enable_coarse_rag_web_search:
             try:
-                self.logger.log(f"尝试调用粗粒度RAG工具: {tool_name}", level=LogLevel.DEBUG)
-                for args in ({"input": rag_query}, {"query": rag_query}):
-                    try:
-                        result = self.execute_tool_call(tool_name, args)
-                        if result and isinstance(result, str) and result.strip():
-                            self.logger.log(f"✅ 粗粒度RAG成功: {tool_name}", level=LogLevel.INFO)
-                            self.state["coarse_rag_tool"] = tool_name
-                            self.state["coarse_rag_context"] = result
-                            return result
-                    except Exception:
-                        continue
-            except Exception:
-                # 继续尝试下一个候选工具
-                continue
+                self.logger.log(f"尝试调用web_search工具", level=LogLevel.DEBUG)
+                # DuckDuckGoSearchTool 使用 query 参数
+                result = self.execute_tool_call(self.search_tool_name, {"query": rag_query})
+                if result and isinstance(result, str) and result.strip():
+                    self.logger.log(f"✅ web_search成功", level=LogLevel.INFO)
+                    self.state["coarse_rag_tool"] = self.search_tool_name
+                    self.state["coarse_rag_context"] = result
+                    return result
+            except Exception as e:
+                self.logger.log(f"⚠️ web_search调用失败: {e}，回退为仅基于任务生成大纲", level=LogLevel.INFO)
+        else:
+            self.logger.log(f"⏸️ 粗细力度RAG (web_search) 已禁用或模式不匹配，回退为仅基于任务生成大纲", level=LogLevel.INFO)
 
-        self.logger.log("⚠️ 未找到可用粗粒度RAG工具，回退为仅基于任务生成大纲", level=LogLevel.INFO)
         self.state["coarse_rag_tool"] = None
         self.state["coarse_rag_context"] = ""
         return ""
     
-    def _outline_reflection_loop(self, outline: str, sub_questions: list[str] = None) -> str:
+    def _outline_reflection_loop(self, outline: str, sub_questions: list[str] = None, retrieval_results: dict[str, str] = None) -> str:
         """大纲多轮反思，包含子问题覆盖性校验
         
         Args:
             outline: 大纲文本
             sub_questions: 分解的子问题列表（用于覆盖性校验）
+            retrieval_results: 各子问题的检索结果（用于内容覆盖性验证）
         """
         current = outline
         
@@ -740,7 +665,7 @@ class LongWriterAgent(ToolCallingAgent):
             self.logger.log(f"  大纲反思 {i+1}/{self.outline_max_iter}", level=LogLevel.DEBUG)
             
             try:
-                # 构建反思输入（包含子问题列表）
+                # 构建反思输入（包含子问题列表和检索结果）
                 reflection_input = f"大纲:\n{current}"
                 
                 if sub_questions:
@@ -748,6 +673,16 @@ class LongWriterAgent(ToolCallingAgent):
                     for idx, sq in enumerate(sub_questions, 1):
                         reflection_input += f"{idx}. {sq}\n"
                     reflection_input += "\n请检查大纲是否覆盖了所有子问题的核心内容。"
+                
+                # 加入检索结果（完整保留）
+                if retrieval_results:
+                    reflection_input += "\n\n【各子问题的检索结果】\n"
+                    for idx, (q, result) in enumerate(retrieval_results.items(), 1):
+                        if result:
+                            reflection_input += f"{idx}. {q}\n{result}\n"
+                        else:
+                            reflection_input += f"{idx}. {q}\n   [无检索结果]\n"
+                    reflection_input += "\n请确保大纲的各章节能够充分利用或覆盖这些检索到的内容。"
                 
                 # 反思
                 report = self.execute_tool_call("outline_reflection", {"input": reflection_input})
@@ -778,9 +713,16 @@ class LongWriterAgent(ToolCallingAgent):
 评审报告:
 {report}"""
                 
+                # 在修订时也参考完整的检索结果
+                if retrieval_results:
+                    revision_prompt += "\n\n【参考：原始检索结果】\n"
+                    for q, result in retrieval_results.items():
+                        if result:
+                            revision_prompt += f"【{q}】\n{result}\n\n"
+                
                 revision_prompt += """
 
-重要提示：请直接输出修改后的完整大纲，不要使用任何修改标记（如~~删除线~~、**加粗**等），只输出最终的干净文本。"""
+重要提示：请直接输出修改后的完整大纲，不要使用任何修改标记（如~~删除线~~、**加粗**等），只输出最终的干净文本。在修订时务必参考检索结果确保大纲各章节能够涵盖这些内容。"""
                 
                 current = str(self.execute_tool_call(
                     "outline_revision",
@@ -792,6 +734,7 @@ class LongWriterAgent(ToolCallingAgent):
             
             except Exception as e:
                 self.logger.log(f"  ⚠️ 反思出错: {e}", level=LogLevel.INFO)
+
                 return current
         
         return current
@@ -821,8 +764,12 @@ class LongWriterAgent(ToolCallingAgent):
 
                 # 仅在正文章节调用细粒度 RAG，避免额外 token 占用
                 fine_rag_context = ""
+                available_citations = {}  # 本段落可用的引用
                 if section_type == "body":
                     fine_rag_context = self._run_fine_rag_for_section(section)
+                    # 从检索结果中提取可用的引用
+                    if fine_rag_context:
+                        available_citations = self._extract_citations_from_rag(fine_rag_context)
 
                 # 根据类型选择 skill，并按章节语义传最小必要上下文
                 # 获取字数目标（如果有）
@@ -832,19 +779,19 @@ class LongWriterAgent(ToolCallingAgent):
                     content = self._write_references_section(section)
                     final = content
                 elif section_type == "introduction":
-                    intro_input = self._build_section_input(section, section_type, fine_rag_context)
+                    intro_input = self._build_section_input(section, section_type, fine_rag_context, available_citations)
                     content = self.execute_tool_call(
                         "introduction_write",
                         {"input": intro_input}
                     )
-                    final = self._section_reflection_loop(content, section['goal'], word_count_target)
+                    final = self._section_reflection_loop(content, section, word_count_target)
                 elif section_type == "conclusion":
-                    conclusion_input = self._build_section_input(section, section_type, fine_rag_context)
+                    conclusion_input = self._build_section_input(section, section_type, fine_rag_context, available_citations)
                     content = self.execute_tool_call(
                         "conclusion_write",
                         {"input": conclusion_input}
                     )
-                    final = self._section_reflection_loop(content, section['goal'], word_count_target)
+                    final = self._section_reflection_loop(content, section, word_count_target)
                 else:
                     # 使用两步 Skills 管道处理 body 章节（已移除 data_evidence_extraction 冗余步骤）
                     # fine_rag 已提供 5-8 个知识点，无需再提纯
@@ -859,9 +806,9 @@ class LongWriterAgent(ToolCallingAgent):
                     except Exception as e:
                         self.logger.log(f"⚠️ 骨架规划失败: {e}，降级使用原始 section_write", level=LogLevel.INFO)
                         # 降级：使用原有的 section_write
-                        body_input = self._build_section_input(section, section_type, fine_rag_context)
+                        body_input = self._build_section_input(section, section_type, fine_rag_context, available_citations)
                         content = self.execute_tool_call("section_write", {"input": body_input})
-                        final = self._section_reflection_loop(content, section['goal'], word_count_target)
+                        final = self._section_reflection_loop(content, section, word_count_target)
                         self._generated_sections.append({
                             "title": section['title'],
                             "content": final,
@@ -883,12 +830,13 @@ class LongWriterAgent(ToolCallingAgent):
                         content = skeleton  # 降级使用骨架作为内容
                     
                     # Step 3: 反思循环检查
-                    final = self._section_reflection_loop(content, section['goal'], word_count_target)
+                    final = self._section_reflection_loop(content, section, word_count_target)
                 
                 # 更新内存（参考文献不参与正文记忆）
                 if section_type != "references":
                     self._update_memory(section['title'], final)
-                    self._collect_citations_from_text(str(final))
+                    # 添加该段落中的可用引用到全局引用字典
+                    self._add_citations(available_citations)
                 
                 self._generated_sections.append({
                     "title": section['title'],
@@ -911,68 +859,158 @@ class LongWriterAgent(ToolCallingAgent):
                 self.logger.log(f"⚠️ [{current_section_num}/{total_sections}] {section['title']} 失败: {e}", level=LogLevel.ERROR)
 
     def _run_fine_rag_for_section(self, section: Dict[str, str]) -> str:
-        """正文章节使用细粒度 RAG，返回最小必要检索上下文。"""
-        # 构建结构化的RAG查询输入
+        """细粒度RAG检索，支持多种模式
+        
+        模式说明（由 self.fine_rag_mode 控制）：
+        - 'web_agent': 调用text_webbrowser_agent进行深度检索（推荐）
+        - 'web_search': 使用DuckDuckGo搜索（快速但内容有限）
+        - 'disabled': 禁用细粒度RAG
+        """
         section_title = section.get('title', '未命名章节')
         section_goal = section.get('goal', '')
-        cleaned_task = self._clean_task_description()
         
-        rag_input = f"""研究主题：{cleaned_task}
+        # 检查是否禁用细粒度RAG
+        if self.fine_rag_mode == 'disabled':
+            self.logger.log(f"⏸️ 细粒度RAG已禁用，章节【{section_title}】将基于已有上下文生成", level=LogLevel.DEBUG)
+            return ""
+        
+        # 构建搜索查询
+        search_query = f"{section_title} {section_goal}" if section_goal else section_title
+        self.logger.log(f"🔍 为章节【{section_title}】执行细粒度RAG（模式: {self.fine_rag_mode}）", level=LogLevel.DEBUG)
+        
+        # 模式1：调用text_webbrowser_agent进行深度检索（推荐）
+        if self.fine_rag_mode == 'web_agent':
+            return self._run_fine_rag_with_web_agent(section_title, search_query)
+        
+        # 模式2：DuckDuckGo搜索模式（快速但内容有限）
+        elif self.fine_rag_mode == 'web_search':
+            return self._run_fine_rag_web_search(section_title, search_query)
+        
+        else:
+            self.logger.log(f"⚠️ 未知的细粒度RAG模式: {self.fine_rag_mode}", level=LogLevel.INFO)
+            return ""
+    
+    def _run_fine_rag_with_web_agent(self, section_title: str, search_query: str) -> str:
+        """调用text_webbrowser_agent进行细粒度RAG检索
+        
+        text_webbrowser_agent具有完整的网页浏览能力：
+        - DuckDuckGo搜索
+        - 访问网页并提取文本
+        - 页面导航和内容提取
+        """
+        try:
+            # 构建发送给text_webbrowser_agent的任务
+            task_prompt = f"""请为以下章节检索详细信息：
 
-章节信息：
-- 标题：{section_title}
-- 目标：{section_goal}
-- 问题：该章节需要回答什么核心问题？
+【章节标题】{section_title}
+【搜索关键词】{search_query}
 
-前期内容摘要：
-{self._previous_section_content[:300] if self._previous_section_content else '无'}
-"""
+【任务要求】：
+1. 使用网络搜索查找相关的详细信息和资料
+2. 访问搜索结果中最相关的网页，提取其中的具体内容和数据
+3. 整理收集到的信息，返回最相关和有用的内容
+4. 重点提取能够支撑这个章节的具体事实、数据、理论等
+
+请以清晰、结构化的方式返回收集到的信息。"""
+
+            self.logger.log(f"📍 调用 text_webbrowser_agent 进行深度检索...", level=LogLevel.DEBUG)
+            
+            # 调用 text_webbrowser_agent（managed agent）
+            result = self.execute_tool_call(
+                self.text_webbrowser_agent_name,
+                {"task": task_prompt}
+            )
+            
+            if isinstance(result, str) and result.strip():
+                result_str = str(result)
+                result_len = len(result_str)
+                self.logger.log(f"✅ text_webbrowser_agent 返回内容 ({result_len} 字)", level=LogLevel.INFO)
+                
+                # 清理可能的框架包装文本
+                cleaned_result = self._clean_agent_output(result_str)
+                trimmed = self._trim_text(cleaned_result, self.max_fine_rag_chars)
+                return trimmed
+            else:
+                self.logger.log(f"⚠️ text_webbrowser_agent 无返回内容，回退为web_search", level=LogLevel.INFO)
+                return self._run_fine_rag_web_search(section_title, search_query)
         
-        self.logger.log(f"🔍 为章节【{section_title}】调用细粒度RAG", level=LogLevel.DEBUG)
+        except Exception as e:
+            self.logger.log(f"⚠️ text_webbrowser_agent 调用异常: {e}，回退为web_search", level=LogLevel.INFO)
+            return self._run_fine_rag_web_search(section_title, search_query)
+    
+    def _clean_agent_output(self, output: str) -> str:
+        """清理text_webbrowser_agent返回的内容
         
-        for tool_name in self.fine_rag_tool_candidates:
-            try:
-                # 首先尝试使用 "input" 参数
-                result = self.execute_tool_call(tool_name, {"input": rag_input})
-                if isinstance(result, str) and result.strip():
-                    # 兜底：如果返回了被框架污染的 Task outcome 包装，提取其中有效内容
-                    raw_result = result.strip()
-                    markers = [
-                        "### 1. Task outcome (short version):",
-                        '"### 1. Task outcome (short version)":',
-                        "\"final_answer\"",
-                        "```tool_code",
-                    ]
-                    if any(m in raw_result for m in markers):
-                        short_match = re.search(
-                            r"###\s*1\.\s*Task outcome \(short version\):\s*(.*?)(?:\n###\s*2\.|$)",
+        移除框架自动添加的格式包装
+        """
+        text = output.strip()
+
+        # 去掉 managed agent 的工作摘要，避免把超长日志带回主写作链路
+        if "<summary_of_work>" in text:
+            text = re.sub(r"\n?For more detail, find below a summary of this agent's work:\n<summary_of_work>.*?</summary_of_work>", "", text, flags=re.DOTALL).strip()
+        
+        # 移除 Task outcome 包装
+        markers = [
+            "### 1. Task outcome (short version):",
+            '"### 1. Task outcome (short version)":',
+        ]
+        
+        for marker in markers:
+            if marker in text:
+                # 尝试提取Task outcome内容
+                match = re.search(
+                    r"###\s*1\.\s*Task outcome \(short version\):\s*(.*?)(?:\n###\s*2\.|$)",
+                    text,
+                    re.IGNORECASE | re.DOTALL,
+                )
+                if match:
+                    return match.group(1).strip()
+        
+        return text
+    
+    def _run_fine_rag_web_search(self, section_title: str, search_query: str) -> str:
+        """使用DuckDuckGo搜索进行细粒度RAG检索（搜索结果列表）"""
+        try:
+            self.logger.log(f"🔎 调用DuckDuckGo搜索", level=LogLevel.DEBUG)
+            result = self.execute_tool_call(self.search_tool_name, {"query": search_query})
+            if isinstance(result, str) and result.strip():
+                # 兜底：如果返回了被框架污染的 Task outcome 包装，提取其中有效内容
+                raw_result = result.strip()
+                markers = [
+                    "### 1. Task outcome (short version):",
+                    '"### 1. Task outcome (short version)":',
+                    "\"final_answer\"",
+                    "```tool_code",
+                ]
+                if any(m in raw_result for m in markers):
+                    short_match = re.search(
+                        r"###\s*1\.\s*Task outcome \(short version\):\s*(.*?)(?:\n###\s*2\.|$)",
+                        raw_result,
+                        re.IGNORECASE | re.DOTALL,
+                    )
+                    if short_match:
+                        result = short_match.group(1).strip()
+                    else:
+                        json_match = re.search(
+                            r'"###\s*1\.\s*Task outcome \(short version\)"\s*:\s*"(.*?)"\s*,\s*"###\s*2\.',
                             raw_result,
                             re.IGNORECASE | re.DOTALL,
                         )
-                        if short_match:
-                            result = short_match.group(1).strip()
-                        else:
-                            json_match = re.search(
-                                r'"###\s*1\.\s*Task outcome \(short version\)"\s*:\s*"(.*?)"\s*,\s*"###\s*2\.',
-                                raw_result,
-                                re.IGNORECASE | re.DOTALL,
-                            )
-                            result = json_match.group(1).replace('\\n', '\n').strip() if json_match else raw_result
-                    else:
-                        result = raw_result
+                        result = json_match.group(1).replace('\\n', '\n').strip() if json_match else raw_result
+                else:
+                    result = raw_result
 
-                    result_len = len(result)
-                    self.logger.log(f"✅ 细粒度RAG成功: {tool_name} ({result_len} 字)", level=LogLevel.DEBUG)
-                    trimmed = self._trim_text(result, self.max_fine_rag_chars)
-                    return trimmed
-            except Exception as e:
-                self.logger.log(f"  ⚠️ {tool_name} RAG调用失败: {e}", level=LogLevel.DEBUG)
-                continue
+                result_len = len(result)
+                self.logger.log(f"✅ web_search成功 ({result_len} 字)", level=LogLevel.DEBUG)
+                trimmed = self._trim_text(result, self.max_fine_rag_chars)
+                return trimmed
+        except Exception as e:
+            self.logger.log(f"  ⚠️ web_search调用失败: {e}", level=LogLevel.DEBUG)
         
-        self.logger.log(f"⚠️ 细粒度RAG不可用，章节【{section_title}】将基于已有上下文生成", level=LogLevel.INFO)
+        self.logger.log(f"⚠️ web_search不可用，章节【{section_title}】将基于已有上下文生成", level=LogLevel.INFO)
         return ""
 
-    def _build_section_input(self, section: Dict[str, str], section_type: str, fine_rag_context: str = "") -> str:
+    def _build_section_input(self, section: Dict[str, str], section_type: str, fine_rag_context: str = "", available_citations: Dict[str, Dict[str, str]] = None) -> str:
         """按章节语义构造最小必要输入，降低 token 占用并减少模型混淆。"""
         task_text = self._trim_text(self._clean_task_description(), 600)
         outline_text = self._trim_text(self._current_outline, self.max_outline_context_chars)
@@ -985,6 +1023,14 @@ class LongWriterAgent(ToolCallingAgent):
         if word_count_target > 0:
             word_count_tolerance = int(word_count_target * 0.2)
             word_count_hint = f"\n\n【字数要求】\n目标字数: {word_count_target}字（允许范围: {word_count_target - word_count_tolerance}-{word_count_target + word_count_tolerance}字）\n请确保输出内容符合字数要求。"
+        
+        # 格式化可用引用列表
+        available_cites_text = ""
+        if available_citations:
+            available_cites_text = "\n\n【可用引用】\n"
+            for key in available_citations.keys():
+                available_cites_text += f"- {key}\n"
+            available_cites_text += "注：仅在需要时使用上述引用，不要编造新的引用。"
 
         if section_type == "references":
             bibliography = self._trim_text(self._format_references_section(), self.max_bibliography_chars)
@@ -999,18 +1045,18 @@ class LongWriterAgent(ToolCallingAgent):
             return (
                 f"用户prompt:\n{task_text}\n\n"
                 f"大纲:\n{outline_text}\n\n"
-                f"细粒度RAG结果:\n{fine_rag_context or '（无）'}\n\n"
+                f"web_search结果:\n{fine_rag_context or '（无）'}\n\n"
                 f"上一段落内容:\n{prev_text or '（无）'}\n\n"
                 f"当前章节: {section.get('title', '')}\n"
-                f"章节目标: {section.get('goal', '')}{word_count_hint}"
+                f"章节目标: {section.get('goal', '')}{available_cites_text}{word_count_hint}"
             )
 
         if section_type == "introduction":
             return (
                 f"用户prompt:\n{task_text}\n\n"
                 f"大纲:\n{outline_text}\n\n"
-                f"粗粒度RAG结果:\n{coarse_text or '（无）'}\n\n"
-                f"当前章节: {section.get('title', '')}{word_count_hint}"
+                f"web_search结果:\n{coarse_text or '（无）'}\n\n"
+                f"当前章节: {section.get('title', '')}{available_cites_text}{word_count_hint}"
             )
 
         # conclusion
@@ -1018,7 +1064,7 @@ class LongWriterAgent(ToolCallingAgent):
             f"用户prompt:\n{task_text}\n\n"
             f"大纲:\n{outline_text}\n\n"
             f"全文摘要:\n{self._trim_text(self._global_summary, 600) or '（无）'}\n\n"
-            f"当前章节: {section.get('title', '')}{word_count_hint}"
+            f"当前章节: {section.get('title', '')}{available_cites_text}{word_count_hint}"
         )
 
     def _build_data_extraction_input(self, section: Dict[str, str], rag_context: str) -> str:
@@ -1075,20 +1121,83 @@ class LongWriterAgent(ToolCallingAgent):
             f"- 使用冷静、权威的表达方式"
         )
 
+    def _extract_citations_from_rag(self, rag_context: str) -> Dict[str, Dict[str, str]]:
+        """从RAG检索结果中提取可用的引用
+        
+        返回格式: {
+            "Author (Year)": {"authors": "Author", "year": "Year", "title": "..."}
+        }
+        """
+        citations = {}
+        if not rag_context:
+            return citations
+        
+        # 匹配 (Author, 2023) / (Smith et al., 2021)
+        pattern = r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)"
+        matches = re.findall(pattern, str(rag_context))
+        
+        placeholder_authors = {
+            "张三", "李四", "王五", "赵六", "某某", "佚名", "作者", "作者等", "author", "anonymous"
+        }
+        
+        for author_raw, year_raw in matches:
+            author = author_raw.strip()
+            year = year_raw.strip()
+            
+            # 过滤占位/虚构作者
+            author_norm = author.lower().replace(" ", "")
+            if author in placeholder_authors or author_norm in placeholder_authors:
+                continue
+            if re.search(r"张三|李四|王五|赵六|某某|^作者$|^Author$", author, re.IGNORECASE):
+                continue
+            
+            key = f"{author} ({year})"
+            if key not in citations:
+                citations[key] = {
+                    "authors": author,
+                    "year": year,
+                    "title": "Retrieved from search results"
+                }
+        
+        return citations
+    
+    def _add_citations(self, citations: Dict[str, Dict[str, str]]) -> None:
+        """将提取的引用添加到全局引用库（去重）
+        
+        Args:
+            citations: 从RAG结果中提取的引用字典
+        """
+        for key, info in citations.items():
+            if key not in self._citations:
+                self._citation_counter += 1
+                self._citations[key] = info
+    
     def _collect_citations_from_text(self, text: str) -> None:
         """从正文中提取 APA 文内引用并写入内部引用库。"""
         if not text:
             return
 
-        # 匹配 (Author, 2023) / (张三, 2022) / (Smith et al., 2021)
+        # 匹配 (Author, 2023) / (Smith et al., 2021)
         pattern = r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)"
         matches = re.findall(pattern, str(text))
         if not matches:
             return
 
+        placeholder_authors = {
+            "张三", "李四", "王五", "赵六", "某某", "佚名", "作者", "作者等", "author", "anonymous"
+        }
+
         for author_raw, year_raw in matches:
             author = author_raw.strip()
             year = year_raw.strip()
+
+            # 过滤占位/虚构作者，避免污染参考文献池
+            author_norm = author.lower().replace(" ", "")
+            if author in placeholder_authors or author_norm in placeholder_authors:
+                continue
+            if re.search(r"张三|李四|王五|赵六|某某|^作者$|^Author$", author, re.IGNORECASE):
+                continue
+
             key = f"{author} ({year})"
             if key not in self._citations:
                 self._citation_counter += 1
@@ -1098,24 +1207,202 @@ class LongWriterAgent(ToolCallingAgent):
                     "year": year,
                     "title": "Title unavailable",
                 }
+    
+    def enable_citation_validation_mode(self, enable: bool = True):
+        """启用/禁用引用验证模式
+        
+        Args:
+            enable: 是否启用严格的学术引用验证
+        """
+        self.enable_citation_validation = enable
+        if enable:
+            self.logger.log(
+                "✅ 启用学术引用验证系统\n"
+                "流程: Search → Verify → Retrieve → Validate → Add\n"
+                "所有引用将经过双源验证、官方BibTeX获取和摘要核实",
+                level=LogLevel.INFO
+            )
+    
+    def validate_all_citations(self) -> Dict[str, Any]:
+        """验证所有收集的引用
+        
+        实现5步验证流程：
+        1. Search - 在学术数据库中检索
+        2. Verify - 双源存在性验证
+        3. Retrieve - 获取官方BibTeX
+        4. Validate - 核对论文摘要与声明匹配
+        5. Add - 写入最终参考文献库
+        
+        Returns:
+            验证结果摘要
+        """
+        if not self.enable_citation_validation:
+            self.logger.log(
+                "⚠️ 引用验证功能未启用，跳过验证步骤\n"
+                "若要启用，请调用 enable_citation_validation_mode(True)",
+                level=LogLevel.INFO
+            )
+            return {'status': 'disabled', 'message': 'Citation validation not enabled'}
+        
+        if not self._unverified_citations:
+            self.logger.log("ℹ️ 没有待验证的引用", level=LogLevel.INFO)
+            return {'status': 'empty', 'citations_count': 0}
+        
+        self.logger.log(
+            f"🔍 开始验证 {len(self._unverified_citations)} 个引用...",
+            level=LogLevel.INFO
+        )
+        
+        # 按引用唯一性去重
+        citations_to_validate = {}
+        for author, year, title, claim in self._unverified_citations:
+            key = f"{author}_{year}"
+            if key not in citations_to_validate:
+                citations_to_validate[key] = (author, year, title, claim)
+        
+        # 执行验证
+        validation_results = {}
+        for idx, (key, (author, year, title, claim)) in enumerate(citations_to_validate.items(), 1):
+            self.logger.log(
+                f"[{idx}/{len(citations_to_validate)}] 验证: {author} ({year})",
+                level=LogLevel.INFO
+            )
+            
+            # Step 1: Search
+            search_results = self._citation_validator.step1_search(author, year, title)
+            
+            # Step 2: Verify
+            verified, verify_info = self._citation_validator.step2_verify(search_results)
+            
+            if not verified:
+                self.logger.log(
+                    f"❌ {author} ({year}) 验证失败: 未找到双源",
+                    level=LogLevel.INFO
+                )
+                validation_results[key] = {
+                    'status': 'rejected',
+                    'reason': 'Failed dual-source verification',
+                    'sources_found': verify_info.get('sources_found', [])
+                }
+                continue
+            
+            # Step 3: Retrieve
+            best_result = verify_info['best_result']
+            bibtex = self._citation_validator.step3_retrieve(best_result)
+            
+            # 创建引用记录
+            record = CitationRecord(
+                authors=author,
+                year=year,
+                title=title or best_result.get('title', 'Unknown'),
+                source=verify_info['sources_found'][0],
+                url=best_result.get('url', ''),
+                bibtex=bibtex or '',
+                abstract=best_result.get('abstract', ''),
+                verification_status='verified',
+                claim_text=claim
+            )
+            
+            # Step 4: Validate - 核对摘要与声明
+            if record.abstract and claim:
+                validation = self._citation_validator.step4_validate(record, claim)
+                record.validation_result = validation
+                
+                # 根据验证结果调整状态
+                if not validation.get('is_valid'):
+                    record.verification_status = 'rejected'
+                    self.logger.log(
+                        f"⚠️ {author} ({year}) 摘要与声明不匹配",
+                        level=LogLevel.INFO
+                    )
+            
+            # Step 5: Add
+            success = self._citation_validator.step5_add(record)
+            
+            validation_results[key] = {
+                'status': record.verification_status,
+                'source': record.source,
+                'bibtex': record.bibtex,
+                'has_abstract': bool(record.abstract),
+                'validation': record.validation_result
+            }
+            
+            # 将验证通过的引用更新到本地字典
+            if record.verification_status == 'verified':
+                self._add_validated_citation(record)
+        
+        # 保存验证日志
+        self._save_citation_validation_log(validation_results)
+        
+        # 生成验证报告
+        report = self._citation_validator.get_validation_report()
+        self.logger.log(
+            f"✅ 引用验证完成: {report['verified_count']}/{report['total_citations_processed']} 通过验证",
+            level=LogLevel.INFO
+        )
+        
+        return {
+            'status': 'completed',
+            'total': len(citations_to_validate),
+            'verified': report['verified_count'],
+            'rejected': report['rejected_count'],
+            'verification_rate': report['verification_rate'],
+            'results': validation_results
+        }
+    
+    def _add_validated_citation(self, record: CitationRecord) -> None:
+        """将验证通过的引用添加到本地字典
+        
+        Args:
+            record: 经过验证的引用记录
+        """
+        key = f"{record.authors} ({record.year})"
+        if key not in self._citations:
+            self._citation_counter += 1
+            self._citations[key] = {
+                'authors': record.authors,
+                'year': record.year,
+                'title': record.title,
+                'source': record.source,
+                'url': record.url,
+                'bibtex': record.bibtex,
+                'verified': True,
+                'verification_sources': [record.source]
+            }
+    
+    def _save_citation_validation_log(self, validation_results: Dict) -> None:
+        """保存引用验证日志到文件
+        
+        Args:
+            validation_results: 验证结果字典
+        """
+        try:
+            import json
+            log_data = {
+                'timestamp': time.time(),
+                'total_citations': len(validation_results),
+                'results': validation_results,
+                'validator_report': self._citation_validator.get_validation_report()
+            }
+            
+            with open(self._citations_validation_log, 'w', encoding='utf-8') as f:
+                json.dump(log_data, f, indent=2, ensure_ascii=False)
+            
+            self.logger.log(
+                f"✅ 验证日志已保存到: {self._citations_validation_log}",
+                level=LogLevel.INFO
+            )
+        except Exception as e:
+            self.logger.log(f"⚠️ 保存验证日志失败: {e}", level=LogLevel.ERROR)
 
     def _write_references_section(self, section: Dict[str, str]) -> str:
-        """参考文献章节：仅传 {用户prompt, 大纲, 参考文献库}。"""
-        ref_input = self._build_section_input(section, "references", "")
-
-        for tool_name in ("reference_formatter", "references_write"):
-            for args in ({"input": ref_input}, {"query": ref_input}):
-                try:
-                    result = self.execute_tool_call(tool_name, args)
-                    if isinstance(result, str) and result.strip():
-                        return result
-                except Exception:
-                    continue
-
-        # 回退：直接输出内部参考文献库
+        """参考文献章节：直接输出收集到的所有引用
+        
+        不调用 Skill 重新生成，而是使用全文扫描已有的引用
+        """
         return self._format_references_section()
     
-    def _section_reflection_loop(self, text: str, goal: str, word_count_target: int = 0) -> str:
+    def _section_reflection_loop(self, text: str, section: Dict[str, str], word_count_target: int = 0) -> str:
         """段落质量检查：先字数检查 → 再证据反思
         
         优化流程：
@@ -1125,6 +1412,8 @@ class LongWriterAgent(ToolCallingAgent):
         """
         current = text
         current_words = len(current)
+        section_title = section.get('title', '未命名章节')
+        goal = section.get('goal', '')
         
         try:
             # ========== 步骤1: 快速字数检查（本地计算，不调用Tool） ==========
@@ -1197,7 +1486,11 @@ class LongWriterAgent(ToolCallingAgent):
             clean_goal = goal.split('|')[0].strip() if '|' in goal else goal
             clean_goal = re.sub(r'[：:].*$', '', clean_goal).strip()
             
-            reflection_input = f"章节目标\n\n{clean_goal}\n\n内容\n\n{current}"
+            reflection_input = (
+                f"章节标题\n\n{section_title}\n\n"
+                f"章节目标\n\n{clean_goal}\n\n"
+                f"内容\n\n{current}"
+            )
             
             report = self.execute_tool_call(
                 "evidence_reflection",
@@ -1220,7 +1513,10 @@ class LongWriterAgent(ToolCallingAgent):
             # 如果证据不足，进行修订（此时字数已经合理）
             self.logger.log(f"  ⚠️ 得分 {score}，证据不足，进行修订...", level=LogLevel.INFO)
             
-            evidence_revision_prompt = f"""【内容】
+            evidence_revision_prompt = f"""【章节标题】
+{section_title}
+
+【内容】
 {current}
 
 【评审报告】
@@ -1243,6 +1539,7 @@ class LongWriterAgent(ToolCallingAgent):
             
             # 将修改后的内容写入日志
             self._log_revision_to_file(f"证据修订 - {goal[:30]}...", current)
+
         
         except Exception as e:
             self.logger.log(f"  ⚠️ 反思出错: {e}", level=LogLevel.INFO)
@@ -1308,14 +1605,14 @@ class LongWriterAgent(ToolCallingAgent):
         self._global_summary = summary
     
     def _parse_sections(self, outline: str) -> List[Dict[str, str]]:
-        """解析大纲为章节，支持多种格式，提取字数要求"""
+        """解析大纲为章节，统一用 | 分隔符提取所有元数据（标题、字数、目标、数据等）"""
         self.logger.log("📑 解析大纲章节...", level=LogLevel.DEBUG)
         self.logger.log(f"大纲内容（前500字）:\n{outline[:500]}...", level=LogLevel.DEBUG)
         
         sections = []
         lines = outline.split("\n")
         
-        # 第一遍：尝试解析数字编号和 Markdown 格式
+        # 统一解析格式：数字编号或 Markdown 格式，都用 | 分隔元数据
         for line in lines:
             line = line.strip()
             if not line:
@@ -1324,80 +1621,17 @@ class LongWriterAgent(ToolCallingAgent):
             # 支持数字编号格式: "1. ", "2.1 ", "3.2.1 " 等
             match_numbered = re.match(r'^([\d.]+)\s+(.+)$', line)
             if match_numbered:
-                title = match_numbered.group(2).strip()
-                word_count_target = 0
-                metadata = {}
-                
-                # 提取字数要求（格式: "(800字)" 或 "[800字]"）
-                word_count_match = re.search(r'[\(\[]\s*(\d+)\s*字\s*[\)\]]', title)
-                if word_count_match:
-                    word_count_target = int(word_count_match.group(1))
-                    title = re.sub(r'\s*[\(\[]\s*\d+\s*字\s*[\)\]]', '', title).strip()
-                
-                # 提取元数据（目标、数据、问题）用 | 分隔
-                if ' | ' in title:
-                    parts = title.split(' | ')
-                    clean_title = parts[0].strip()
-                    
-                    for part in parts[1:]:
-                        part = part.strip()
-                        if part.startswith('目标'):
-                            metadata['goal'] = re.sub(r'^目标[：:]\s*', '', part)
-                        elif part.startswith('数据'):
-                            metadata['data'] = re.sub(r'^数据[：:]\s*', '', part)
-                        elif part.startswith('问题'):
-                            metadata['question'] = re.sub(r'^问题[：:]\s*', '', part)
-                    
-                    title = clean_title
-                
-                goal = metadata.get('goal', title)
-                
-                sections.append({
-                    "title": title,
-                    "goal": goal,
-                    "word_count_target": word_count_target,
-                    "number": match_numbered.group(1),
-                    "metadata": metadata
-                })
+                raw_content = match_numbered.group(2).strip()
+                number = match_numbered.group(1)
+                self._parse_and_add_section(raw_content, sections, number=number)
                 continue
             
             # 支持 Markdown 格式: "# ", "## ", "### " 等
             match_markdown = re.match(r'^(#{1,6})\s+(.+)$', line)
             if match_markdown:
+                raw_content = match_markdown.group(2).strip()
                 level = len(match_markdown.group(1))
-                title = match_markdown.group(2).strip()
-                word_count_target = 0
-                metadata = {}
-                
-                # 提取字数要求
-                word_count_match = re.search(r'[\(\[]\s*(\d+)\s*字\s*[\)\]]', title)
-                if word_count_match:
-                    word_count_target = int(word_count_match.group(1))
-                    title = re.sub(r'\s*[\(\[]\s*\d+\s*字\s*[\)\]]', '', title).strip()
-                
-                # 提取元数据（如果有）
-                if ' | ' in title:
-                    parts = title.split(' | ')
-                    clean_title = parts[0].strip()
-                    
-                    for part in parts[1:]:
-                        part = part.strip()
-                        if part.startswith('目标'):
-                            metadata['goal'] = re.sub(r'^目标[：:]\s*', '', part)
-                        elif part.startswith('数据'):
-                            metadata['data'] = re.sub(r'^数据[：:]\s*', '', part)
-                        elif part.startswith('问题'):
-                            metadata['question'] = re.sub(r'^问题[：:]\s*', '', part)
-                    
-                    title = clean_title
-                
-                sections.append({
-                    "title": title,
-                    "goal": metadata.get('goal', title),
-                    "word_count_target": word_count_target,
-                    "level": level,
-                    "metadata": metadata
-                })
+                self._parse_and_add_section(raw_content, sections, level=level)
                 continue
         
         # 如果解析失败，尝试容错方案：提取所有非空行作为章节标题
@@ -1436,9 +1670,61 @@ class LongWriterAgent(ToolCallingAgent):
             self.logger.log(f"  - 大纲总行数: {len(lines)}", level=LogLevel.ERROR)
             self.logger.log(f"  - 非空行数: {len([l for l in lines if l.strip()])}", level=LogLevel.ERROR)
             self.logger.log(f"  - 完整大纲内容:\n{outline}", level=LogLevel.ERROR)
-            self.logger.log("  💡 建议: 检查大纲生成是否成功，或大纲格式是否符合预期", level=LogLevel.ERROR)
         
         return sections
+    
+    def _parse_and_add_section(self, raw_content: str, sections: List, number: str = None, level: int = None):
+        """解析单个章节内容，提取标题和所有元数据
+        
+        格式: 标题 | 字数: 800 | 目标: xxx | 数据: xxx | ...
+        或仅: 标题
+        """
+        metadata = {}
+        word_count_target = 0
+        
+        # 用 | 分隔标题和元数据
+        if ' | ' in raw_content:
+            parts = [p.strip() for p in raw_content.split(' | ')]
+            title = parts[0]
+            
+            # 解析所有元数据
+            for part in parts[1:]:
+                if part.startswith('字数'):
+                    # 格式: 字数: 800 或 字数:800
+                    match = re.search(r'\d+', part)
+                    if match:
+                        word_count_target = int(match.group())
+                elif part.startswith('目标'):
+                    metadata['goal'] = re.sub(r'^目标[：:]\s*', '', part)
+                elif part.startswith('数据'):
+                    metadata['data'] = re.sub(r'^数据[：:]\s*', '', part)
+                elif part.startswith('问题'):
+                    metadata['question'] = re.sub(r'^问题[：:]\s*', '', part)
+                else:
+                    # 其他未知的元数据也保存
+                    if ':' in part:
+                        key, val = part.split(':', 1)
+                        metadata[key.strip().lower()] = val.strip()
+        else:
+            # 没有元数据，仅有标题
+            title = raw_content
+        
+        goal = metadata.get('goal', title)
+        
+        section_dict = {
+            "title": title,
+            "goal": goal,
+            "word_count_target": word_count_target,
+            "metadata": metadata
+        }
+        
+        # 添加可选的位置信息
+        if number is not None:
+            section_dict["number"] = number
+        if level is not None:
+            section_dict["level"] = level
+        
+        sections.append(section_dict)
     
     def _parse_json(self, text: str) -> Dict[str, Any]:
         """解析 JSON"""
