@@ -25,10 +25,12 @@ from smolagents import (
     DuckDuckGoSearchTool,
     # InferenceClientModel,
     LiteLLMModel,
-    ToolCallingAgent,
+    CustomAgent,
 )
 from scripts.skill_loader import load_skills_from_directory
 from scripts.long_writer_agent_v3 import LongWriterAgent
+from scripts.identification_agent import IdentificationAgent
+from scripts.interpretation_agent import InterpretationAgent
 
 
 load_dotenv(override=True)
@@ -63,6 +65,7 @@ os.makedirs(f"./{BROWSER_CONFIG['downloads_folder']}", exist_ok=True)
 
 
 def create_agent(model_id="o1"):
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     model_params = {
         "model_id": model_id,
         "custom_role_conversions": custom_role_conversions,
@@ -77,7 +80,7 @@ def create_agent(model_id="o1"):
         api_base="https://llmapi.paratera.com/v1",
         api_key=os.environ["DYM_API_KEY"]
     )
-    skills_dir = "./skills" 
+    skills_dir = os.path.join(base_dir, "skills")
     
     print(f"Loading skills from {skills_dir}...")
     custom_tools = load_skills_from_directory(skills_dir, model=model)
@@ -110,7 +113,7 @@ def create_agent(model_id="o1"):
         ArchiveSearchTool(browser),
         TextInspectorTool(model, text_limit),
     ]
-    text_webbrowser_agent = ToolCallingAgent(
+    text_webbrowser_agent = CustomAgent(
         model=model,
         tools=WEB_TOOLS,
         max_steps=20,
@@ -162,6 +165,42 @@ def create_agent(model_id="o1"):
         provide_run_summary=True,
     )
 
+    # 创建 IdentificationAgent（前沿技术识别代理）
+    identification_agent = IdentificationAgent(
+        model=model,
+        tools=custom_tools + [web_search_tool],
+        max_steps=20,
+        verbosity_level=2,
+        name="identification_agent",
+        description="""进行前沿技术识别时使用。
+
+适用场景：
+- 输入大量带时间戳文档，需要筛选是否属于某技术领域
+- 需要聚类识别技术流派/细分方向
+- 需要按年度分析增长、占比与技术突现（burst）
+- 需要多专家投票后输出候选前沿技术
+""",
+        provide_run_summary=True,
+    )
+
+    # 创建 InterpretationAgent（技术名词解读代理）
+    interpretation_agent = InterpretationAgent(
+        model=model,
+        tools=custom_tools + [web_search_tool],
+        max_steps=20,
+        verbosity_level=2,
+        name="interpretation_agent",
+        description="""进行技术名词解读、术语解释与多风格改写时使用。
+
+适用场景：
+- 从用户输入中抽取核心技术名词
+- 并行检索本地向量库与Web资料并去重重排
+- 生成客观事实底稿
+- 输出百科版、专报版、科普版三种风格解读
+""",
+        provide_run_summary=True,
+    )
+
     manager_agent = CodeAgent(
         model=model,
         tools=[visualizer, TextInspectorTool(model, text_limit)] + custom_tools,
@@ -170,7 +209,12 @@ def create_agent(model_id="o1"):
         additional_authorized_imports=["*"],
         planning_interval=2,
         # 将 long_writer_agent 和 search_agent 注册为 managed agents
-        managed_agents=[long_writer_agent, text_webbrowser_agent],
+        managed_agents=[
+            long_writer_agent,
+            identification_agent,
+            interpretation_agent,
+            text_webbrowser_agent,
+        ],
 
     )
 
