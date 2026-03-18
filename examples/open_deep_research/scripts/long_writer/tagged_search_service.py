@@ -17,9 +17,19 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from smolagents.monitoring import LogLevel
 
 try:
-    from .citation_flow_service import CitationFlowService
+    from ..citation_validator import (
+        build_canonical_citation_key,
+        build_preferred_inline_citation,
+        extract_author_year_from_key,
+    )
 except ImportError:
-    from citation_flow_service import CitationFlowService
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from citation_validator import (
+        build_canonical_citation_key,
+        build_preferred_inline_citation,
+        extract_author_year_from_key,
+    )
 
 if TYPE_CHECKING:
     pass  # avoid circular imports; agent type is duck-typed
@@ -34,10 +44,24 @@ class TaggedSearchService:
 
     @staticmethod
     def parse_tagged_search_json(agent, text: str) -> Dict[str, Any]:
-        """从 managed agent 输出中提取 JSON 结构。"""
+        """
+        主要作用：从 tagged web agent 输出中稳健抽取 JSON。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - text (str): 待解析、清洗或重写的原始文本内容。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 根据输入条件构造检索查询或搜索策略。
+        - 调用外部搜索源、网页代理或内部服务获取候选结果。
+        - 对结果做清洗、去重和结构化整理后返回。
+        """
         raw = str(text or "").strip()
         if not raw:
-            return {"query": "", "items": []}
+            return {"query": "", "items": [], "available_citations": {}}
 
         # provide_run_summary=True 会在正文后追加 <summary_of_work>…</summary_of_work>，
         # 其中包含大量浏览步骤的 JSON 片段，必须在解析前截断。
@@ -73,7 +97,7 @@ class TaggedSearchService:
             data = {"query": "", "items": data}
 
         if not isinstance(data, dict):
-            return {"query": "", "items": []}
+            return {"query": "", "items": [], "available_citations": {}}
 
         items = data.get("items", [])
         if not isinstance(items, list):
@@ -103,9 +127,53 @@ class TaggedSearchService:
                 }
             )
 
+        # 统一格式：available_citations 必须是 Dict["title", citation_info]
+        normalized_citations: Dict[str, Dict[str, Any]] = {}
+        raw_citations = data.get("available_citations", {})
+        if isinstance(raw_citations, dict):
+            for k, v in raw_citations.items():
+                info = dict(v) if isinstance(v, dict) else {"title": str(v)}
+                title = str(info.get("title") or k).strip()
+                if not title:
+                    continue
+                info["title"] = title
+                authors = str(info.get("authors", "")).strip()
+                year = str(info.get("year", "")).strip()
+                canonical_key = build_canonical_citation_key(authors, year, title)
+                if canonical_key:
+                    info["canonical_key"] = canonical_key
+                normalized_citations[title] = info
+
+        # 若模型未显式输出 available_citations，则从 items 回填（兼容旧输出）
+        if not normalized_citations:
+            for item in normalized_items:
+                authors = str(item.get("authors", "")).strip()
+                year = str(item.get("year", "")).strip()
+                apa = str(item.get("apa_citation", "")).strip()
+                key = ""
+                if authors and year:
+                    key = str(item.get("title", "")).strip()
+                elif apa:
+                    apa_match = re.match(r"^\(([^()]{1,120}?),\s*((?:19|20)\d{2}|n\.d\.)\)$", apa)
+                    if apa_match:
+                        key = str(item.get("title", "")).strip()
+                if not key:
+                    continue
+                canonical_key = build_canonical_citation_key(authors, year, key)
+                normalized_citations[key] = {
+                    "authors": authors,
+                    "year": year,
+                    "title": str(item.get("title", "")).strip() or key,
+                    "url": str(item.get("url", "")).strip(),
+                    "source_type": str(item.get("source_type", "webpage")).strip() or "webpage",
+                    "apa_citation": apa,
+                    "canonical_key": canonical_key,
+                }
+
         return {
             "query": str(data.get("query", "")).strip(),
             "items": normalized_items,
+            "available_citations": normalized_citations,
         }
 
     # ------------------------------------------------------------------ #
@@ -114,7 +182,22 @@ class TaggedSearchService:
 
     @staticmethod
     def render_tagged_items_as_context(agent, payload: Dict[str, Any], limit: int = 1800) -> str:
-        """把 tagged 检索结果转成可供写作/大纲使用的上下文文本。"""
+        """
+        主要作用：把结构化检索结果渲染成写作可读上下文。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - payload (Dict[str, Any]): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+        - limit (int): 文本截断长度或输出上限。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
         items = payload.get("items", []) if isinstance(payload, dict) else []
         if not items:
             return ""
@@ -154,8 +237,60 @@ class TaggedSearchService:
 
     @staticmethod
     def extract_citations_from_tagged_payload(agent, payload: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
-        """从 tagged JSON 结果中提取引用元数据。"""
+        """
+        主要作用：从 tagged 搜索结果中提取标题索引引用字典。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - payload (Dict[str, Any]): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - Dict[str, Dict[str, str]]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
+        """
         citations: Dict[str, Dict[str, str]] = {}
+
+        # 新标准：优先读取 available_citations（Dict）
+        if isinstance(payload, dict):
+            raw_citations = payload.get("available_citations", {})
+            if isinstance(raw_citations, dict) and raw_citations:
+                for key, info in raw_citations.items():
+                    if not isinstance(info, dict):
+                        continue
+                    authors = str(info.get("authors", "")).strip()
+                    year = str(info.get("year", "")).strip()
+                    title = str(info.get("title") or key).strip()
+                    url = str(info.get("url", "")).strip()
+                    inline_citation = str(info.get("apa_citation", "")).strip() or str(info.get("inline_citation", "")).strip()
+                    if not inline_citation and authors and year:
+                        inline_citation = build_preferred_inline_citation(authors, year)
+
+                    norm_key = str(info.get("canonical_key") or "").strip()
+                    if (not authors or not year) and norm_key:
+                        k_author, k_year = extract_author_year_from_key(norm_key)
+                        authors = authors or k_author
+                        year = year or k_year
+
+                    if not title or not authors or not year:
+                        continue
+
+                    canonical_key = build_canonical_citation_key(authors, year, title)
+                    citations[title] = {
+                        "authors": authors,
+                        "year": year,
+                        "title": title or "Retrieved from tagged web agent",
+                        "url": url,
+                        "title_source": "tagged_web_agent",
+                        "inline_citation": inline_citation,
+                        "canonical_key": canonical_key,
+                    }
+                return citations
+
+        # 兼容旧格式：从 items（List）提取
         items = payload.get("items", []) if isinstance(payload, dict) else []
         if not items:
             return citations
@@ -200,10 +335,10 @@ class TaggedSearchService:
             inline_citation = (
                 apa_citation
                 if re.match(r"^\(.+?,\s*((?:19|20)\d{2}|n\.d\.)\)$", apa_citation)
-                else CitationFlowService.build_preferred_inline_citation(authors, year)
+                else build_preferred_inline_citation(authors, year)
             )
 
-            key = f"{authors} ({year})"
+            key = title or build_canonical_citation_key(authors, year, title)
             citations[key] = {
                 "authors": authors,
                 "year": year,
@@ -211,6 +346,7 @@ class TaggedSearchService:
                 "url": url,
                 "title_source": "tagged_web_agent",
                 "inline_citation": inline_citation,
+                "canonical_key": build_canonical_citation_key(authors, year, title),
             }
 
         return citations
@@ -223,6 +359,17 @@ class TaggedSearchService:
     _TAGGED_ITEM_SCHEMA = """
 {
   "query": "...",
+    "available_citations": {
+        "Paper Title": {
+            "authors": "",
+            "year": "",
+            "title": "",
+            "url": "",
+            "source_type": "webpage|paper|report|news|other",
+            "apa_citation": "(Author, Year)",
+            "canonical_key": "Author (Year)"
+        }
+    },
   "items": [
     {
       "title": "",
@@ -234,6 +381,7 @@ class TaggedSearchService:
       "existing_problems": [""],
       "foundation": "",
       "outlook": "",
+      "key_words": [""],
       "future_directions": [""],
       "relevance_score": 0,
       "evidence_quote": "",
@@ -242,14 +390,26 @@ class TaggedSearchService:
       "apa_citation": "(Author, Year)"
     }
   ]
-}"""
+}
+"""
 
     @staticmethod
-    def _extract_json_via_llm(agent, query: str, search_topic: str, raw_text: str) -> Optional[Dict[str, Any]]:
-        """用 LLM 把 search_agent 返回的自然语言/Markdown 结构化为目标 JSON。
+    def _extract_json_via_llm(agent, query: str, raw_text: str) -> Optional[Dict[str, Any]]:
+        """
+        主要作用：在原始输出不规范时借助模型二次抽取 JSON。
 
-        只截取前 6000 字符送给模型，以控制 token 开销。
-        返回 None 表示 LLM 提取也失败。
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - query (str): 检索查询文本。
+        - raw_text (str): 该参数用于承载 `raw_text` 相关的业务上下文或控制信息。
+
+        返回值：
+        - Optional[Dict[str, Any]]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
         """
         try:
             from smolagents.models import ChatMessage, MessageRole  # 延迟导入避免循环
@@ -260,7 +420,7 @@ class TaggedSearchService:
         prompt = (
             f"以下是一个网页搜索 agent 的输出文本，请将其中的搜索结果提取整理为如下 JSON schema，"
             f"只输出合法 JSON，不要任何解释文字。\n\n"
-            f"查询: {query}\n主题: {search_topic}\n\n"
+            f"查询: {query}\n\n"
             f"目标 schema:\n{TaggedSearchService._TAGGED_ITEM_SCHEMA}\n\n"
             f"原始文本（截取前6000字符）:\n{snippet}"
         )
@@ -281,47 +441,65 @@ class TaggedSearchService:
     def run_tagged_web_agent_search(
         agent,
         query: str,
-        search_topic: str,
-        phase: str,
         top_k: int = 8,
+        search_time: Optional[str] = "2024-2026年",
     ) -> Dict[str, Any]:
-        """调用改进版 web agent，返回结构化 tagged 结果。"""
+        """
+        主要作用：调用 tagged web agent 执行结构化网页检索。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - query (str): 检索查询文本。
+        - top_k (int): 希望保留的搜索结果上限。
+        - search_time (Optional[str]): 检索时使用的时间范围提示。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 根据输入条件构造检索查询或搜索策略。
+        - 调用外部搜索源、网页代理或内部服务获取候选结果。
+        - 对结果做清洗、去重和结构化整理后返回。
+        """
         task_prompt = f"""请围绕如下查询进行检索，并仅输出合法 JSON：
 
 查询: {query}
-主题: {search_topic}
-阶段: {phase}
+时间: {search_time}
 要求:
 1. 搜索并访问最相关网页/论文，筛选前 {max(1, top_k)} 条最有价值的信息源；
 2. 对每条信息源进行简短总结，并打标签（time, direction, existing_problems, foundation, outlook, future_directions）；
-3. 每条都尽量提供可追溯引用信息（authors, year, title, url, apa_citation）；
-4. authors 必须是真实作者姓名；严禁填写 Anonymous / Anonymous Authors / unknown / 佚名 等占位词；
-5. 若来源为 arXiv，请优先从论文页面提取作者并写入 authors 字段；
-6. 只输出 JSON，不要解释文字。
+3. 输出中必须包含 available_citations（Dict），键必须是文献标题 title；
+4. 每条都尽量提供可追溯引用信息（authors, year, title, url, apa_citation）；
+5. items 与 available_citations 要一致（同一来源应在两处都体现）；
+6. authors 必须是真实作者姓名；严禁填写 Anonymous / Anonymous Authors / unknown / 佚名 等占位词；
+7. 若来源为 arXiv，请优先从论文页面提取作者并写入 authors 字段；
+8. 只输出 JSON，不要解释文字。
 
 JSON schema:
 {{
   "query": "...",
-  "items": [
-    {{
-      "title": "",
-      "url": "",
-      "source_type": "webpage|paper|report|news|other",
-      "time": "YYYY 或 YYYY-MM 或 unknown",
-      "direction": "",
-      "content_summary": "",
-      "existing_problems": [""],
-      "foundation": "",
-      "outlook": "",
-      "future_directions": [""],
-      "relevance_score": 0,
-      "evidence_quote": "",
-      "authors": "",
-      "year": "",
-      "apa_citation": "(Author, Year)"
+    "available_citations": {{
+        "Paper Title1": {{
+            "authors": "",
+            "year": "",
+            "title": "",
+            "url": "",
+            "source_type": "webpage|paper|report|news|other",
+            "apa_citation": "(Author, Year)",
+            "canonical_key": "Author (Year)"
+        }},
+        "Paper Title2": {{
+            "authors": "",
+            "year": "",
+            "title": "",
+            "url": "",
+            "source_type": "webpage|paper|report|news|other",
+            "apa_citation": "(Author, Year)",
+            "canonical_key": "Author (Year)"
+        }}
     }}
-  ]
-}}"""
+}}
+"""
 
         raw_result = agent.execute_tool_call(agent.text_webbrowser_agent_name, {"task": task_prompt})
         cleaned = agent._clean_agent_output(str(raw_result))
@@ -332,7 +510,7 @@ JSON schema:
                 "⚠️ tagged 检索输出非结构化 JSON，启用 LLM 结构化提取...",
                 level=LogLevel.INFO,
             )
-            llm_payload = TaggedSearchService._extract_json_via_llm(agent, query, search_topic, cleaned)
+            llm_payload = TaggedSearchService._extract_json_via_llm(agent, query, cleaned)
             if llm_payload and llm_payload.get("items"):
                 agent.logger.log(
                     f"✅ LLM 结构化提取成功，共 {len(llm_payload['items'])} 条",
@@ -351,9 +529,8 @@ JSON schema:
 
         record = {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "phase": phase,
             "query": query,
-            "topic": search_topic,
+            "search_time": search_time,
             "payload": payload,
             "context_preview": agent._trim_text(context_text, 800),
             "citations_count": len(citations),
@@ -377,7 +554,21 @@ JSON schema:
 
     @staticmethod
     def log_tagged_search_record(agent, record: Dict[str, Any]) -> None:
-        """将每次 tagged 检索的结构化结果写入日志。"""
+        """
+        主要作用：记录 tagged 检索的输入、输出与摘要。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - record (Dict[str, Any]): 已验证的引用记录对象，包含标题、作者、摘要和验证状态等信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 根据输入条件构造检索查询或搜索策略。
+        - 调用外部搜索源、网页代理或内部服务获取候选结果。
+        - 对结果做清洗、去重和结构化整理后返回。
+        """
         try:
             # 1) JSONL 结构化日志（完整）
             with open(agent._tagged_search_log_file, 'a', encoding='utf-8') as f:
@@ -401,6 +592,21 @@ JSON schema:
 
 
 def main() -> int:
+    """
+    主要作用：执行 main 相关逻辑。
+
+    输入参数：
+    - 无：该方法不接收显式业务参数。
+
+    返回值：
+    - int：返回状态码、计数值或其他数值结果。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
+
     parser = argparse.ArgumentParser(description="TaggedSearchService 调试入口")
     parser.add_argument("--list-methods", action="store_true", help="列出可调用静态方法")
     args = parser.parse_args()
@@ -410,7 +616,7 @@ def main() -> int:
         print("- parse_tagged_search_json(agent, text)")
         print("- render_tagged_items_as_context(agent, payload, limit=1800)")
         print("- extract_citations_from_tagged_payload(agent, payload)")
-        print("- run_tagged_web_agent_search(agent, query, search_topic, phase, top_k=8)")
+        print("- run_tagged_web_agent_search(agent, query, top_k=8)")
         print("- log_tagged_search_record(agent, record)")
         return 0
 

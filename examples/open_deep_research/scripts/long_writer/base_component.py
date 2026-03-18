@@ -27,7 +27,20 @@ class JsonWorkflowComponent:
 
     @staticmethod
     def decode_input(message: str) -> Dict[str, Any]:
-        """将 JSON 字符串解码为输入 dict（用于从文件/网络读取时）。"""
+        """
+        主要作用：把 CLI 或协议输入解码为结构化字典。
+
+        输入参数：
+        - message (str): 待解析的输入消息文本，通常来自组件 CLI、模型输出或结构化协议消息。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
+        """
         raw = str(message or "").strip()
         if not raw:
             return {}
@@ -41,14 +54,57 @@ class JsonWorkflowComponent:
 
     @staticmethod
     def encode_output(data: Dict[str, Any]) -> str:
-        """将输出 dict 序列化为 JSON 字符串（用于写入文件/网络时）。"""
+        """
+        主要作用：把结构化结果编码为 JSON 文本。
+
+        输入参数：
+        - data (Dict[str, Any]): 结构化数据字典，表示中间状态、解析结果、配置或组件返回值。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
         return json.dumps(data, ensure_ascii=False)
 
     def run(self, agent: "LongWriterAgent", payload: Dict[str, Any]) -> Dict[str, Any]:
-        """执行组件逻辑：接收输入 dict，返回输出 dict。子类必须覆盖此方法。"""
+        """
+        主要作用：执行当前组件的主流程，处理输入并返回结构化输出。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - agent ("LongWriterAgent"): 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - payload (Dict[str, Any]): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
         raise NotImplementedError
 
     def contract(self) -> Dict[str, Any]:
+        """
+        主要作用：返回组件的输入输出契约定义。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
+
         return {
             "name": self.name,
             "description": self.description,
@@ -58,7 +114,20 @@ class JsonWorkflowComponent:
 
 
 def _import_long_writer_agent():
-    """兼容包内导入与脚本直跑导入。"""
+    """
+    主要作用：动态导入 LongWriterAgent，避免静态依赖导致循环引用。
+
+    输入参数：
+    - 无：该方法不接收显式业务参数。
+
+    返回值：
+    - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+    实现逻辑：
+    - 整理当前阶段的核心信息。
+    - 按照既定格式写入日志、文件或状态对象。
+    - 保证运行过程可回溯、可排障、可复现。
+    """
     try:
         from ..long_writer_agent_v3 import LongWriterAgent
 
@@ -73,7 +142,20 @@ def _import_long_writer_agent():
 
 
 def _resolve_factory(factory_path: str) -> Callable[..., Any]:
-    """解析 `package.module:callable_name` 形式的工厂函数。"""
+    """
+    主要作用：根据导入路径字符串解析工厂函数。
+
+    输入参数：
+    - factory_path (str): 工厂函数的导入路径字符串。
+
+    返回值：
+    - Callable[..., Any]：返回该方法的主要输出结果。
+
+    实现逻辑：
+    - 读取待校验输入并应用当前业务约束。
+    - 执行验证、判定、拒绝或映射逻辑。
+    - 返回验证结果，或同步更新状态与日志。
+    """
     if ":" not in factory_path:
         raise ValueError("`agent_config.factory` 必须是 'package.module:callable' 格式")
 
@@ -86,7 +168,22 @@ def _resolve_factory(factory_path: str) -> Callable[..., Any]:
 
 
 def _normalize_agent_output_paths(agent: Any, init_cwd: Path, target_cwd: Path) -> None:
-    """将 agent 内部输出路径统一为相对 `target_cwd` 的稳定相对路径。"""
+    """
+    主要作用：修正组件 CLI 场景下代理内部的输出路径。
+
+    输入参数：
+    - agent (Any): 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+    - init_cwd (Path): 构建代理前的当前工作目录。
+    - target_cwd (Path): 组件 CLI 希望切换到的工作目录。
+
+    返回值：
+    - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+    实现逻辑：
+    - 扫描输入中的关键模式、字段或噪声片段。
+    - 完成清洗、规范化、回填或结构化整理。
+    - 返回更稳定、可复用的中间结果。
+    """
     path_attrs = [
         "_output_dir",
         "_output_file",
@@ -114,11 +211,19 @@ def _normalize_agent_output_paths(agent: Any, init_cwd: Path, target_cwd: Path) 
 
 
 def build_agent_for_component_cli(agent_config: Optional[Dict[str, Any]] = None):
-    """按 CLI 配置构建 agent。
+    """
+    主要作用：为组件 CLI 调试构建可运行代理。
 
-    支持两种模式：
-    1) 默认模式：调用正式运行时同款工厂（run.py）
-    2) 自定义工厂：`agent_config.factory = "pkg.mod:create_agent"`
+    输入参数：
+    - agent_config (Optional[Dict[str, Any]]): 该参数用于承载 `agent_config` 相关的业务上下文或控制信息。
+
+    返回值：
+    - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+    实现逻辑：
+    - 读取当前上下文中的关键字段。
+    - 按既定模板和业务规则拼装输入结构。
+    - 返回下游阶段可直接消费的提示词、映射或载荷。
     """
     config = dict(agent_config or {})
 
@@ -186,7 +291,20 @@ def build_agent_for_component_cli(agent_config: Optional[Dict[str, Any]] = None)
 
 
 def _json_or_plain(value: str) -> Any:
-    """优先按 JSON 解析，失败则保留原始字符串。"""
+    """
+    主要作用：优先按 JSON 解析输入，失败时退回普通文本。
+
+    输入参数：
+    - value (str): 待格式化或待输出的任意值。
+
+    返回值：
+    - Any：返回该方法的主要输出结果。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
     text = str(value).strip()
     if text == "":
         return ""
@@ -197,7 +315,22 @@ def _json_or_plain(value: str) -> Any:
 
 
 def _assign_nested(target: Dict[str, Any], dotted_key: str, value: Any) -> None:
-    """支持 a.b.c=value 形式的嵌套写入。"""
+    """
+    主要作用：把值按点路径写入嵌套字典。
+
+    输入参数：
+    - target (Dict[str, Any]): 待写入值的目标字典。
+    - dotted_key (str): 以点号分隔的嵌套字段路径。
+    - value (Any): 待格式化或待输出的任意值。
+
+    返回值：
+    - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
     parts = [p for p in dotted_key.split(".") if p]
     if not parts:
         raise ValueError("空 key 不合法")
@@ -215,7 +348,21 @@ def _assign_nested(target: Dict[str, Any], dotted_key: str, value: Any) -> None:
 
 
 def _parse_key_value_pairs(pairs: List[str], field_name: str) -> Dict[str, Any]:
-    """解析多次传入的 key=value 参数集合。"""
+    """
+    主要作用：将命令行键值对解析为结构化字典。
+
+    输入参数：
+    - pairs (List[str]): 命令行键值对列表。
+    - field_name (str): 字段名或提示字段标签。
+
+    返回值：
+    - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+    实现逻辑：
+    - 扫描输入中的关键模式、字段或噪声片段。
+    - 完成清洗、规范化、回填或结构化整理。
+    - 返回更稳定、可复用的中间结果。
+    """
     parsed: Dict[str, Any] = {}
     for pair in pairs:
         if "=" not in pair:
@@ -229,7 +376,20 @@ def _parse_key_value_pairs(pairs: List[str], field_name: str) -> Dict[str, Any]:
 
 
 def _coerce_text_for_console(text: Any) -> str:
-    """按当前控制台编码兜底转换文本，避免 UnicodeEncodeError。"""
+    """
+    主要作用：把任意对象转成适合控制台展示的文本。
+
+    输入参数：
+    - text (Any): 待解析、清洗或重写的原始文本内容。
+
+    返回值：
+    - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
     content = str(text)
     encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
     try:
@@ -240,7 +400,20 @@ def _coerce_text_for_console(text: Any) -> str:
 
 
 def _patch_agent_logger_for_console(agent) -> None:
-    """给 agent logger 打补丁：日志内容按控制台编码可打印化。"""
+    """
+    主要作用：在组件 CLI 场景下改造日志器输出。
+
+    输入参数：
+    - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+
+    返回值：
+    - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+    实现逻辑：
+    - 整理当前阶段的核心信息。
+    - 按照既定格式写入日志、文件或状态对象。
+    - 保证运行过程可回溯、可排障、可复现。
+    """
     logger = getattr(agent, "logger", None)
     if logger is None:
         return
@@ -249,13 +422,43 @@ def _patch_agent_logger_for_console(agent) -> None:
         return
 
     def _safe_log(message, *args, **kwargs):
+        """
+        主要作用：包装日志调用，避免控制台编码异常中断。
+
+        输入参数：
+        - message: 待解析的输入消息文本，通常来自组件 CLI、模型输出或结构化协议消息。
+        - *args: 该参数用于承载 `args` 相关的业务上下文或控制信息。
+        - **kwargs: 额外初始化配置，会透传给父类代理或底层构造流程。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
+
         return original_log(_coerce_text_for_console(message), *args, **kwargs)
 
     logger.log = _safe_log
 
 
 def _format_log_value(value: Any) -> str:
-    """尽量以可读 JSON 形式写入调试日志。"""
+    """
+    主要作用：将日志值格式化为单行可读文本。
+
+    输入参数：
+    - value (Any): 待格式化或待输出的任意值。
+
+    返回值：
+    - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+    实现逻辑：
+    - 整理当前阶段的核心信息。
+    - 按照既定格式写入日志、文件或状态对象。
+    - 保证运行过程可回溯、可排障、可复现。
+    """
     if isinstance(value, str):
         try:
             parsed = json.loads(value)
@@ -270,7 +473,20 @@ def _format_log_value(value: Any) -> str:
 
 
 def _to_relative_path(path_value: str) -> str:
-    """将路径转换为相对当前工作目录的相对路径（失败则返回原值）。"""
+    """
+    主要作用：将绝对路径转成相对路径。
+
+    输入参数：
+    - path_value (str): 待转换为相对路径的路径字符串。
+
+    返回值：
+    - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
     try:
         p = Path(str(path_value))
         if not p.is_absolute():
@@ -284,7 +500,22 @@ def _to_relative_path(path_value: str) -> str:
 
 
 def _get_component_cli_log_file(agent=None, run_id: Optional[str] = None, component_name: str = "component") -> str:
-    """返回组件 CLI 调试日志文件路径。"""
+    """
+    主要作用：计算组件 CLI 调试日志的保存路径。
+
+    输入参数：
+    - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+    - run_id (Optional[str]): 组件 CLI 调试运行的唯一标识。
+    - component_name (str): 工作流组件名称。
+
+    返回值：
+    - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+    实现逻辑：
+    - 整理当前阶段的核心信息。
+    - 按照既定格式写入日志、文件或状态对象。
+    - 保证运行过程可回溯、可排障、可复现。
+    """
     if agent is not None and not run_id:
         existing = getattr(agent, "_component_cli_test_log_file", "")
         if existing:
@@ -315,7 +546,25 @@ def _write_component_cli_test_log(
     error: Optional[Exception] = None,
     run_id: Optional[str] = None,
 ) -> str:
-    """把组件 CLI 调试的输入输出落到测试日志。"""
+    """
+    主要作用：将组件 CLI 的输入、输出和日志统一落盘。
+
+    输入参数：
+    - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+    - component (JsonWorkflowComponent): 工作流组件实例，用于获取契约或执行组件逻辑。
+    - input_payload (Dict[str, Any]): 该参数用于承载 `input_payload` 相关的业务上下文或控制信息。
+    - output (Optional[Any]): 模型、技能或组件生成的输出文本。
+    - error (Optional[Exception]): 异常信息或错误文本。
+    - run_id (Optional[str]): 组件 CLI 调试运行的唯一标识。
+
+    返回值：
+    - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+    实现逻辑：
+    - 整理当前阶段的核心信息。
+    - 按照既定格式写入日志、文件或状态对象。
+    - 保证运行过程可回溯、可排障、可复现。
+    """
     log_path = _get_component_cli_log_file(
         agent,
         run_id=run_id,
@@ -344,7 +593,21 @@ def _write_component_cli_test_log(
 
 
 def _default_value_from_schema_hint(hint: Any, key: str = "") -> Any:
-    """根据 input_format 中的类型提示生成默认值。"""
+    """
+    主要作用：根据 schema 提示构造默认测试值。
+
+    输入参数：
+    - hint (Any): 该参数用于承载 `hint` 相关的业务上下文或控制信息。
+    - key (str): 该参数用于承载 `key` 相关的业务上下文或控制信息。
+
+    返回值：
+    - Any：返回该方法的主要输出结果。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
     text = str(hint or "").lower()
 
     if "str" in text:
@@ -365,6 +628,21 @@ def _default_value_from_schema_hint(hint: Any, key: str = "") -> Any:
 
 
 def _build_default_input_payload(component: JsonWorkflowComponent) -> Dict[str, Any]:
+    """
+    主要作用：为组件自动构造默认输入载荷。
+
+    输入参数：
+    - component (JsonWorkflowComponent): 工作流组件实例，用于获取契约或执行组件逻辑。
+
+    返回值：
+    - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+    实现逻辑：
+    - 读取当前上下文中的关键字段。
+    - 按既定模板和业务规则拼装输入结构。
+    - 返回下游阶段可直接消费的提示词、映射或载荷。
+    """
+
     schema = component.input_format or {}
     if not isinstance(schema, dict):
         return {}
@@ -376,7 +654,21 @@ def _build_default_input_payload(component: JsonWorkflowComponent) -> Dict[str, 
 
 
 def run_component_cli(component: JsonWorkflowComponent, argv: Optional[List[str]] = None) -> int:
-    """运行组件 CLI：支持 JSON 字符串和命令行参数调试。"""
+    """
+    主要作用：为工作流组件提供统一 CLI 调试入口。
+
+    输入参数：
+    - component (JsonWorkflowComponent): 工作流组件实例，用于获取契约或执行组件逻辑。
+    - argv (Optional[List[str]]): 该参数用于承载 `argv` 相关的业务上下文或控制信息。
+
+    返回值：
+    - int：返回状态码、计数值或其他数值结果。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
     run_id = time.strftime("%Y%m%d_%H%M%S")
 
     parser = argparse.ArgumentParser(

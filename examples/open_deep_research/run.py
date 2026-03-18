@@ -119,7 +119,7 @@ def create_agent(model_id="o1"):
         max_steps=20,
         verbosity_level=2,
         planning_interval=4,
-        name="search_agent",
+        name="custom_search_agent",
         description="""A team member that will search the internet to answer your question.
     Ask him for all your questions that require browsing the web.
     Provide him as much context as possible, in particular if you need to search on a specific timeframe!

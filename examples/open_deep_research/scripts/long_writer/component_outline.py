@@ -55,6 +55,26 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
         candidate_keywords: List[str],
         final_retrieval_results: str,
     ) -> str:
+        """
+        主要作用：为大纲组件组装最终输入提示。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - task (str): 用户给出的原始写作任务，或经清洗后的任务描述。
+        - upgraded_concepts (List[Dict[str, Any]]): 融合扩展关键词后的升级概念集合。
+        - top_20_papers (List[Dict[str, str]]): 该参数用于承载 `top_20_papers` 相关的业务上下文或控制信息。
+        - candidate_keywords (List[str]): 从检索材料中提炼得到的候选关键词列表。
+        - final_retrieval_results (str): 该参数用于承载 `final_retrieval_results` 相关的业务上下文或控制信息。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取当前上下文中的关键字段。
+        - 按既定模板和业务规则拼装输入结构。
+        - 返回下游阶段可直接消费的提示词、映射或载荷。
+        """
+
         return agent._keyword_search_service.build_outline_generation_input(
             agent,
             task,
@@ -65,6 +85,23 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
         )
 
     def run(self, agent, payload: dict) -> dict:
+        """
+        主要作用：执行当前组件的主流程，处理输入并返回结构化输出。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - payload (dict): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - dict：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
+
         task = str(payload.get("task", "")).strip()
         upgraded_concepts = payload.get("upgraded_concepts", [])
         top_20_papers = payload.get("top_20_papers", [])
@@ -100,7 +137,23 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
         upgraded_concepts: List[Dict[str, Any]],
         retrieval_results: str,
     ) -> str:
-        """新版大纲多轮反思，基于概念组覆盖性校验。"""
+        """
+        主要作用：执行大纲反思与修订循环。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - outline (str): 待解析或待修订的大纲文本。
+        - upgraded_concepts (List[Dict[str, Any]]): 融合扩展关键词后的升级概念集合。
+        - retrieval_results (str): 该参数用于承载 `retrieval_results` 相关的业务上下文或控制信息。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
         current = outline
 
         for i in range(agent.outline_max_iter):
@@ -169,6 +222,21 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
 
 
 def main() -> int:
+    """
+    主要作用：执行 main 相关逻辑。
+
+    输入参数：
+    - 无：该方法不接收显式业务参数。
+
+    返回值：
+    - int：返回状态码、计数值或其他数值结果。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
+
     if len(sys.argv) <= 1:
         payload_json_text = r'''{
     "task": "大模型领域前沿进展",

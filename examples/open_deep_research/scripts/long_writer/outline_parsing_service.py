@@ -12,6 +12,22 @@ class OutlineParsingService:
 
     @staticmethod
     def parse_sections(agent, outline: str) -> List[Dict[str, str]]:
+        """
+        主要作用：把大纲文本解析为章节结构列表。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - outline (str): 待解析或待修订的大纲文本。
+
+        返回值：
+        - List[Dict[str, str]]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
+        """
+
         agent.logger.log("📑 解析大纲章节...", level=LogLevel.DEBUG)
         agent.logger.log(f"大纲内容（前500字）:\n{outline[:500]}...", level=LogLevel.DEBUG)
 
@@ -81,10 +97,40 @@ class OutlineParsingService:
 
     @staticmethod
     def mark_leaf_sections(sections: List[Dict[str, Any]]) -> None:
+        """
+        主要作用：为章节树中的叶子节点打标。
+
+        输入参数：
+        - sections (List[Dict[str, Any]]): 该参数用于承载 `sections` 相关的业务上下文或控制信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
+
         if not sections:
             return
 
         def normalize_number(raw: str) -> str:
+            """
+            主要作用：规范化章节编号，便于层级比较。
+
+            输入参数：
+            - raw (str): 未经规范化的原始输入，可为字典、列表、字符串或混合结构。
+
+            返回值：
+            - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+            实现逻辑：
+            - 扫描输入中的关键模式、字段或噪声片段。
+            - 完成清洗、规范化、回填或结构化整理。
+            - 返回更稳定、可复用的中间结果。
+            """
+
             return str(raw or "").strip().rstrip(".")
 
         for index, section in enumerate(sections):
@@ -116,6 +162,25 @@ class OutlineParsingService:
 
     @staticmethod
     def parse_and_add_section(agent, raw_content: str, sections: List, number: str = None, level: int = None):
+        """
+        主要作用：解析单段大纲文本并追加到章节列表。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - raw_content (str): 该参数用于承载 `raw_content` 相关的业务上下文或控制信息。
+        - sections (List): 该参数用于承载 `sections` 相关的业务上下文或控制信息。
+        - number (str): 该参数用于承载 `number` 相关的业务上下文或控制信息。
+        - level (int): 该参数用于承载 `level` 相关的业务上下文或控制信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
+        """
+
         metadata = {}
         word_count_target = 0
 
@@ -174,6 +239,21 @@ class OutlineParsingService:
 
     @staticmethod
     def extract_title_and_word_count(title: str) -> Tuple[str, int]:
+        """
+        主要作用：从标题中提取纯标题与目标字数。
+
+        输入参数：
+        - title (str): 标题线索，可指论文标题、章节标题或搜索提示中的文献标题。
+
+        返回值：
+        - Tuple[str, int]：返回多个并列结果，便于同时传递主结果与附加元数据。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
+        """
+
         if not title:
             return "", 0
 
@@ -188,6 +268,21 @@ class OutlineParsingService:
 
     @staticmethod
     def sanitize_outline_for_writing(outline: str) -> str:
+        """
+        主要作用：清洗大纲文本，去掉写作阶段不需要的噪声。
+
+        输入参数：
+        - outline (str): 待解析或待修订的大纲文本。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
+        """
+
         if not outline:
             return ""
 
@@ -206,6 +301,21 @@ class OutlineParsingService:
 
 
 def main() -> int:
+    """
+    主要作用：执行 main 相关逻辑。
+
+    输入参数：
+    - 无：该方法不接收显式业务参数。
+
+    返回值：
+    - int：返回状态码、计数值或其他数值结果。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
+
     parser = argparse.ArgumentParser(description="OutlineParsingService 调试入口")
     parser.add_argument("--list-methods", action="store_true", help="列出可调用静态方法")
     args = parser.parse_args()

@@ -11,12 +11,339 @@ try:
 except ImportError:
     from outline_parsing_service import OutlineParsingService
 
+try:
+    from ..citation_validator import format_allowed_citation_whitelist
+except ImportError:
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from citation_validator import format_allowed_citation_whitelist
+
 
 class SectionWritingService:
+
+    @staticmethod
+    def _build_canonical_citation_key(authors: str, year: str, fallback_title: str = "") -> str:
+        """
+        主要作用：构造章节写作服务使用的 canonical_key。
+
+        输入参数：
+        - authors (str): 作者列表的字符串表示，用于构造文内引用、canonical_key 或参考文献条目。
+        - year (str): 年份字符串，用于检索约束、canonical_key 构造和文内引用匹配。
+        - fallback_title (str): 当缺少作者和年份时用于降级构造键值的标题。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取当前上下文中的关键字段。
+        - 按既定模板和业务规则拼装输入结构。
+        - 返回下游阶段可直接消费的提示词、映射或载荷。
+        """
+
+        authors_text = str(authors or "").strip()
+        year_text = str(year or "").strip()
+        if authors_text and year_text:
+            return f"{authors_text} ({year_text})"
+        return str(fallback_title or "").strip()
+
+    @staticmethod
+    def _unwrap_payload(payload: dict) -> Dict[str, Any]:
+        """
+        主要作用：兼容组件输入的包装结构。
+
+        输入参数：
+        - payload (dict): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
+        if not isinstance(payload, dict):
+            return {}
+        inner = payload.get("input")
+        if isinstance(inner, dict):
+            return inner
+        return payload
+
+    @staticmethod
+    def _normalize_section(section: Any, default_title: str = "") -> Dict[str, Any]:
+        """
+        主要作用：规范化章节字段并补齐默认值。
+
+        输入参数：
+        - section (Any): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - default_title (str): 当章节缺少标题时使用的默认标题。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
+        """
+
+        section_dict = section if isinstance(section, dict) else {}
+        normalized = dict(section_dict)
+        if default_title and not str(normalized.get("title", "")).strip():
+            normalized["title"] = default_title
+        if "word_count_target" in normalized:
+            try:
+                normalized["word_count_target"] = int(normalized.get("word_count_target") or 0)
+            except Exception:
+                normalized["word_count_target"] = 0
+        else:
+            normalized["word_count_target"] = 0
+        return normalized
+
+    @staticmethod
+    def _normalize_available_citations(raw: Any) -> Dict[str, Dict[str, str]]:
+        """
+        主要作用：规范化组件输入中的引用字典。
+
+        输入参数：
+        - raw (Any): 未经规范化的原始输入，可为字典、列表、字符串或混合结构。
+
+        返回值：
+        - Dict[str, Dict[str, str]]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 扫描输入中的关键模式、字段或噪声片段。
+        - 完成清洗、规范化、回填或结构化整理。
+        - 返回更稳定、可复用的中间结果。
+        """
+        if isinstance(raw, dict):
+            normalized: Dict[str, Dict[str, str]] = {}
+            for k, v in raw.items():
+                info = dict(v) if isinstance(v, dict) else {"title": str(v)}
+                key = str(k or "").strip()
+                title = str(info.get("title") or key).strip()
+                if not title:
+                    continue
+                info["title"] = title
+                authors = str(info.get("authors", "")).strip()
+                year = str(info.get("year", "")).strip()
+                info.setdefault("canonical_key", SectionWritingService._build_canonical_citation_key(authors, year, title))
+                normalized[title] = info
+            return normalized
+
+        if isinstance(raw, list):
+            normalized = {}
+            for item in raw:
+                if not isinstance(item, dict):
+                    continue
+                apa = str(item.get("apa_citation", "")).strip()
+                authors = str(item.get("authors", "")).strip()
+                year = str(item.get("year", "")).strip()
+
+                title = str(item.get("title", "")).strip() or "Unknown Citation"
+                info = dict(item)
+                info["title"] = title
+                info.setdefault("canonical_key", SectionWritingService._build_canonical_citation_key(authors, year, title))
+                normalized[title] = info
+            return normalized
+
+        return {}
+
+    @staticmethod
+    def _build_section_payload(payload: dict, section_type: str) -> Dict[str, Any]:
+        """
+        主要作用：按章节类型整理出实际写作所需输入。
+
+        输入参数：
+        - payload (dict): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+        - section_type (str): 章节类型标识，如 body、introduction、conclusion、abstract 或 references。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 读取当前上下文中的关键字段。
+        - 按既定模板和业务规则拼装输入结构。
+        - 返回下游阶段可直接消费的提示词、映射或载荷。
+        """
+        raw = SectionWritingService._unwrap_payload(payload)
+        section_defaults = {
+            "body": "正文",
+            "introduction": "引言",
+            "conclusion": "结论",
+            "abstract": "摘要",
+        }
+        section = SectionWritingService._normalize_section(raw.get("section", {}), section_defaults.get(section_type, ""))
+        available_citations = SectionWritingService._normalize_available_citations(raw.get("available_citations"))
+
+        normalized: Dict[str, Any] = {
+            "section": section,
+            "task": str(raw.get("task", "") or ""),
+            "available_citations": available_citations,
+        }
+
+        if section_type == "body":
+            normalized["fine_rag_context"] = str(raw.get("fine_rag_context", "") or "")
+            normalized["prev_section_content"] = str(raw.get("prev_section_content", "") or "")
+        elif section_type == "introduction":
+            normalized["prev_section_content"] = str(raw.get("prev_section_content", "") or "")
+            normalized["fine_rag_context"] = str(raw.get("fine_rag_context", "") or "")
+            normalized["full_text"] = str(raw.get("full_text", "") or "")
+        elif section_type == "conclusion":
+            normalized["full_text"] = str(raw.get("full_text", "") or "")
+        elif section_type == "abstract":
+            normalized["conclusion_text"] = str(raw.get("conclusion_text", "") or "")
+            normalized["full_text"] = str(raw.get("full_text", "") or "")
+
+        return normalized
+
+    @staticmethod
+    def write_intro_content_with_json(agent, payload: dict) -> str:
+        """
+        主要作用：通过 JSON 载荷生成引言章节内容。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - payload (dict): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
+
+        import json
+        normalized_payload = SectionWritingService._build_section_payload(payload, "introduction")
+        section = normalized_payload.get("section", {})
+        word_count_target = int(section.get("word_count_target", 0) or 0)
+        prompt = (
+            f"输入JSON：\n{json.dumps(normalized_payload, ensure_ascii=False, indent=2)}"
+        )
+        available_citations = normalized_payload.get("available_citations")
+        try:
+            content = agent.execute_tool_call("introduction_write", {"input": prompt})
+        except Exception as e:
+            agent.logger.log(f"⚠️ 直接json引言写作失败: {e}", level=LogLevel.ERROR)
+            raise
+        return str(SectionWritingService.introduction_reflection_loop(agent, content, section, word_count_target, available_citations))
+
+    @staticmethod
+    def write_conclusion_content_with_json(agent, payload: dict) -> str:
+        """
+        主要作用：通过 JSON 载荷生成结论章节内容。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - payload (dict): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
+
+        import json
+        normalized_payload = SectionWritingService._build_section_payload(payload, "conclusion")
+        prompt = (
+            f"输入JSON：\n{json.dumps(normalized_payload, ensure_ascii=False, indent=2)}"
+        )
+        try:
+            content = agent.execute_tool_call("conclusion_write", {"input": prompt})
+        except Exception as e:
+            agent.logger.log(f"⚠️ 直接json结论写作失败: {e}", level=LogLevel.ERROR)
+            raise
+        return str(content)
+
+    @staticmethod
+    def write_abstract_content_with_json(agent, payload: dict) -> str:
+        """
+        主要作用：通过 JSON 载荷生成摘要章节内容。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - payload (dict): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
+
+        import json
+        normalized_payload = SectionWritingService._build_section_payload(payload, "abstract")
+        prompt = (
+            f"输入JSON：\n{json.dumps(normalized_payload, ensure_ascii=False, indent=2)}"
+        )
+        try:
+            content = agent.execute_tool_call("abstract_write", {"input": prompt})
+        except Exception as e:
+            agent.logger.log(f"⚠️ 直接json摘要写作失败: {e}", level=LogLevel.ERROR)
+            raise
+        return str(content)
+
+    @staticmethod
+    def write_body_content_with_json(agent, payload: dict) -> str:
+        """
+        主要作用：通过 JSON 载荷生成正文章节内容。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - payload (dict): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
+        import json
+        normalized_payload = SectionWritingService._build_section_payload(payload, "body")
+        section = normalized_payload.get("section", {})
+        word_count_target = int(section.get("word_count_target", 0) or 0)
+        # 直接将payload序列化为json字符串作为prompt
+        prompt = (
+            f"输入JSON：\n{json.dumps(normalized_payload, ensure_ascii=False, indent=2)}"
+        )
+        available_citations = normalized_payload.get("available_citations")
+        try:
+            content = agent.execute_tool_call("section_write", {"input": prompt})
+        except Exception as e:
+            agent.logger.log(f"⚠️ 直接json写作失败: {e}", level=LogLevel.ERROR)
+            raise
+        return str(SectionWritingService.section_reflection_loop(agent, content, section, word_count_target, available_citations))
+
     """章节写作服务：细粒度检索、输入构造、正文与摘要写作、反思。"""
 
     @staticmethod
     def run_fine_rag_web_search(agent, section_title: str, search_query: str) -> str:
+        """
+        主要作用：执行细粒度网页检索。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - section_title (str): 章节标题，用于检索、日志记录和输出文件定位。
+        - search_query (str): 针对某个章节生成的细粒度检索查询。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 根据输入条件构造检索查询或搜索策略。
+        - 调用外部搜索源、网页代理或内部服务获取候选结果。
+        - 对结果做清洗、去重和结构化整理后返回。
+        """
+
         try:
             agent.logger.log("🔎 调用DuckDuckGo搜索", level=LogLevel.DEBUG)
             result = agent.execute_tool_call(agent.search_tool_name, {"query": search_query})
@@ -51,9 +378,7 @@ class SectionWritingService:
                 return agent._trim_text(result, agent.max_fine_rag_chars)
         except Exception as e:
             agent.logger.log(f"  ⚠️ web_search调用失败: {e}", level=LogLevel.DEBUG)
-
-        agent.logger.log(f"⚠️ web_search不可用，章节【{section_title}】将基于已有上下文生成", level=LogLevel.INFO)
-        return ""
+            raise
 
     @staticmethod
     def build_section_input(
@@ -63,6 +388,25 @@ class SectionWritingService:
         fine_rag_context: str = "",
         available_citations: Dict[str, Dict[str, str]] = None,
     ) -> str:
+        """
+        主要作用：构建正文章节写作输入提示词。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - section_type (str): 章节类型标识，如 body、introduction、conclusion、abstract 或 references。
+        - fine_rag_context (str): 面向单个章节的细粒度检索上下文。
+        - available_citations (Dict[str, Dict[str, str]]): 按文献标题索引的可用引用字典，值中包含 authors、year、title、canonical_key 和 inline_citation 等元数据。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取当前上下文中的关键字段。
+        - 按既定模板和业务规则拼装输入结构。
+        - 返回下游阶段可直接消费的提示词、映射或载荷。
+        """
+
         task_text = agent._trim_text(agent._clean_task_description(), 600)
         outline_text = agent._trim_text(
             OutlineParsingService.sanitize_outline_for_writing(agent._current_outline),
@@ -84,7 +428,7 @@ class SectionWritingService:
         available_cites_text = ""
         if available_citations:
             available_cites_text = "\n\n【严格引用白名单】\n"
-            available_cites_text += agent._citation_flow_service.format_allowed_citation_whitelist(agent, available_citations) + "\n"
+            available_cites_text += format_allowed_citation_whitelist(available_citations) + "\n"
             available_cites_text += (
                 "强约束：\n"
                 "- 只能使用以上白名单中的括号式引用；\n"
@@ -144,6 +488,23 @@ class SectionWritingService:
 
     @staticmethod
     def build_abstract_input(agent, section: Dict[str, str], conclusion_text: str) -> str:
+        """
+        主要作用：构建摘要写作输入提示词。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - conclusion_text (str): 结论章节正文，通常作为摘要生成的输入材料。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取当前上下文中的关键字段。
+        - 按既定模板和业务规则拼装输入结构。
+        - 返回下游阶段可直接消费的提示词、映射或载荷。
+        """
+
         task_text = agent._trim_text(agent._clean_task_description(), 600)
         outline_text = agent._trim_text(
             OutlineParsingService.sanitize_outline_for_writing(agent._current_outline),
@@ -177,16 +538,50 @@ class SectionWritingService:
 
     @staticmethod
     def write_abstract_section(agent, section: Dict[str, str], conclusion_text: str) -> str:
+        """
+        主要作用：直接调用摘要技能生成摘要文本。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - conclusion_text (str): 结论章节正文，通常作为摘要生成的输入材料。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
+
         try:
             abstract_input = SectionWritingService.build_abstract_input(agent, section, conclusion_text)
             content = agent.execute_tool_call("abstract_write", {"input": abstract_input})
             return str(content)
         except Exception as e:
             agent.logger.log(f"⚠️ 摘要生成失败: {e}", level=LogLevel.ERROR)
-            return ""
+            raise
 
     @staticmethod
     def build_skeleton_planning_input(agent, section: Dict[str, str], fact_list: str) -> str:
+        """
+        主要作用：构建章节骨架规划提示词。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - fact_list (str): 结构化或半结构化的事实材料列表文本。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取当前上下文中的关键字段。
+        - 按既定模板和业务规则拼装输入结构。
+        - 返回下游阶段可直接消费的提示词、映射或载荷。
+        """
+
         outline_text = agent._trim_text(
             OutlineParsingService.sanitize_outline_for_writing(agent._current_outline),
             500,
@@ -206,6 +601,25 @@ class SectionWritingService:
 
     @staticmethod
     def build_composition_input(agent, section: Dict[str, str], fact_list: str, skeleton: str, word_count_target: int = 0) -> str:
+        """
+        主要作用：构建章节成稿提示词。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - fact_list (str): 结构化或半结构化的事实材料列表文本。
+        - skeleton (str): 章节骨架计划或提纲式草稿。
+        - word_count_target (int): 章节目标字数，用于控制生成长度。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取当前上下文中的关键字段。
+        - 按既定模板和业务规则拼装输入结构。
+        - 返回下游阶段可直接消费的提示词、映射或载荷。
+        """
+
         word_count_hint = ""
         if word_count_target > 0:
             word_count_tolerance = int(word_count_target * 0.2)
@@ -220,7 +634,7 @@ class SectionWritingService:
         if isinstance(available_citations, dict) and available_citations:
             citation_hint = (
                 "\n\n【严格引用白名单】\n"
-                f"{agent._citation_flow_service.format_allowed_citation_whitelist(agent, available_citations)}\n"
+                f"{format_allowed_citation_whitelist(available_citations)}\n"
                 "只能使用以上括号式引用；不要使用任何白名单之外的作者与年份。"
             )
         elif agent.strict_citation_flow:
@@ -247,6 +661,24 @@ class SectionWritingService:
         fine_rag_context: str,
         available_citations: Dict[str, Dict[str, str]],
     ) -> str:
+        """
+        主要作用：执行正文章节的骨架规划与成稿。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - section (Dict[str, Any]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - fine_rag_context (str): 面向单个章节的细粒度检索上下文。
+        - available_citations (Dict[str, Dict[str, str]]): 按文献标题索引的可用引用字典，值中包含 authors、year、title、canonical_key 和 inline_citation 等元数据。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
+
         word_count_target = int(section.get("word_count_target", 0) or 0)
 
         skeleton_input = SectionWritingService.build_skeleton_planning_input(agent, section, fine_rag_context)
@@ -254,10 +686,8 @@ class SectionWritingService:
             skeleton = agent.execute_tool_call("section_skeleton_planning", {"input": skeleton_input})
             agent.logger.log("✅ 骨架规划完成", level=LogLevel.DEBUG)
         except Exception as e:
-            agent.logger.log(f"⚠️ 骨架规划失败: {e}，降级使用原始 section_write", level=LogLevel.INFO)
-            body_input = SectionWritingService.build_section_input(agent, section, "body", fine_rag_context, available_citations)
-            content = agent.execute_tool_call("section_write", {"input": body_input})
-            return str(SectionWritingService.section_reflection_loop(agent, content, section, word_count_target))
+            agent.logger.log(f"⚠️ 骨架规划失败: {e}", level=LogLevel.ERROR)
+            raise
 
         section_with_citations = dict(section)
         section_with_citations["_available_citations"] = available_citations
@@ -272,173 +702,144 @@ class SectionWritingService:
             content = agent.execute_tool_call("section_composition_styling", {"input": composition_input})
             agent.logger.log("✅ 文本组装完成", level=LogLevel.DEBUG)
         except Exception as e:
-            agent.logger.log(f"⚠️ 文本组装失败: {e}，降级为骨架展开", level=LogLevel.INFO)
-            content = skeleton
+            agent.logger.log(f"⚠️ 文本组装失败: {e}", level=LogLevel.ERROR)
+            raise
 
-        return str(SectionWritingService.section_reflection_loop(agent, content, section, word_count_target))
+        return str(SectionWritingService.section_reflection_loop(agent, content, section, word_count_target, available_citations))
 
     @staticmethod
-    def section_reflection_loop(agent, text: str, section: Dict[str, str], word_count_target: int = 0) -> str:
+    def section_reflection_loop(
+        agent,
+        text: str,
+        section: Dict[str, str],
+        word_count_target: int = 0,
+        available_citations: Dict = None,
+    ) -> str:
+        """
+        主要作用：执行正文章节的反思—修订循环。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - text (str): 待解析、清洗或重写的原始文本内容。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - word_count_target (int): 章节目标字数，用于控制生成长度。
+        - available_citations (Dict): 按文献标题索引的可用引用字典，值中包含 authors、year、title、canonical_key 和 inline_citation 等元数据。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
         current = text
-        current_words = len(current)
         section_title = section.get("title", "未命名章节")
         goal = section.get("goal", "")
 
         try:
-            if word_count_target > 0:
-                word_count_tolerance = int(word_count_target * 0.2)
-                min_words = word_count_target - word_count_tolerance
-                max_words = word_count_target + word_count_tolerance
-
-                agent.logger.log(
-                    f"  📏 字数检查: {current_words}字 (目标: {word_count_target}±{word_count_tolerance}字)",
-                    level=LogLevel.DEBUG,
-                )
-
-                if current_words < min_words or current_words > max_words:
-                    agent.logger.log("  ⚠️ 字数不达标，先调整字数...", level=LogLevel.INFO)
-
-                    word_adjust_prompt = f"""【内容】
-{current}
-
-【字数调整要求】
-当前字数: {current_words}字
-目标字数: {word_count_target}字（允许范围: {min_words}-{max_words}字）
-
-【任务】
-"""
-                    if current_words < min_words:
-                        word_adjust_prompt += f"""当前字数不足，需要扩充内容：
-1. 补充更多论证和例子
-2. 展开关键论点的细节
-3. 增加过渡和解释性文字
-4. 确保内容达到 {min_words}-{max_words} 字范围"""
-                    else:
-                        word_adjust_prompt += f"""当前字数超标，需要精简内容：
-1. 删除冗余表述和重复内容
-2. 合并相似论点
-3. 保留核心观点和关键证据
-4. 确保内容在 {min_words}-{max_words} 字范围"""
-
-                    word_adjust_prompt += """
-
-【输出要求】
-直接输出调整后的完整段落，不要有任何标记或说明，只输出最终文本。"""
-
-                    current = str(agent.execute_tool_call("section_revision", {"input": word_adjust_prompt}))
-
-                    adjusted_words = len(current)
-                    agent.logger.log(f"  📝 字数调整完成: {current_words}字 → {adjusted_words}字", level=LogLevel.INFO)
-
-                    agent._log_revision_to_file(f"字数调整 - {goal[:30]}...", current)
-
-                    if adjusted_words < min_words or adjusted_words > max_words:
-                        agent.logger.log(f"  ⚠️ 字数仍未达标: {adjusted_words}字", level=LogLevel.INFO)
-                    else:
-                        agent.logger.log("  ✅ 字数已达标", level=LogLevel.DEBUG)
-
-                    current_words = adjusted_words
-                else:
-                    agent.logger.log("  ✅ 字数合格", level=LogLevel.DEBUG)
-
+            # 1. 反思：调用 evidence_reflection skill，由大模型判断质量
             agent.logger.log("  🔍 证据反思...", level=LogLevel.DEBUG)
-
-            clean_goal = goal.split("|")[0].strip() if "|" in goal else goal
-            clean_goal = re.sub(r"[：:].*$", "", clean_goal).strip()
-
             reflection_input = (
-                f"章节标题\n\n{section_title}\n\n"
-                f"章节目标\n\n{clean_goal}\n\n"
-                f"内容\n\n{current}"
+                f"章节标题：{section_title}\n"
+                f"章节目标：{goal}\n\n"
+                f"内容：\n{current}"
             )
-
             report = str(agent.execute_tool_call("evidence_reflection", {"input": reflection_input}))
-            data = agent._parse_json(report)
-            score = data.get("score", 0)
-            evidence_satisfied = data.get("is_pass", False) or (score > 80)
+            agent._log_reflection_to_file(f"证据反思 - {goal[:30]}", 0, report)
 
-            agent._log_reflection_to_file(f"证据反思 - {goal[:30]}...", score, report)
-
-            if evidence_satisfied and score >= agent.section_score_threshold:
-                agent.logger.log(f"  ✅ 得分 {score}，证据充分", level=LogLevel.DEBUG)
-                return current
-
-            agent.logger.log(f"  ⚠️ 得分 {score}，证据不足，进行修订...", level=LogLevel.INFO)
-
-            evidence_revision_prompt = f"""【章节标题】
-{section_title}
-
-【内容】
-{current}
-
-【评审报告】
-{report}
-
-【修改要求】
-1. 根据评审报告补充证据，增强论证的说服力
-2. 保持当前的内容长度（{current_words}字左右）
-3. 不要使用修改标记，直接输出最终文本
-
-请输出修改后的完整段落。"""
-
-            current = str(agent.execute_tool_call("section_revision", {"input": evidence_revision_prompt}))
-
-            final_words = len(current)
-            agent.logger.log(f"  ✅ 证据修订完成: {final_words}字", level=LogLevel.DEBUG)
-            agent._log_revision_to_file(f"证据修订 - {goal[:30]}...", current)
+            # 2. 修订：将原文 + 反思报告交给 section_revision skill，由大模型直接输出修订稿
+            revision_prompt = (
+                f"章节标题：{section_title}\n\n"
+                f"原始内容：\n{current}\n\n"
+                f"反思报告：\n{report}\n\n"
+                "请根据反思报告修订内容，直接输出修订后的完整段落，不要输出任何解释。"
+            )
+            current = str(agent.execute_tool_call("section_revision", {"input": revision_prompt}))
+            agent._log_revision_to_file(f"段落修订 - {goal[:30]}", current)
+            agent.logger.log("  ✅ 段落修订完成", level=LogLevel.DEBUG)
 
         except Exception as e:
-            agent.logger.log(f"  ⚠️ 反思出错: {e}", level=LogLevel.INFO)
+            agent.logger.log(f"  ⚠️ 反思出错: {e}", level=LogLevel.ERROR)
+            raise
 
         return current
 
     @staticmethod
-    def introduction_reflection_loop(agent, text: str, section: Dict[str, str], word_count_target: int = 0) -> str:
-        """引言专用后处理：仅做字数对齐，不调用证据反思机制。"""
+    def introduction_reflection_loop(
+        agent,
+        text: str,
+        section: Dict[str, str],
+        word_count_target: int = 0,
+        available_citations: Dict = None,
+    ) -> str:
+        """
+        主要作用：执行引言章节的反思—修订循环。
+
+        输入参数：
+        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
+        - text (str): 待解析、清洗或重写的原始文本内容。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+        - word_count_target (int): 章节目标字数，用于控制生成长度。
+        - available_citations (Dict): 按文献标题索引的可用引用字典，值中包含 authors、year、title、canonical_key 和 inline_citation 等元数据。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 读取方法所需输入并做必要预处理。
+        - 执行该方法对应的核心业务逻辑。
+        - 返回结果或通过副作用更新状态、日志和文件。
+        """
         current = text
-        current_words = len(current)
         section_title = section.get("title", "引言")
         goal = section.get("goal", "")
 
         try:
-            if word_count_target > 0:
-                tolerance = int(word_count_target * 0.2)
-                min_words = word_count_target - tolerance
-                max_words = word_count_target + tolerance
+            # 1. 反思：调用 evidence_reflection skill
+            agent.logger.log("  🔍 引言反思...", level=LogLevel.DEBUG)
+            reflection_input = (
+                f"章节标题：{section_title}\n"
+                f"章节目标：{goal}\n\n"
+                f"内容：\n{current}"
+            )
+            report = str(agent.execute_tool_call("evidence_reflection", {"input": reflection_input}))
+            agent._log_reflection_to_file(f"引言反思 - {goal[:30]}", 0, report)
 
-                agent.logger.log(
-                    f"  📏 引言字数检查: {current_words}字 (目标: {word_count_target}±{tolerance}字)",
-                    level=LogLevel.DEBUG,
-                )
-
-                if current_words < min_words or current_words > max_words:
-                    adjust_prompt = f"""【章节类型】
-引言
-
-【当前内容】
-{current}
-
-【字数要求】
-目标字数: {word_count_target}字
-允许范围: {min_words}-{max_words}字
-
-【任务】
-请在不改变核心论点的前提下调整引言长度，使其落入目标范围。
-直接输出调整后的完整引言，不要输出解释说明。"""
-
-                    current = str(agent.execute_tool_call("section_revision", {"input": adjust_prompt}))
-                    current_words = len(current)
-                    agent._log_revision_to_file(f"引言字数调整 - {goal[:30]}...", current)
-
-            agent.logger.log("  ℹ️ 引言已跳过证据反思，仅执行字数对齐", level=LogLevel.DEBUG)
+            # 2. 修订：将原文 + 反思报告交给 section_revision skill
+            revision_prompt = (
+                f"章节标题：{section_title}\n\n"
+                f"原始内容：\n{current}\n\n"
+                f"反思报告：\n{report}\n\n"
+                "请根据反思报告修订引言，直接输出修订后的完整引言，不要输出任何解释。"
+            )
+            current = str(agent.execute_tool_call("section_revision", {"input": revision_prompt}))
+            agent._log_revision_to_file(f"引言修订 - {goal[:30]}", current)
+            agent.logger.log("  ✅ 引言修订完成", level=LogLevel.DEBUG)
 
         except Exception as e:
-            agent.logger.log(f"  ⚠️ 引言反思出错: {e}", level=LogLevel.INFO)
+            agent.logger.log(f"  ⚠️ 引言反思出错: {e}", level=LogLevel.ERROR)
+            raise
 
         return current
 
 
 def main() -> int:
+    """
+    主要作用：执行 main 相关逻辑。
+
+    输入参数：
+    - 无：该方法不接收显式业务参数。
+
+    返回值：
+    - int：返回状态码、计数值或其他数值结果。
+
+    实现逻辑：
+    - 读取方法所需输入并做必要预处理。
+    - 执行该方法对应的核心业务逻辑。
+    - 返回结果或通过副作用更新状态、日志和文件。
+    """
+
     parser = argparse.ArgumentParser(description="SectionWritingService 调试入口")
     parser.add_argument("--list-methods", action="store_true", help="列出可调用静态方法")
     args = parser.parse_args()

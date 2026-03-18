@@ -36,9 +36,18 @@ from smolagents.monitoring import LogLevel
 
 # 导入引用验证系统
 try:
-    from .citation_validator import CitationValidator
+    from .citation_validator import (
+        CitationValidator,
+        build_canonical_citation_key,
+        build_available_citation_maps,
+        collect_citations_from_text,
+        enqueue_unverified_citation,
+        extract_citations_from_rag,
+        format_allowed_citation_whitelist,
+        resolve_allowed_citation_key,
+        scan_citations_in_text,
+    )
     from .long_writer import (
-        CitationFlowService,
         JsonWorkflowComponent,
         KeywordSearchPlanningService,
         OutlineParsingService,
@@ -48,9 +57,18 @@ try:
     )
 except ImportError:
     # 兼容直接脚本运行场景
-    from citation_validator import CitationValidator
+    from citation_validator import (
+        CitationValidator,
+        build_canonical_citation_key,
+        build_available_citation_maps,
+        collect_citations_from_text,
+        enqueue_unverified_citation,
+        extract_citations_from_rag,
+        format_allowed_citation_whitelist,
+        resolve_allowed_citation_key,
+        scan_citations_in_text,
+    )
     from long_writer import (
-        CitationFlowService,
         JsonWorkflowComponent,
         KeywordSearchPlanningService,
         OutlineParsingService,
@@ -86,6 +104,24 @@ class LongWriterAgent(CustomAgent):
     STATE_SECTIONS = "sections"
 
     def __init__(self, model, tools: Optional[List] = None, **kwargs):
+        """
+        主要作用：初始化长文写作代理或引用验证器所需的运行状态、配置、缓存和外部依赖。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - model: 底层语言模型实例，用于执行规划、写作、反思或引用一致性判断。
+        - tools (Optional[List]): 代理可调用的工具列表，会在初始化时注册到工作流执行环境。
+        - **kwargs: 额外初始化配置，会透传给父类代理或底层构造流程。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 读取初始化参数并补齐默认配置项。
+        - 创建运行期状态、缓存、服务对象和输出路径。
+        - 为后续规划、写作、检索、验证和收尾阶段建立稳定执行环境。
+        """
+
         super().__init__(model=model, tools=tools or [], **kwargs)
         
         # 流程状态
@@ -97,6 +133,7 @@ class LongWriterAgent(CustomAgent):
         self._previous_section_content = ""
         self._prev_body_or_intro_content = ""  # 实时维护前一段正文或引言内容
         self._global_summary = ""
+        self._full_text_body = ""  # 实时维护引言+正文+结论全文文本（供结论/摘要使用）
         
         # 文献管理
         self._citations: Dict[str, Dict[str, Any]] = {}
@@ -106,7 +143,7 @@ class LongWriterAgent(CustomAgent):
         self._citation_validator = CitationValidator(model=model)
         self._unverified_citations: List[Tuple[str, str, str, str]] = []  # (author, year, title, claim)
         self._queued_citation_keys: Set[str] = set()
-        self.enable_citation_validation = False  # 默认禁用（API调用较多）
+        self.enable_citation_validation = True  # 默认启用
         self.citation_validation_timeout = 5  # API超时时间
         # 是否允许“仅从正文文本”新增引用（默认关闭，避免虚构引用污染参考文献库）
         self.allow_add_citation_from_generated_text = False
@@ -147,46 +184,166 @@ class LongWriterAgent(CustomAgent):
         self.enable_fine_rag_web_search = True  # 是否启用细粒度RAG的web检索
         # 可用模式: 'web_agent' (调用改进版检索代理), 'web_search' (DuckDuckGo搜索), 'disabled' (禁用)
         self.fine_rag_mode = 'web_agent'
-        self.text_webbrowser_agent_name = "search_agent"  # text_webbrowser_agent 的名称
+        self.text_webbrowser_agent_name = "custom_search_agent"  # text_webbrowser_agent 的名称
         self.tagged_search_top_k = 8
         self._tagged_retrieval_records: List[Dict[str, Any]] = []
-        self._citation_flow_service = CitationFlowService()
         self._keyword_search_service = KeywordSearchPlanningService()
         self._outline_parsing_service = OutlineParsingService()
         self._section_writing_service = SectionWritingService()
         self._tagged_search_service = TaggedSearchService()
         self._workflow_components = self._build_workflow_components()
         self.state["workflow_component_contracts"] = self.get_workflow_component_contracts()
+        
+        # 缓存所有skill的完整提示词（用于日志记录）
+        self._skill_prompts: Dict[str, str] = {}
+        self._cache_skill_prompts()
     
     def set_text_webbrowser_agent_name(self, agent_name: str):
-        """设置text_webbrowser_agent的名称（用于调用managed agent）
-        
-        Args:
-            agent_name: managed agent 的名称，默认为 "search_agent"
+        """
+        主要作用：设置文本网页浏览代理名称，便于后续统一调度网页检索代理。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - agent_name (str): 该参数用于承载 `agent_name` 相关的业务上下文或控制信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
         """
         self.text_webbrowser_agent_name = agent_name
         self.logger.log(f"✅ text_webbrowser_agent 已配置: {agent_name}", level=LogLevel.INFO)
 
+    def _cache_skill_prompts(self) -> None:
+        """
+        主要作用：预加载并缓存技能提示词，减少重复文件读取。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
+        from pathlib import Path
+        
+        # 从skills目录加载所有skill的提示词
+        # long_writer_agent_v3.py 在 scripts 目录，skills 在上级目录 open_deep_research
+        skills_dir = Path(__file__).parent.parent / "skills"
+        if not skills_dir.exists():
+            self.logger.log(f"⚠️ Skills目录不存在: {skills_dir}", level=LogLevel.WARNING)
+            return
+        
+        count = 0
+        for skill_dir in skills_dir.iterdir():
+            if not skill_dir.is_dir():
+                continue
+            
+            skill_md = skill_dir / "SKILL.md"
+            if skill_md.exists():
+                try:
+                    content = skill_md.read_text(encoding="utf-8")
+                    # 提取frontmatter之后的部分（实际提示词）
+                    lines = content.splitlines()
+                    if lines and lines[0].strip() == "---":
+                        # 找到结束的---
+                        end_idx = None
+                        for i in range(1, len(lines)):
+                            if lines[i].strip() == "---":
+                                end_idx = i
+                                break
+                        if end_idx is not None:
+                            # 获取frontmatter之后的内容
+                            prompt_body = "\n".join(lines[end_idx + 1:]).lstrip()
+                            skill_name = skill_dir.name
+                            self._skill_prompts[skill_name] = prompt_body
+                            count += 1
+                except Exception as e:
+                    pass  # 忽略解析失败的skill
+        
+        self.logger.log(f"✅ 已缓存 {count} 个skill的提示词", level=LogLevel.DEBUG)
+
     def _build_workflow_components(self) -> Dict[str, JsonWorkflowComponent]:
-        """构建工作流组件注册表。"""
+        """
+        主要作用：构建工作流组件注册表。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - Dict[str, JsonWorkflowComponent]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 读取当前阶段最关键的上下文字段（任务、章节、材料、引用）。
+        - 按工作流约定拼装提示词或结构化载荷。
+        - 返回可直接交给下游组件执行的输入对象。
+        """
         return build_workflow_components()
 
     def _invoke_workflow_component(self, component_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """调用指定工作流组件，输入/输出均为 dict。"""
+        """
+        主要作用：调用指定工作流组件并返回结构化结果。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - component_name (str): 工作流组件名称。
+        - payload (Dict[str, Any]): 组件输入字典，通常包含任务、章节信息、检索材料、引用元数据或其他工作流中间结果。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         component = self._workflow_components.get(component_name)
         if component is None:
             raise ValueError(f"Unknown workflow component: {component_name}")
         return component.run(self, payload)
 
     def get_workflow_component_contracts(self) -> Dict[str, Dict[str, Any]]:
-        """返回所有组件的输入/输出格式说明。"""
+        """
+        主要作用：收集全部组件的输入输出契约。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - Dict[str, Dict[str, Any]]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         return {
             name: component.contract()
             for name, component in self._workflow_components.items()
         }
     
     def _ensure_output_dir(self):
-        """确保输出目录存在"""
+        """
+        主要作用：确保输出目录与相关日志文件路径存在。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         import os
         os.makedirs(self._output_dir, exist_ok=True)
         # 初始化输出文件
@@ -218,14 +375,26 @@ class LongWriterAgent(CustomAgent):
         section_number: str = "",
         section_level: Optional[int] = None,
     ):
-        """将段落内容追加到输出文件
-        
-        Args:
-            section_title: 段落标题
-            content: 段落内容
-            section_index: 当前段落序号 (1-based)
-            total_sections: 总段落数
-            section_type: 段落类型 ("body", "references", "introduction", "conclusion")
+        """
+        主要作用：将单个章节内容追加写入主输出文件。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section_title (str): 章节标题，用于检索、日志记录和输出文件定位。
+        - content (str): 正文、章节或日志等具体文本主体。
+        - section_index (int): 该参数用于承载 `section_index` 相关的业务上下文或控制信息。
+        - total_sections (int): 该参数用于承载 `total_sections` 相关的业务上下文或控制信息。
+        - section_type (str): 章节类型标识，如 body、introduction、conclusion、abstract 或 references。
+        - section_number (str): 章节编号。
+        - section_level (Optional[int]): 章节层级。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
         """
         try:
             with open(self._output_file, 'a', encoding='utf-8') as f:
@@ -251,13 +420,21 @@ class LongWriterAgent(CustomAgent):
             self.logger.log(f"⚠️ 保存段落失败: {e}", level=LogLevel.ERROR)
 
     def _get_heading_prefix(self, section_number: str = "", section_level: Optional[int] = None) -> str:
-        """根据章节编号返回 Markdown 标题层级。
+        """
+        主要作用：根据章节编号和层级生成 Markdown 标题前缀。
 
-        约定：
-        - 一级（如 2） -> ##
-        - 二级（如 2.1） -> ###
-        - 三级及更深（如 2.1.1） -> ####
-        - 无编号 -> ##（兜底）
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section_number (str): 章节编号。
+        - section_level (Optional[int]): 章节层级。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
         """
         if not section_number:
             if section_level is not None:
@@ -286,7 +463,20 @@ class LongWriterAgent(CustomAgent):
         return "####"
     
     def _save_outline_to_file(self):
-        """将大纲写入文件开头，格式已在解析时清理"""
+        """
+        主要作用：将当前大纲写入输出文件。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         try:
             # 读取现有内容
             with open(self._output_file, 'r', encoding='utf-8') as f:
@@ -313,7 +503,23 @@ class LongWriterAgent(CustomAgent):
     
 
     def _log_reflection_to_file(self, stage: str, score: int, report: str):
-        """将反思评审结果写入日志文件"""
+        """
+        主要作用：把反思阶段的评分与报告写入日志。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - stage (str): 当前流程阶段或日志事件名称。
+        - score (int): 评估或反思阶段返回的数值分数。
+        - report (str): 模型生成的反思报告、评估报告或日志说明文本。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         try:
             import time
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -329,7 +535,22 @@ class LongWriterAgent(CustomAgent):
             self.logger.log(f"⚠️ 写入反思日志失败: {e}", level=LogLevel.ERROR)
     
     def _log_revision_to_file(self, stage: str, content: str):
-        """将修订后的内容写入日志文件"""
+        """
+        主要作用：把修订后的内容写入日志文件。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - stage (str): 当前流程阶段或日志事件名称。
+        - content (str): 正文、章节或日志等具体文本主体。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         try:
             import time
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -347,13 +568,20 @@ class LongWriterAgent(CustomAgent):
 
     
     def _filter_references_from_content(self, content: str) -> str:
-        """从正文内容中过滤掉参考文献部分
-        
-        Args:
-            content: 原始内容
-            
-        Returns:
-            过滤后的内容（不包含参考文献）
+        """
+        主要作用：从正文中剔除误生成的参考文献段落。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - content (str): 正文、章节或日志等具体文本主体。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 扫描文本中的章节结构、引用模式或候选字段。
+        - 按学术写作约束执行清洗、规范化与必要回填。
+        - 生成可直接进入后续写作/验证/汇总流程的中间结果。
         """
         import re
         
@@ -380,17 +608,19 @@ class LongWriterAgent(CustomAgent):
         return filtered_content.strip()
 
     def _clean_task_description(self) -> str:
-        """清理任务描述，移除框架自动添加的系统提示
-        
-        框架会在 self.task 中自动添加类似以下的内容：
-        - "You're a helpful agent named..."
-        - "Your final_answer WILL HAVE to contain these parts..."
-        - "### 1. Task outcome (short version):"
-        
-        此方法提取纯净的用户任务描述。
-        
-        Returns:
-            清理后的任务描述
+        """
+        主要作用：清洗任务描述，去掉噪声并保留核心写作目标。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 扫描文本中的章节结构、引用模式或候选字段。
+        - 按学术写作约束执行清洗、规范化与必要回填。
+        - 生成可直接进入后续写作/验证/汇总流程的中间结果。
         """
         task = self.task
         
@@ -412,7 +642,22 @@ class LongWriterAgent(CustomAgent):
         return task
 
     def _preview_for_log(self, value: Any, max_len: Optional[int] = None) -> str:
-        """将任意对象转换为可读、可截断的日志预览文本。"""
+        """
+        主要作用：生成适合日志展示的截断预览。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - value (Any): 待格式化或待输出的任意值。
+        - max_len (Optional[int]): 该参数用于承载 `max_len` 相关的业务上下文或控制信息。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         limit = max_len or self.max_skill_log_chars
         try:
             if isinstance(value, (dict, list)):
@@ -436,19 +681,63 @@ class LongWriterAgent(CustomAgent):
         elapsed_ms: Optional[int] = None,
         error_message: str = "",
     ) -> None:
-        """结构化记录Skill调用日志（控制台 + 文件）。"""
+        """
+        主要作用：记录技能调用的输入、输出和阶段标签。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - tool_name (str): 待调用工具、技能或组件的名称。
+        - arguments (Any): 传给工具、技能或组件的参数字典。
+        - output (Any): 模型、技能或组件生成的输出文本。
+        - status (str): 该参数用于承载 `status` 相关的业务上下文或控制信息。
+        - elapsed_ms (Optional[int]): 该参数用于承载 `elapsed_ms` 相关的业务上下文或控制信息。
+        - error_message (str): 该参数用于承载 `error_message` 相关的业务上下文或控制信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         try:
             input_preview = self._preview_for_log(arguments)
             output_preview = self._preview_for_log(output) if output is not None else ""
+            
+            # 获取skill的完整提示词（从缓存中查询）
+            skill_prompt = self._skill_prompts.get(tool_name, "")
+            
+            # 提取arguments中的实际输入值
+            actual_input = ""
+            if isinstance(arguments, dict):
+                if "input" in arguments:
+                    actual_input = str(arguments.get("input", ""))
+                elif "query" in arguments:
+                    actual_input = str(arguments.get("query", ""))
+                elif "task" in arguments:
+                    actual_input = str(arguments.get("task", ""))
 
             # 控制台简要日志
             cost = f" | {elapsed_ms}ms" if elapsed_ms is not None else ""
             if status == "success":
                 self.logger.log(f"🧩 Skill调用: {tool_name}{cost}", level=LogLevel.INFO)
+                if skill_prompt:
+                    self.logger.log(f"   📋 Skill提示词:\n{skill_prompt}", level=LogLevel.INFO)
+                else:
+                    self.logger.log(f"   ⚠️ 未找到skill提示词（缓存中有{len(self._skill_prompts)}个skill）", level=LogLevel.DEBUG)
+                if actual_input:
+                    self.logger.log(f"   📥 用户输入:\n{actual_input}", level=LogLevel.INFO)
                 self.logger.log(f"   输入: {input_preview[:240]}", level=LogLevel.DEBUG)
                 self.logger.log(f"   输出: {output_preview[:240]}", level=LogLevel.DEBUG)
             else:
                 self.logger.log(f"❌ Skill调用失败: {tool_name}{cost}", level=LogLevel.ERROR)
+                if skill_prompt:
+                    self.logger.log(f"   📋 Skill提示词:\n{skill_prompt}", level=LogLevel.ERROR)
+                else:
+                    self.logger.log(f"   ⚠️ 未找到skill提示词（缓存中有{len(self._skill_prompts)}个skill）", level=LogLevel.DEBUG)
+                if actual_input:
+                    self.logger.log(f"   📥 用户输入:\n{actual_input}", level=LogLevel.ERROR)
                 self.logger.log(f"   输入: {input_preview[:240]}", level=LogLevel.DEBUG)
                 self.logger.log(f"   错误: {error_message}", level=LogLevel.ERROR)
 
@@ -476,6 +765,24 @@ class LongWriterAgent(CustomAgent):
                 if elapsed_ms is not None:
                     f.write(f"elapsed_ms: {elapsed_ms}\n")
                 f.write(f"{'-'*80}\n")
+                # 添加skill_prompt诊断信息
+                f.write(f"[skill_prompt_diagnosis]\n")
+                f.write(f"  缓存中共有 {len(self._skill_prompts)} 个skill\n")
+                f.write(f"  查询的tool_name: '{tool_name}'\n")
+                f.write(f"  缓存的skill列表: {list(self._skill_prompts.keys())}\n")
+                if skill_prompt:
+                    f.write(f"  查询结果: ✅ 找到\n")
+                else:
+                    f.write(f"  查询结果: ❌ 未找到\n")
+                f.write(f"{'-'*80}\n")
+                if skill_prompt:
+                    f.write("[skill_prompt]\n")
+                    f.write(skill_prompt + "\n")
+                    f.write(f"{'-'*80}\n")
+                if actual_input:
+                    f.write("[user_input]\n")
+                    f.write(actual_input + "\n")
+                    f.write(f"{'-'*80}\n")
                 f.write("[input]\n")
                 f.write(full_input + "\n")
                 if status == "success":
@@ -491,7 +798,22 @@ class LongWriterAgent(CustomAgent):
             self.logger.log(f"⚠️ Skill日志写入失败: {e}", level=LogLevel.ERROR)
 
     def execute_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
-        """统一拦截并结构化记录所有Skill调用。"""
+        """
+        主要作用：统一执行技能、工具或工作流组件调用。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - tool_name (str): 待调用工具、技能或组件的名称。
+        - arguments (Dict[str, Any]): 传给工具、技能或组件的参数字典。
+
+        返回值：
+        - Any：返回该方法的主要输出结果。
+
+        实现逻辑：
+        - 在统一入口接收组件/技能调用，确保所有调用链都经过同一层调度。
+        - 统计耗时并记录输入输出快照，形成可回放的运行轨迹。
+        - 在异常场景写入失败日志后继续抛错，保证上层流程能做显式失败处理。
+        """
         start = time.perf_counter()
         try:
             result = super().execute_tool_call(tool_name, arguments)
@@ -517,10 +839,19 @@ class LongWriterAgent(CustomAgent):
     
     def _step_stream(self, memory_step: ActionStep) -> Generator[ToolOutput | ActionOutput]:
         """
-        重写 _step_stream：多阶段长文本生成
-        
-        进入 LongWriterAgent 的任务一律视为写作任务，
-        不再回退到通用 ReAct 流程。
+        主要作用：以流式方式驱动代理的规划、写作和收尾阶段。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - memory_step (ActionStep): 当前 ActionStep，用于驱动代理阶段执行和流式输出。
+
+        返回值：
+        - Generator[ToolOutput | ActionOutput]：返回生成器，按阶段流式产出执行结果。
+
+        实现逻辑：
+        - 按 planner → writer → finalizer 的顺序串行驱动整条长文生成流水线。
+        - 每个阶段内部负责产出下一阶段所需的状态和中间物料，避免阶段间状态漂移。
+        - 全流程完成后只输出一个最终答案；任一阶段异常则记录并中断，防止带病结果继续外溢。
         """
         try:
             self.logger.log_rule("📋 长文本生成流程启动", level=LogLevel.INFO)
@@ -546,7 +877,23 @@ class LongWriterAgent(CustomAgent):
             raise
     
     def _classify_section_type(self, title: str, index: int, total: int) -> str:
-        """识别段落类型：introduction, body, conclusion, references"""
+        """
+        主要作用：根据标题和位置判断章节类型。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - title (str): 标题线索，可指论文标题、章节标题或搜索提示中的文献标题。
+        - index (int): 当前章节在大纲中的位置索引，用于识别“首段默认引言”等规则。
+        - total (int): 大纲总章节数，用于辅助边界判断和后续阶段日志展示。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 优先基于标题关键词识别摘要、参考文献、结论等强语义章节。
+        - 对无法直接命中的章节，结合位置规则（如首段默认引言）做兜底判定。
+        - 将剩余章节统一归为 body，确保后续组件路由稳定可预测。
+        """
         title_lower = title.lower()
 
         # 摘要
@@ -569,7 +916,22 @@ class LongWriterAgent(CustomAgent):
         return "body"
 
     def _log_planning_outline_summary(self, outline_v1: str, final_outline: str) -> None:
-        """集中记录规划阶段的大纲生成与预览日志。"""
+        """
+        主要作用：记录大纲初稿与终稿的差异摘要。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - outline_v1 (str): 大纲初稿，用于和最终大纲做差异对比。
+        - final_outline (str): 经过反思修订后的最终大纲文本。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         self.logger.log("📋 初始大纲生成完成", level=LogLevel.INFO)
         self.logger.log(f"大纲预览（前800字）:\n{outline_v1[:800]}...", level=LogLevel.DEBUG)
         self.logger.log("✅ 大纲完成", level=LogLevel.INFO)
@@ -582,18 +944,63 @@ class LongWriterAgent(CustomAgent):
         section_title: str,
         section_type: str,
     ) -> None:
-        """集中记录章节开始日志。"""
+        """
+        主要作用：记录章节生成开始时的关键上下文。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - current_section_num (int): 该参数用于承载 `current_section_num` 相关的业务上下文或控制信息。
+        - total_sections (int): 该参数用于承载 `total_sections` 相关的业务上下文或控制信息。
+        - section_title (str): 章节标题，用于检索、日志记录和输出文件定位。
+        - section_type (str): 章节类型标识，如 body、introduction、conclusion、abstract 或 references。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         self.logger.log(
             f"📝 [{current_section_num}/{total_sections}] {section_title} [{section_type}]",
             level=LogLevel.INFO,
         )
 
     def _log_section_special_handling(self, message: str) -> None:
-        """记录章节特殊处理分支，如延后摘要、跳过非叶子节点。"""
+        """
+        主要作用：记录章节写作过程中的特殊处理逻辑。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - message (str): 待解析的输入消息文本，通常来自组件 CLI、模型输出或结构化协议消息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         self.logger.log(message, level=LogLevel.INFO)
 
     def _log_abstract_materialized(self, at_stage: str) -> None:
-        """记录摘要在何时被生成并插入。"""
+        """
+        主要作用：记录摘要被实际生成并插入全文的时机。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - at_stage (str): 该参数用于承载 `at_stage` 相关的业务上下文或控制信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         self.logger.log(
             f"✅ 摘要已在{at_stage}生成，并已插入到引言之前（内存顺序）",
             level=LogLevel.INFO,
@@ -607,7 +1014,25 @@ class LongWriterAgent(CustomAgent):
         content: str,
         error: Optional[Exception] = None,
     ) -> None:
-        """集中记录章节完成或失败日志。"""
+        """
+        主要作用：记录章节生成结果的摘要信息。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - current_section_num (int): 该参数用于承载 `current_section_num` 相关的业务上下文或控制信息。
+        - total_sections (int): 该参数用于承载 `total_sections` 相关的业务上下文或控制信息。
+        - section_title (str): 章节标题，用于检索、日志记录和输出文件定位。
+        - content (str): 正文、章节或日志等具体文本主体。
+        - error (Optional[Exception]): 异常信息或错误文本。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         if error is not None:
             self.logger.log(
                 f"⚠️ [{current_section_num}/{total_sections}] {section_title} 失败: {error}",
@@ -622,7 +1047,22 @@ class LongWriterAgent(CustomAgent):
         )
 
     def _log_finalization_summary(self, total_sections: int, total_chars: int) -> None:
-        """集中记录整合阶段统计日志。"""
+        """
+        主要作用：记录最终整合阶段的统计总结。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - total_sections (int): 该参数用于承载 `total_sections` 相关的业务上下文或控制信息。
+        - total_chars (int): 该参数用于承载 `total_chars` 相关的业务上下文或控制信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         self.logger.log("📊 生成统计:", level=LogLevel.INFO)
         self.logger.log(f"   总章节数: {total_sections}", level=LogLevel.INFO)
         self.logger.log(f"   总字数: {total_chars}", level=LogLevel.INFO)
@@ -631,15 +1071,20 @@ class LongWriterAgent(CustomAgent):
     # ============== 阶段 1：规划 ==============
     
     def _planning_phase(self, memory_step: ActionStep) -> None:
-        """新流程：基于关键词的5步精准检索 → 综合规划
-        
-        流程说明：
-        1. 概念拆解：将研究主题拆解为2-3个概念组，每组包含3-5个关键词
-        2. First-Shot检索：使用初始概念组进行第一次检索，获取Top 20文献
-        3. 术语提取：从文献摘要中提取高频专业术语
-        4. 概念升级：将高频术语归类到对应概念组，升级检索式
-        5. Second-Shot检索：使用升级后的概念组进行精准检索
-        6. 大纲生成：基于精准检索结果生成大纲
+        """
+        主要作用：执行规划阶段，完成概念提取、检索扩展和大纲生成。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - memory_step (ActionStep): 当前 ActionStep，用于驱动代理阶段执行和流式输出。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 按顺序驱动该阶段的子步骤执行。
+        - 同步更新代理状态、日志和落盘文件。
+        - 为下一阶段提供一致、完整的中间结果。
         """
         self.logger.log_rule("📋 Planning Phase (基于关键词的5步流程)", level=LogLevel.INFO)
         
@@ -683,7 +1128,21 @@ class LongWriterAgent(CustomAgent):
     # ============== 阶段 2：写作 ==============
     
     def _writing_phase(self, memory_step: ActionStep) -> None:
-        """逐段写作 + 多轮证据反思"""
+        """
+        主要作用：执行写作阶段，逐章节生成内容并做引用治理。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - memory_step (ActionStep): 当前 ActionStep，用于驱动代理阶段执行和流式输出。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 按顺序驱动该阶段的子步骤执行。
+        - 同步更新代理状态、日志和落盘文件。
+        - 为下一阶段提供一致、完整的中间结果。
+        """
         self.logger.log_rule("✍️ Writing Phase", level=LogLevel.INFO)
 
         self._prev_body_or_intro_content = ""  # 写作阶段开始时清空
@@ -750,9 +1209,10 @@ class LongWriterAgent(CustomAgent):
                 cleaned_task = self._clean_task_description()
                 if section_type == "references":
                     # 参考文献章节应传递全局可用引用
+                    references_available_citations, _ = self._citation_flow_service.build_available_citation_maps(self._citations)
                     references_payload = {
                         "section": section,
-                        "available_citations": self._citations,
+                        "available_citations": references_available_citations,
                         "task": cleaned_task
                     }
                     self.logger.log(f"[Component输入] references_writing: {json.dumps(references_payload, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
@@ -809,6 +1269,16 @@ class LongWriterAgent(CustomAgent):
                         self.logger.log(f"[Component输出] abstract_writing: {json.dumps(abstract_result, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
                         abstract_content = str(abstract_result.get("content", ""))
                         if abstract_content:
+                            abstract_section_ref = self._get_section_ref(abstract_config)
+                            abstract_allowed_keys = set(self._citations.keys()) if self._citations else set()
+                            self._log_reference_usage_in_section(abstract_section_ref, str(abstract_content))
+                            self._citation_flow_service.collect_citations_from_text(
+                                self,
+                                str(abstract_content),
+                                abstract_section_ref,
+                                allowed_citation_keys=abstract_allowed_keys,
+                                add_new_from_text=self.allow_add_citation_from_generated_text,
+                            )
                             self._abstract_section = {
                                 "title": abstract_config.get("title", "摘要"),
                                 "content": abstract_content,
@@ -837,22 +1307,6 @@ class LongWriterAgent(CustomAgent):
                 
                 # 更新内存（参考文献不参与正文记忆）
                 if section_type != "references":
-                    section_ref = self._get_section_ref(section)
-                    final = self._citation_flow_service.enforce_strict_citation_flow_on_section(
-                        str(final),
-                        section_ref,
-                        available_citations,
-                    )
-                    self._log_reference_usage_in_section(section_ref, str(final))
-                    # 添加该段落中的可用引用到全局引用字典
-                    self._citation_flow_service.add_citations(self, available_citations, section_ref)
-                    self._citation_flow_service.collect_citations_from_text(
-                        self,
-                        str(final),
-                        section_ref,
-                        allowed_citation_keys=set(available_citations.keys()),
-                        add_new_from_text=self.allow_add_citation_from_generated_text,
-                    )
                     self._update_memory(section['title'], final)
                 
                 self._generated_sections.append({
@@ -877,6 +1331,7 @@ class LongWriterAgent(CustomAgent):
             
             except Exception as e:
                 self._log_section_result(current_section_num, total_sections, section['title'], "", error=e)
+                raise
 
         # 如果没有结论章节但有摘要需求，则在写作末尾补写摘要
         if deferred_abstract_section and not self._abstract_section:
@@ -894,6 +1349,16 @@ class LongWriterAgent(CustomAgent):
             self.logger.log(f"[Component输出] abstract_writing: {json.dumps(fallback_result, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
             fallback_abstract = str(fallback_result.get("content", ""))
             if fallback_abstract:
+                abstract_section_ref = self._get_section_ref(deferred_abstract_section)
+                abstract_allowed_keys = set(self._citations.keys()) if self._citations else set()
+                self._log_reference_usage_in_section(abstract_section_ref, str(fallback_abstract))
+                self._citation_flow_service.collect_citations_from_text(
+                    self,
+                    str(fallback_abstract),
+                    abstract_section_ref,
+                    allowed_citation_keys=abstract_allowed_keys,
+                    add_new_from_text=self.allow_add_citation_from_generated_text,
+                )
                 self._abstract_section = {
                     "title": deferred_abstract_section.get("title", "摘要"),
                     "content": fallback_abstract,
@@ -905,12 +1370,20 @@ class LongWriterAgent(CustomAgent):
                 self._log_abstract_materialized("写作末尾")
 
     def _run_fine_rag_for_section(self, section: Dict[str, str]) -> str:
-        """细粒度RAG检索，支持多种模式
-        
-        模式说明（由 self.fine_rag_mode 控制）：
-        - 'web_agent': 调用text_webbrowser_agent进行深度检索（推荐）
-        - 'web_search': 使用DuckDuckGo搜索（快速但内容有限）
-        - 'disabled': 禁用细粒度RAG
+        """
+        主要作用：为单个章节运行细粒度检索增强流程。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 根据输入条件构造检索查询或搜索策略。
+        - 调用外部搜索源、网页代理或内部服务获取候选结果。
+        - 对结果做清洗、去重和结构化整理后返回。
         """
         section_title = section.get('title', '未命名章节')
         section_goal = section.get('goal', '')
@@ -934,16 +1407,24 @@ class LongWriterAgent(CustomAgent):
             return self._section_writing_service.run_fine_rag_web_search(self, section_title, search_query)
         
         else:
-            self.logger.log(f"⚠️ 未知的细粒度RAG模式: {self.fine_rag_mode}", level=LogLevel.INFO)
-            return ""
+            raise ValueError(f"未知的细粒度RAG模式: {self.fine_rag_mode}")
     
     def _run_fine_rag_with_web_agent(self, section_title: str, search_query: str) -> str:
-        """调用text_webbrowser_agent进行细粒度RAG检索
-        
-        text_webbrowser_agent具有完整的网页浏览能力：
-        - DuckDuckGo搜索
-        - 访问网页并提取文本
-        - 页面导航和内容提取
+        """
+        主要作用：调用网页检索代理构造章节级细粒度 RAG 材料。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section_title (str): 章节标题，用于检索、日志记录和输出文件定位。
+        - search_query (str): 针对某个章节生成的细粒度检索查询。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 根据输入条件构造检索查询或搜索策略。
+        - 调用外部搜索源、网页代理或内部服务获取候选结果。
+        - 对结果做清洗、去重和结构化整理后返回。
         """
         try:
             self.logger.log(f"📍 调用改进版 text_webbrowser_agent（tagged）进行深度检索...", level=LogLevel.DEBUG)
@@ -957,27 +1438,32 @@ class LongWriterAgent(CustomAgent):
 
             context_text = str(tagged_result.get("context_text", "") or "").strip()
             if context_text:
-                citations = tagged_result.get("citations", {})
-                if citations:
-                    # 让引用库直接吃到“检索源”抽出的作者/年份/标题
-                    self._citation_flow_service.add_citations(self, citations, section_title)
-
                 payload = tagged_result.get("payload", {})
                 self.state.setdefault(self.STATE_SECTION_TAGGED_PAYLOAD, {})[section_title] = payload
                 self.logger.log(f"✅ tagged 检索返回内容 ({len(context_text)} 字)", level=LogLevel.INFO)
                 return self._trim_text(context_text, self.max_fine_rag_chars)
 
-            self.logger.log(f"⚠️ tagged 检索无返回内容，回退为web_search", level=LogLevel.INFO)
-            return self._section_writing_service.run_fine_rag_web_search(self, section_title, search_query)
+            raise RuntimeError(f"tagged 检索无返回内容: section={section_title}, query={search_query}")
 
         except Exception as e:
-            self.logger.log(f"⚠️ text_webbrowser_agent 调用异常: {e}，回退为web_search", level=LogLevel.INFO)
-            return self._section_writing_service.run_fine_rag_web_search(self, section_title, search_query)
+            self.logger.log(f"⚠️ text_webbrowser_agent 调用异常: {e}", level=LogLevel.ERROR)
+            raise
     
     def _clean_agent_output(self, output: str) -> str:
-        """清理text_webbrowser_agent返回的内容
-        
-        移除框架自动添加的格式包装
+        """
+        主要作用：清洗代理输出中的包装文本和无关标记。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - output (str): 模型、技能或组件生成的输出文本。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 扫描文本中的章节结构、引用模式或候选字段。
+        - 按学术写作约束执行清洗、规范化与必要回填。
+        - 生成可直接进入后续写作/验证/汇总流程的中间结果。
         """
         text = output.strip()
 
@@ -1005,7 +1491,20 @@ class LongWriterAgent(CustomAgent):
         return text
 
     def _insert_abstract_before_introduction(self) -> None:
-        """将摘要插入到引言之前，避免重复插入。"""
+        """
+        主要作用：将摘要章节插入到引言前。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         if not self._abstract_section:
             return
 
@@ -1016,7 +1515,20 @@ class LongWriterAgent(CustomAgent):
         self._generated_sections.insert(intro_index, self._abstract_section)
 
     def _rewrite_output_file_from_sections(self) -> None:
-        """按最终章节顺序重写报告文件（用于保证摘要位于引言前）。"""
+        """
+        主要作用：根据当前章节状态重写主输出文件。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         try:
             with open(self._output_file, 'w', encoding='utf-8') as f:
                 f.write("# 生成的长文本报告\n\n")
@@ -1043,7 +1555,23 @@ class LongWriterAgent(CustomAgent):
             self.logger.log(f"⚠️ 重写报告文件失败: {e}", level=LogLevel.ERROR)
 
     def _log_reference_event(self, stage: str, section_title: str, detail: str) -> None:
-        """写入独立的参考文献追踪日志。"""
+        """
+        主要作用：写入引用治理的详细追踪事件。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - stage (str): 当前流程阶段或日志事件名称。
+        - section_title (str): 章节标题，用于检索、日志记录和输出文件定位。
+        - detail (str): 该参数用于承载 `detail` 相关的业务上下文或控制信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         try:
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
             with open(self._reference_trace_file, 'a', encoding='utf-8') as f:
@@ -1053,7 +1581,22 @@ class LongWriterAgent(CustomAgent):
             self.logger.log(f"⚠️ 写入参考文献追踪日志失败: {e}", level=LogLevel.ERROR)
 
     def _log_reference_usage_in_section(self, section_title: str, text: str) -> None:
-        """记录章节中每条引用落在第几句、具体句子内容。"""
+        """
+        主要作用：扫描并记录某章节实际使用的文内引用。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section_title (str): 章节标题，用于检索、日志记录和输出文件定位。
+        - text (str): 待解析、清洗或重写的原始文本内容。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         if not text:
             return
 
@@ -1084,7 +1627,24 @@ class LongWriterAgent(CustomAgent):
             )
 
     def _log_reference_addition(self, source: str, section_title: str, citation_key: str, citation_info: Dict[str, Any]) -> None:
-        """记录引用入库详情。"""
+        """
+        主要作用：记录引用条目被新增到引用库的过程。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - source (str): 数据来源标识，例如 crossref、arxiv、openalex、rag_context 或 generated_text。
+        - section_title (str): 章节标题，用于检索、日志记录和输出文件定位。
+        - citation_key (str): 引用库内部使用的键，通常是 canonical_key。
+        - citation_info (Dict[str, Any]): 某条引用的元数据字典。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
         try:
             info_text = json.dumps(citation_info, ensure_ascii=False, indent=2)
         except Exception:
@@ -1101,10 +1661,20 @@ class LongWriterAgent(CustomAgent):
         )
 
     def enable_citation_validation_mode(self, enable: bool = True):
-        """启用/禁用引用验证模式
-        
-        Args:
-            enable: 是否启用严格的学术引用验证
+        """
+        主要作用：开启或关闭五步引用验证模式。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - enable (bool): 该参数用于承载 `enable` 相关的业务上下文或控制信息。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
         """
         self.enable_citation_validation = enable
         if enable:
@@ -1116,9 +1686,20 @@ class LongWriterAgent(CustomAgent):
             )
 
     def _write_references_section(self, section: Dict[str, str]) -> str:
-        """参考文献章节：直接输出收集到的所有引用
-        
-        不调用 Skill 重新生成，而是使用全文扫描已有的引用
+        """
+        主要作用：生成参考文献章节内容。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section (Dict[str, str]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
         """
         self._log_reference_event(
             stage="references_section_generated",
@@ -1126,23 +1707,331 @@ class LongWriterAgent(CustomAgent):
             detail=f"当前引用库条目数: {len(self._citations)}",
         )
         return self._format_references_section()
+
+    def _append_citation_validation_text_log(
+        self,
+        section_type: str,
+        section_ref: str,
+        before_text: str,
+        after_text: str,
+        validation_result: Optional[Dict[str, Any]] = None,
+        error: str = "",
+    ) -> None:
+        """
+        主要作用：将引用验证前后文本和验证结果写入 JSON 日志。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section_type (str): 章节类型标识，如 body、introduction、conclusion、abstract 或 references。
+        - section_ref (str): 章节引用名，通常用于日志、引用验证和输出文件中的稳定标识。
+        - before_text (str): 引用验证或修订前的章节文本。
+        - after_text (str): 引用验证或修订后的章节文本。
+        - validation_result (Optional[Dict[str, Any]]): 该参数用于承载 `validation_result` 相关的业务上下文或控制信息。
+        - error (str): 异常信息或错误文本。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 整理当前阶段的核心信息。
+        - 按照既定格式写入日志、文件或状态对象。
+        - 保证运行过程可回溯、可排障、可复现。
+        """
+        try:
+            existing_data: Dict[str, Any] = {}
+            try:
+                with open(self._citations_validation_log, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    existing_data = loaded
+            except Exception:
+                existing_data = {}
+
+            section_text_logs = existing_data.get("section_text_logs", [])
+            if not isinstance(section_text_logs, list):
+                section_text_logs = []
+
+            summary: Dict[str, Any] = {}
+            if isinstance(validation_result, dict):
+                summary = {
+                    "status": validation_result.get("status"),
+                    "total": validation_result.get("total"),
+                    "verified": validation_result.get("verified"),
+                    "rejected": validation_result.get("rejected"),
+                    "verification_rate": validation_result.get("verification_rate"),
+                }
+
+            section_text_logs.append(
+                {
+                    "timestamp": time.time(),
+                    "section_type": section_type,
+                    "section_title": section_ref,
+                    "before_text": str(before_text or ""),
+                    "after_text": str(after_text or ""),
+                    "changed": str(before_text or "") != str(after_text or ""),
+                    "validation_result_summary": summary,
+                    "error": str(error or ""),
+                }
+            )
+
+            existing_data["section_text_logs"] = section_text_logs
+
+            with open(self._citations_validation_log, "w", encoding="utf-8") as f:
+                json.dump(existing_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            self.logger.log(f"⚠️ 写入引用验证前后文本日志失败: {e}", level=LogLevel.ERROR)
+            raise
+
+    def _run_inline_citation_validation_for_section(
+        self,
+        section_type: str,
+        section_ref: str,
+        section_content: str,
+        available_citations: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> str:
+        """
+        主要作用：对单个章节执行段落级即时引用验证，并把验证结果反向作用到正文内容。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section_type (str): 章节类型标识，如 body、introduction、conclusion、abstract 或 references。
+        - section_ref (str): 章节引用名，通常用于日志、引用验证和输出文件中的稳定标识。
+        - section_content (str): 某个章节当前版本的正文内容。
+        - available_citations (Optional[Dict[str, Dict[str, Any]]]): 按文献标题索引的可用引用字典，值中包含 authors、year、title、canonical_key 和 inline_citation 等元数据。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 先把本段候选引用按 author/year 入待验证队列，再调用五步验证组件批处理。
+        - 仅保留验证通过的引用进入全局引用库，并将失败引用标记为 rejected。
+        - 对失败引用执行“删整句”清理，再做严格白名单重写，确保最终正文不含无依据引用断言。
+        """
+        current = str(section_content or "")
+        before_validation_text = str(current)
+        if section_type not in {"body", "introduction", "conclusion"}:
+            return current
+        if not self.enable_citation_validation:
+            try:
+                timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                with open(self._log_file, "a", encoding="utf-8") as f:
+                    f.write(f"\n{'='*80}\n")
+                    f.write(f"【引用验证】{timestamp}\n")
+                    f.write(f"section_type: {section_type}\n")
+                    f.write(f"section_title: {section_ref}\n")
+                    f.write("status: skipped\n")
+                    f.write("reason: enable_citation_validation=False（未启用五步验证）\n")
+                    f.write(f"{'='*80}\n")
+            except Exception as e:
+                self.logger.log(f"⚠️ 写入引用验证跳过日志失败: {e}", level=LogLevel.ERROR)
+
+            candidate_pool, _candidate_canonical_map = self._citation_flow_service.build_available_citation_maps(available_citations if isinstance(available_citations, dict) else {})
+            for title_key, info in candidate_pool.items():
+                canonical_key = str(info.get("canonical_key") or self._citation_flow_service.build_canonical_citation_key(info.get("authors", ""), info.get("year", ""), title_key)).strip()
+                if not canonical_key:
+                    continue
+                existing = self._citations.get(canonical_key, {})
+                if canonical_key not in self._citations:
+                    self._citation_counter += 1
+                merged = dict(existing)
+                merged.update(dict(info or {}))
+                if "id" not in merged:
+                    merged["id"] = self._citation_counter
+                self._citations[canonical_key] = merged
+            return current
+
+        validation_result: Dict[str, Any] = {}
+        error_text = ""
+        try:
+            if available_citations and not isinstance(available_citations, dict):
+                raise ValueError("available_citations 必须是 Dict[\"title\", citation_info]，不再接受 list")
+            candidate_pool, _candidate_canonical_map = self._citation_flow_service.build_available_citation_maps(available_citations if isinstance(available_citations, dict) else {})
+
+            # 1) 先把当前段落可用引用入待验证队列（不直接入 _citations）
+            for key, info in candidate_pool.items():
+                author = str(info.get("authors") or "").strip()
+                year = str(info.get("year") or "").strip()
+                title = str(info.get("title") or "").strip()
+                if author and year:
+                    self._citation_flow_service.enqueue_unverified_citation(
+                        self,
+                        author=author,
+                        year=year,
+                        title=title,
+                        claim=f"章节「{section_ref}」候选引用验证",
+                    )
+
+            # 2) 执行五步验证
+            validation_component_result = self._invoke_workflow_component("citation_validation", {})
+            validation_result = validation_component_result.get("validation_result", {})
+            history = self.state.get(self.STATE_CITATION_VALIDATION)
+            if not isinstance(history, list):
+                history = []
+            history.append(
+                {
+                    "stage": "per_section",
+                    "section_type": section_type,
+                    "section_title": section_ref,
+                    "result": validation_result,
+                }
+            )
+            self.state[self.STATE_CITATION_VALIDATION] = history
+
+            # 3) 把验证状态写回 available_citations（is_valid）
+            results_map = validation_result.get("results", {}) if isinstance(validation_result, dict) else {}
+            verified_available: Dict[str, Dict[str, Any]] = {}
+            rejected_keys: Set[str] = set()
+            for key, info in candidate_pool.items():
+                author = str(info.get("authors") or "").strip()
+                year = str(info.get("year") or "").strip()
+                canonical_key = str(info.get("canonical_key") or self._citation_flow_service.build_canonical_citation_key(author, year, key)).strip()
+                result_key = f"{author}_{year}" if author and year else ""
+                is_valid = False
+                if result_key and isinstance(results_map, dict):
+                    row = results_map.get(result_key, {})
+                    is_valid = str(row.get("status", "")).lower() == "verified"
+
+                if isinstance(info, dict):
+                    info["is_valid"] = is_valid
+
+                if is_valid:
+                    verified_available[key] = dict(info or {})
+                    verified_available[key]["verified"] = True
+                    verified_available[key]["verification_status"] = "verified"
+                else:
+                    if canonical_key:
+                        rejected_keys.add(canonical_key)
+
+            # 4) 仅将验证通过的 available_citations 入库（去重 + 维护 _citation_counter）
+            for title_key, info in verified_available.items():
+                canonical_key = str(info.get("canonical_key") or self._citation_flow_service.build_canonical_citation_key(info.get("authors", ""), info.get("year", ""), title_key)).strip()
+                if not canonical_key:
+                    continue
+                existing = self._citations.get(canonical_key, {})
+                if canonical_key not in self._citations:
+                    self._citation_counter += 1
+
+                merged = dict(existing)
+                merged.update(dict(info or {}))
+                merged["verified"] = True
+                merged["verification_status"] = "verified"
+                if "id" not in merged:
+                    merged["id"] = self._citation_counter
+                self._citations[canonical_key] = merged
+
+                if not existing:
+                    self._log_reference_addition(
+                        source="validated_available_citations",
+                        section_title=section_ref,
+                        citation_key=canonical_key,
+                        citation_info=merged,
+                    )
+
+            # 5) 清理：凡验证失败引用，删除其所在整句（不仅删括号）
+            if rejected_keys:
+                removed_count = 0
+                kept_sentences: List[str] = []
+                sentences = [s for s in re.split(r'(?<=[。！？!?])\s+|\n+', str(current)) if s and s.strip()]
+                for sentence in sentences:
+                    findings = self._citation_flow_service.scan_citations_in_text(sentence)
+                    hit_keys: List[str] = []
+                    for item in findings:
+                        canonical_key = self._citation_flow_service.resolve_allowed_citation_key(item.get("raw_key", ""), rejected_keys)
+                        if canonical_key and canonical_key in rejected_keys:
+                            hit_keys.append(canonical_key)
+
+                    if hit_keys:
+                        removed_count += 1
+                        self._log_reference_event(
+                            stage="citation_sentence_removed",
+                            section_title=section_ref,
+                            detail=(
+                                "因引用验证失败，删除包含该引用的整句\n"
+                                f"rejected_keys: {sorted(set(hit_keys))}\n"
+                                f"deleted_sentence: {str(sentence).strip()[:500]}"
+                            ),
+                        )
+                    else:
+                        kept_sentences.append(sentence.strip())
+
+                current = "\n".join([s for s in kept_sentences if s])
+                self._log_reference_event(
+                    stage="post_validation_sentence_cleanup",
+                    section_title=section_ref,
+                    detail=(
+                        "验证后句子清理\n"
+                        f"rejected_keys_count: {len(rejected_keys)}\n"
+                        f"removed_sentence_count: {removed_count}\n"
+                        f"rejected_keys: {sorted(rejected_keys)}"
+                    ),
+                )
+
+            current = str(current)
+        except Exception as e:
+            error_text = str(e)
+            self.logger.log(f"⚠️ 段落级引用验证失败（{section_ref}）: {e}", level=LogLevel.ERROR)
+            raise
+
+        self._append_citation_validation_text_log(
+            section_type=section_type,
+            section_ref=section_ref,
+            before_text=before_validation_text,
+            after_text=str(current),
+            validation_result=validation_result,
+            error=error_text,
+        )
+
+        # 同步写入 generation_log.txt，方便直接查看主日志时也能看到验证结果
+        try:
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            vr = validation_result if isinstance(validation_result, dict) else {}
+            v_status = vr.get("status", "unknown")
+            v_total = vr.get("total", 0)
+            v_verified = vr.get("verified", 0)
+            v_rejected = vr.get("rejected", 0)
+            text_changed = str(before_validation_text) != str(current)
+            with open(self._log_file, "a", encoding="utf-8") as f:
+                f.write(f"\n{'='*80}\n")
+                f.write(f"【引用验证】{timestamp}\n")
+                f.write(f"section_type: {section_type}\n")
+                f.write(f"section_title: {section_ref}\n")
+                f.write(f"status: {v_status}\n")
+                f.write(f"total: {v_total} | verified: {v_verified} | rejected: {v_rejected}\n")
+                f.write(f"text_changed: {text_changed}\n")
+                if error_text:
+                    f.write(f"error: {error_text}\n")
+                f.write(f"详细结果 → {self._citations_validation_log}\n")
+                f.write(f"{'='*80}\n")
+        except Exception as _log_err:
+            self.logger.log(f"⚠️ 写入引用验证运行日志失败: {_log_err}", level=LogLevel.ERROR)
+
+        return current
     
     # ============== 阶段 3：整合 ==============
     
     def _finalization_phase(self, memory_step: ActionStep) -> None:
-        """整合最终输出"""
+        """
+        主要作用：执行最终整合阶段，刷新参考文献并清理未通过验证的引用。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - memory_step (ActionStep): 当前 ActionStep，用于驱动代理阶段执行和流式输出。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 按顺序驱动该阶段的子步骤执行。
+        - 同步更新代理状态、日志和落盘文件。
+        - 为下一阶段提供一致、完整的中间结果。
+        """
         self.logger.log_rule("🎁 Finalization", level=LogLevel.INFO)
         
         try:
-            # 验证流程接入主链路：在最终定稿前执行 5 步引用验证
+            # 段落级验证已在写作阶段执行；最终阶段仅做收口清理。
             if self.enable_citation_validation:
-                validation_component_result = self._invoke_workflow_component(
-                    "citation_validation",
-                    {},
-                )
-                validation_result = validation_component_result.get("validation_result", {})
-                self.state[self.STATE_CITATION_VALIDATION] = validation_result
                 self._refresh_references_sections_content()
+                self._clean_invalid_citations_from_text()
 
             if self._abstract_section:
                 self._insert_abstract_before_introduction()
@@ -1171,18 +2060,58 @@ class LongWriterAgent(CustomAgent):
         
         except Exception as e:
             self.logger.log(f"⚠️ 整合失败: {e}", level=LogLevel.ERROR)
+            raise
     
     # ============== 工具方法 ==============
 
     def _get_section_ref(self, section: Dict[str, Any]) -> str:
-        """构造带编号的章节标识，用于引用追踪日志。"""
+        """
+        主要作用：根据章节字典生成稳定的章节引用名。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - section (Dict[str, Any]): 章节配置字典，通常包含标题、目标、编号、层级和目标字数等字段。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         number = str(section.get("number", "")).strip()
         title = str(section.get("title", "未知章节")).strip() or "未知章节"
         return f"{number} {title}".strip() if number else title
     
     def _update_memory(self, title: str, content: str):
-        """更新内存"""
+        """
+        主要作用：更新代理记忆、全文缓存与状态对象。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - title (str): 标题线索，可指论文标题、章节标题或搜索提示中的文献标题。
+        - content (str): 正文、章节或日志等具体文本主体。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         self._previous_section_content = content
+
+        # 实时维护全文正文缓存（供 conclusion/abstract 的 full_text 使用）
+        block_title = str(title or "").strip() or "未命名章节"
+        block_content = str(content or "").strip()
+        if block_content:
+            block = f"## {block_title}\n\n{block_content}"
+            if self._full_text_body:
+                self._full_text_body = f"{self._full_text_body}\n\n{block}"
+            else:
+                self._full_text_body = block
         
         # 压缩摘要
         if self._global_summary:
@@ -1204,20 +2133,49 @@ class LongWriterAgent(CustomAgent):
         self._global_summary = summary
     
     def _parse_json(self, text: str) -> Dict[str, Any]:
-        """解析 JSON"""
+        """
+        主要作用：尽量稳健地把文本解析成 JSON 字典。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - text (str): 待解析、清洗或重写的原始文本内容。
+
+        返回值：
+        - Dict[str, Any]：返回结构化字典结果，便于后续工作流阶段继续消费。
+
+        实现逻辑：
+        - 扫描文本中的章节结构、引用模式或候选字段。
+        - 按学术写作约束执行清洗、规范化与必要回填。
+        - 生成可直接进入后续写作/验证/汇总流程的中间结果。
+        """
         try:
             return json.loads(text)
-        except:
+        except Exception as first_error:
             match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
             if match:
                 try:
                     return json.loads(match.group(1))
-                except:
-                    pass
-            return {"score": 75, "need_revision": False, "evidence_satisfied": True}
+                except Exception as second_error:
+                    raise ValueError(f"JSON解析失败（代码块内容无效）: {second_error}") from second_error
+            raise ValueError(f"JSON解析失败（无有效JSON）: {first_error}") from first_error
 
     def _trim_text(self, text: str, limit: int) -> str:
-        """截断文本，避免上下文过长造成 token 浪费。"""
+        """
+        主要作用：将文本裁剪到指定长度范围内。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+        - text (str): 待解析、清洗或重写的原始文本内容。
+        - limit (int): 文本截断长度或输出上限。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 扫描文本中的章节结构、引用模式或候选字段。
+        - 按学术写作约束执行清洗、规范化与必要回填。
+        - 生成可直接进入后续写作/验证/汇总流程的中间结果。
+        """
         if not text:
             return ""
         text = str(text).strip()
@@ -1226,20 +2184,25 @@ class LongWriterAgent(CustomAgent):
         return text[:limit] + "..."
     
     def _format_references_section(self) -> str:
-        """格式化参考文献列表"""
+        """
+        主要作用：将已验证引用库格式化为参考文献段落。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         if not self._citations:
             return "暂无引用文献。"
 
+        # 直接按 _citations 输出；入库策略已保证只存放需要输出的条目
         citations_pool = self._citations
-        if self.enable_citation_validation:
-            verified_only = {
-                k: v for k, v in self._citations.items()
-                if bool(v.get('verified')) or str(v.get('verification_status', '')).lower() == 'verified'
-            }
-            if verified_only:
-                citations_pool = verified_only
-            else:
-                self.logger.log("⚠️ 验证模式已启用但暂无通过验证的引用，暂回退输出当前引用池", level=LogLevel.INFO)
         
         # 按作者-年份排序（APA 风格）
         sorted_refs = sorted(
@@ -1259,7 +2222,20 @@ class LongWriterAgent(CustomAgent):
         return "\n".join(lines)
 
     def _refresh_references_sections_content(self) -> None:
-        """在验证后刷新内存中的参考文献章节内容。"""
+        """
+        主要作用：刷新所有参考文献章节内容，使其与引用库保持一致。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         if not self._generated_sections:
             return
 
@@ -1272,9 +2248,105 @@ class LongWriterAgent(CustomAgent):
 
         if refreshed:
             self.logger.log(f"✅ 已刷新 {refreshed} 个参考文献章节内容（应用验证结果）", level=LogLevel.INFO)
-    
+    def _clean_invalid_citations_from_text(self) -> None:
+        """
+        主要作用：全局清理正文中无效或未验证的引用。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - None：该方法主要通过更新对象状态、写文件、记录日志或调用外部服务产生副作用。
+
+        实现逻辑：
+        - 先从引用库中抽取最终 verified 白名单，作为正文清理的唯一合法依据。
+        - 对每个非参考文献章节逐句扫描文内引用，命中未验证引用则整句删除。
+        - 清理后回写章节内容并输出统计日志，保证最终报告与验证结果严格一致。
+        """
+        if not self._generated_sections or not self.enable_citation_validation:
+            return
+
+        # 1. 找出所有“幸存”的合法引用键（白名单）
+        verified_keys = {
+            k for k, v in self._citations.items()
+            if bool(v.get('verified')) or str(v.get('verification_status', '')).lower() == 'verified'
+        }
+
+        cleaned_count = 0
+        
+        # 2. 遍历所有非参考文献章节
+        for section in self._generated_sections:
+            if section.get('type') == 'references':
+                continue
+                
+            original_text = str(section.get('content', ''))
+            if not original_text:
+                continue
+
+            import re
+            # 按照中文和英文的句号、叹号、问号（包含可能的引号）来切分句子，并保留标点符号
+            sentences = re.split(r'([。！？.!?][”"’\']?)', original_text)
+            
+            new_sentences = []
+            section_modified = False
+            i = 0
+            
+            # sentences 的结构是 ['句子1', '标点1', '句子2', '标点2']
+            while i < len(sentences):
+                sentence_text = sentences[i]
+                punctuation = sentences[i+1] if i + 1 < len(sentences) else ""
+                full_sentence = sentence_text + punctuation
+                
+                if not full_sentence.strip():
+                    i += 2
+                    continue
+
+                # 扫描这句话里是否含有引用
+                findings = self._citation_flow_service.scan_citations_in_text(full_sentence)
+                keep_sentence = True
+                
+                if findings:
+                    allowed_keys_set = set(self._citations.keys())
+                    for item in findings:
+                        canonical_key = self._citation_flow_service.resolve_allowed_citation_key(
+                            item["raw_key"], allowed_keys_set
+                        )
+                        # 一旦发现这句话里有未通过验证的引用（假文献/滥用文献）
+                        if canonical_key not in verified_keys:
+                            keep_sentence = False
+                            cleaned_count += 1
+                            section_modified = True
+                            self.logger.log(f"✂️ 连坐删减：已抹除含无效引用的断言 -> {full_sentence.strip()}", level=LogLevel.DEBUG)
+                            break  # 整句干掉，直接跳出不用再看这句话的其他引用了
+                
+                # 如果这句话清清白白，就保留下来
+                if keep_sentence:
+                    new_sentences.append(full_sentence)
+                
+                i += 2
+            
+            # 3. 将清理后的句子重新拼合成段落
+            if section_modified:
+                section['content'] = "".join(new_sentences).strip()
+
+        if cleaned_count > 0:
+            self.logger.log(f"🧹 扫尾清理：已自动【连句带引】擦除了正文中的 {cleaned_count} 处无支撑断言", level=LogLevel.INFO)
+        
     def _generate_final_output(self) -> str:
-        """生成最终输出"""
+        """
+        主要作用：汇总当前状态并生成最终输出文本。
+
+        输入参数：
+        - self: 当前对象实例，用于访问成员配置、运行状态、缓存和协作服务。
+
+        返回值：
+        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
+
+        实现逻辑：
+        - 结合当前流程阶段读取关键输入并完成边界检查。
+        - 执行与长文写作、检索编排或引用治理直接相关的核心步骤。
+        - 产出可被下游阶段消费的结果，并同步更新状态、日志与落盘文件。
+        """
         try:
             # 读取已保存的文件内容
             with open(self._output_file, 'r', encoding='utf-8') as f:
@@ -1313,4 +2385,4 @@ class LongWriterAgent(CustomAgent):
 """
             return summary
         except Exception as e:
-            return f"⚠️ 生成最终输出失败: {e}\n但所有内容已保存到: {self._output_file}"
+            raise RuntimeError(f"生成最终输出失败: {e}") from e

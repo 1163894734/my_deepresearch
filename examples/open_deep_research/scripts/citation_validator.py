@@ -1,664 +1,600 @@
-"""
-学术引用验证系统 - 实现完整的引用可靠性检查流程
+﻿"""
+五步引用验证流程（JSON 版）+ 引用工具函数
 
-流程：Search (检索) -> Verify (双源存在性验证) -> Retrieve (获取官方 BibTeX) -> 
-      Validate (核对声明) -> Add (写入)
-      
-每个引用都需要通过严格的学术诚实性检验，确保：
-1. 引用来源可验证（CrossRef, arXiv, Google Scholar）
-2. 获得官方标准BibTeX格式
-3. 论文摘要确实支持所引用的观点
-4. 没有编造或错误使用引用
+约束：
+- 每一步输入：JSON 格式的引用文献列表 + 当前段落文本
+- 每一步输出：修改后的 JSON 引用文献列表 + 修改后的段落文本
+- 不兼容旧接口
 """
 
-import json
+from __future__ import annotations
+
 import re
-import requests
-import time
-from typing import Dict, List, Optional, Tuple, Any
-from datetime import datetime
-from dataclasses import dataclass, asdict
-from urllib.parse import quote
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 
-@dataclass
-class CitationRecord:
-    """引用记录结构"""
-    authors: str              # 作者名字
-    year: str                # 出版年份
-    title: str               # 论文标题
-    source: str              # 来源（CrossRef, arXiv, Google Scholar等）
-    url: str                 # DOI或论文URL
-    bibtex: str              # 官方BibTeX格式
-    abstract: Optional[str]  # 论文摘要
-    verification_status: str # 验证状态: 'pending', 'verified', 'rejected'
-    claim_text: str          # 论文中的具体使用观点
-    validation_result: Dict[str, Any] = None  # LLM验证结果
-    timestamp: str = None    # 验证时间戳
-    
-    def __post_init__(self):
-        if self.timestamp is None:
-            self.timestamp = datetime.now().isoformat()
-    
-    def to_dict(self) -> Dict:
-        """转换为字典"""
-        data = asdict(self)
-        return data
+CitationMap = Dict[str, Dict[str, Any]]
+StepOutput = Tuple[CitationMap, str]
+
+
+# ---------------------------------------------------------------------------
+# 模块级引用工具函数（原 CitationFlowService，不含 LLM rewrite）
+# ---------------------------------------------------------------------------
+
+def build_canonical_citation_key(authors: str, year: str, fallback_title: str = "") -> str:
+    authors_text = str(authors or "").strip()
+    year_text = str(year or "").strip()
+    if authors_text and year_text:
+        return f"{authors_text} ({year_text})"
+    return str(fallback_title or "").strip()
+
+
+def extract_author_year_from_key(key: str) -> Tuple[str, str]:
+    text = str(key or "").strip()
+    match = re.match(r"^(.+?)\s*\(([^)]+)\)$", text)
+    if match:
+        return match.group(1).strip(), match.group(2).strip()
+    return text, ""
+
+
+def get_first_author_surface(authors: str) -> str:
+    raw = str(authors or "").strip()
+    if not raw:
+        return ""
+    first = re.split(r"\s*(?:;|,|&| and )\s*", raw, maxsplit=1)[0].strip() or raw
+    parts = [p for p in re.split(r"\s+", first) if p]
+    if re.search(r"[A-Za-z]", first) and len(parts) > 1:
+        return parts[-1].strip(".,")
+    return first.strip(".,")
+
+
+def build_preferred_inline_citation(authors: str, year: str) -> str:
+    authors_text = str(authors or "").strip()
+    year_text = str(year or "").strip()
+    if not authors_text or not year_text:
+        return ""
+    if "et al." in authors_text.lower():
+        label = authors_text
+    else:
+        multi_author = bool(re.search(r"[,;&]", authors_text) or " and " in authors_text.lower())
+        first_author = get_first_author_surface(authors_text)
+        label = f"{first_author} et al." if (multi_author and first_author) else (first_author or authors_text)
+    return f"({label}, {year_text})"
+
+
+def normalize_citation_surface(citation_text: str) -> str:
+    text = re.sub(r"\s+", " ", str(citation_text or "").strip())
+    if not text:
+        return ""
+    parenthetical = re.match(r"^\((.+?),\s*((?:19|20)\d{2}|n\.d\.)\)$", text)
+    if parenthetical:
+        return f"{parenthetical.group(1).strip()} ({parenthetical.group(2).strip()})"
+    narrative = re.match(r"^(.+?)\s*\(((?:19|20)\d{2}|n\.d\.)\)$", text)
+    if narrative:
+        return f"{narrative.group(1).strip()} ({narrative.group(2).strip()})"
+    return text
+
+
+def build_allowed_citation_alias_map(allowed_citation_keys: Optional[Set[str]]) -> Dict[str, str]:
+    alias_map: Dict[str, str] = {}
+    if not allowed_citation_keys:
+        return alias_map
+    for canonical_key in allowed_citation_keys:
+        canonical = str(canonical_key or "").strip()
+        if not canonical:
+            continue
+        authors, year = extract_author_year_from_key(canonical)
+        if not authors or not year:
+            continue
+        variants: Set[str] = {canonical, f"({authors}, {year})"}
+        first_author = get_first_author_surface(authors)
+        if first_author:
+            variants.add(f"{first_author} ({year})")
+            variants.add(f"({first_author}, {year})")
+        multi_author = bool(re.search(r"[,;&]", authors) or " and " in authors.lower())
+        if multi_author and first_author:
+            etal = f"{first_author} et al."
+            variants.add(f"{etal} ({year})")
+            variants.add(f"({etal}, {year})")
+        for variant in variants:
+            normalized = normalize_citation_surface(variant)
+            if normalized:
+                alias_map[normalized] = canonical
+    return alias_map
+
+
+def resolve_allowed_citation_key(raw_key: str, allowed_citation_keys: Optional[Set[str]]) -> Optional[str]:
+    if not allowed_citation_keys:
+        return None
+    alias_map = build_allowed_citation_alias_map(allowed_citation_keys)
+    return alias_map.get(normalize_citation_surface(raw_key))
+
+
+def scan_citations_in_text(text: str) -> List[Dict[str, Any]]:
+    findings: List[Dict[str, Any]] = []
+    seen_spans: Set[Tuple[int, int]] = set()
+    content = str(text or "")
+    parenthetical_pattern = r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)"
+    narrative_pattern = (
+        r"\b([A-Z][A-Za-zÀ-ÖØ-öø-ÿ'\-.]*"
+        r"(?:\s+(?:et al\.|[A-Z][A-Za-zÀ-ÖØ-öø-ÿ'\-.]*|AI|Research|Institute|Team|Face|Insights|Newsroom))*)"
+        r"\s*\(((?:19|20)\d{2}|n\.d\.)\)"
+    )
+    for match in re.finditer(parenthetical_pattern, content):
+        start, end = match.span()
+        seen_spans.add((start, end))
+        findings.append({
+            "kind": "parenthetical",
+            "raw_key": f"{match.group(1).strip()} ({match.group(2).strip()})",
+            "matched_text": match.group(0),
+            "start": start,
+            "end": end,
+        })
+    for match in re.finditer(narrative_pattern, content):
+        start, end = match.span()
+        if (start, end) in seen_spans:
+            continue
+        findings.append({
+            "kind": "narrative",
+            "raw_key": f"{match.group(1).strip()} ({match.group(2).strip()})",
+            "matched_text": match.group(0),
+            "start": start,
+            "end": end,
+        })
+    findings.sort(key=lambda item: item.get("start", 0))
+    return findings
+
+
+def normalize_available_citations(raw: Any) -> Dict[str, Dict[str, Any]]:
+    normalized: Dict[str, Dict[str, Any]] = {}
+    if isinstance(raw, dict):
+        for outer_key, value in raw.items():
+            info = dict(value) if isinstance(value, dict) else {"title": str(value or "").strip()}
+            key_text = str(outer_key or "").strip()
+            title = str(info.get("title") or "").strip() or key_text
+            if not title:
+                continue
+            info["title"] = title
+            authors = str(info.get("authors", "")).strip()
+            year = str(info.get("year", "")).strip()
+            canonical_key = str(info.get("canonical_key", "")).strip() or build_canonical_citation_key(authors, year, title)
+            if canonical_key:
+                info["canonical_key"] = canonical_key
+            normalized[title] = info
+        return normalized
+    if isinstance(raw, list):
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            info = dict(item)
+            title = str(info.get("title", "")).strip() or "Unknown Citation"
+            authors = str(info.get("authors", "")).strip()
+            year = str(info.get("year", "")).strip()
+            canonical_key = build_canonical_citation_key(authors, year, title)
+            if canonical_key:
+                info["canonical_key"] = canonical_key
+            info["title"] = title
+            normalized[title] = info
+    return normalized
+
+
+def build_available_citation_maps(available_citations: Any) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    title_map = normalize_available_citations(available_citations)
+    canonical_map: Dict[str, Dict[str, Any]] = {}
+    for title, info in title_map.items():
+        if not isinstance(info, dict):
+            continue
+        row = dict(info)
+        row.setdefault("title", title)
+        authors = str(row.get("authors", "")).strip()
+        year = str(row.get("year", "")).strip()
+        canonical_key = str(row.get("canonical_key", "")).strip() or build_canonical_citation_key(authors, year, title)
+        if not canonical_key:
+            continue
+        row["canonical_key"] = canonical_key
+        canonical_map[canonical_key] = row
+    return title_map, canonical_map
+
+
+def format_allowed_citation_whitelist(available_citations: Dict[str, Dict[str, str]]) -> str:
+    if not available_citations:
+        return "（当前段落没有可用引用，禁止输出任何 APA 文内引用）"
+    _, canonical_map = build_available_citation_maps(available_citations)
+    lines = []
+    for idx, (key, info) in enumerate(canonical_map.items(), 1):
+        authors = str(info.get("authors") or extract_author_year_from_key(key)[0]).strip()
+        year = str(info.get("year") or extract_author_year_from_key(key)[1]).strip()
+        title = str(info.get("title", "")).strip() or "Untitled source"
+        inline = str(info.get("inline_citation", "")).strip() or build_preferred_inline_citation(authors, year)
+        lines.append(f"- [{idx}] 只允许使用: {inline} | canonical_key: {key} | title: {title}")
+    return "\n".join(lines)
+
+
+def enqueue_unverified_citation(agent: Any, author: str, year: str, title: str, claim: str) -> None:
+    author_norm = str(author or "").strip()
+    year_norm = str(year or "").strip()
+    if not author_norm or not year_norm:
+        return
+    queue_key = f"{author_norm.lower()}::{year_norm}"
+    if queue_key in agent._queued_citation_keys:
+        return
+    agent._queued_citation_keys.add(queue_key)
+    agent._unverified_citations.append((author_norm, year_norm, str(title or "").strip(), str(claim or "").strip()))
+
+
+def add_citations(agent: Any, citations: Dict[str, Dict[str, str]], section_title: str = "") -> None:
+    _, canonical_map = build_available_citation_maps(citations)
+    for key, info in canonical_map.items():
+        match = re.match(r"^(.+?)\s*\(([^)]+)\)$", key)
+        author = match.group(1).strip() if match else str(info.get("authors", "")).strip()
+        year = match.group(2).strip() if match else str(info.get("year", "")).strip()
+        if key not in agent._citations:
+            agent._citation_counter += 1
+            agent._citations[key] = info
+        else:
+            existing = agent._citations.get(key, {})
+            existing_title = str(existing.get("title", "")).strip()
+            incoming_title = str(info.get("title", "")).strip()
+            improved = bool(incoming_title) and incoming_title.lower() not in {
+                "title unavailable", "retrieved from search results"
+            }
+            should_update = improved and (not existing_title or existing_title.lower() in {
+                "title unavailable", "retrieved from search results"
+            })
+            if should_update:
+                existing.update(info)
+                agent._citations[key] = existing
+        if author and year:
+            citation_title = str(agent._citations.get(key, {}).get("title") or info.get("title") or "").strip()
+            enqueue_unverified_citation(agent, author, year, citation_title, f"章节「{section_title or '未知章节'}」使用了该引用。")
+
+
+def collect_citations_from_text(
+    agent: Any,
+    text: str,
+    section_title: str = "",
+    allowed_citation_keys: Optional[Set[str]] = None,
+    add_new_from_text: bool = False,
+) -> None:
+    if not text:
+        return
+    normalized_allowed_keys: Optional[Set[str]] = None
+    if allowed_citation_keys is not None:
+        normalized_allowed_keys = {str(k).strip() for k in allowed_citation_keys if str(k).strip()}
+    pattern = r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)"
+    placeholder_authors = {"张三", "李四", "王五", "赵六", "某某", "佚名", "作者", "作者等", "author", "anonymous"}
+    sentences = [s.strip() for s in re.split(r'(?<=[。！？!?])\s+|\n+', str(text)) if s.strip()]
+    for sentence in sentences:
+        for author_raw, year_raw in re.findall(pattern, sentence):
+            author = author_raw.strip()
+            year = year_raw.strip()
+            if author in placeholder_authors or author.lower().replace(" ", "") in placeholder_authors:
+                continue
+            if re.search(r"张三|李四|王五|赵六|某某|^作者$|^Author$", author, re.IGNORECASE):
+                continue
+            key = f"{author} ({year})"
+            resolved_key = resolve_allowed_citation_key(key, normalized_allowed_keys)
+            if normalized_allowed_keys is not None and resolved_key is None:
+                continue
+            if resolved_key:
+                key = resolved_key
+                author, year = extract_author_year_from_key(resolved_key)
+            if key not in agent._citations:
+                if add_new_from_text:
+                    agent._citation_counter += 1
+                    agent._citations[key] = {
+                        "id": agent._citation_counter,
+                        "authors": author,
+                        "year": year,
+                        "title": "Title unavailable",
+                        "title_source": "generated_text_only",
+                        "title_note": "仅从正文 APA 文内引用提取，原句不含文献题名",
+                    }
+                else:
+                    continue
+            enqueue_unverified_citation(
+                agent,
+                author=author,
+                year=year,
+                title=str(agent._citations.get(key, {}).get("title") or "").strip(),
+                claim=sentence,
+            )
+
+
+def extract_citations_from_rag(agent: Any, rag_context: str) -> Dict[str, Dict[str, str]]:
+    citations: Dict[str, Dict[str, str]] = {}
+    latest_payload = agent.state.get(agent.STATE_LATEST_TAGGED_SEARCH_PAYLOAD, {})
+    if isinstance(latest_payload, dict):
+        citations.update(agent._tagged_search_service.extract_citations_from_tagged_payload(agent, latest_payload))
+    if not rag_context or agent.strict_citation_flow:
+        return citations
+    placeholder_authors = {"张三", "李四", "王五", "赵六", "某某", "佚名", "作者", "作者等", "author", "anonymous"}
+    for author_raw, year_raw in re.findall(r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)", str(rag_context)):
+        author = author_raw.strip()
+        year = year_raw.strip()
+        if author in placeholder_authors or author.lower().replace(" ", "") in placeholder_authors:
+            continue
+        if re.search(r"张三|李四|王五|赵六|某某|^作者$|^Author$", author, re.IGNORECASE):
+            continue
+        canonical_key = f"{author} ({year})"
+        title_key = f"Retrieved from search results - {canonical_key}"
+        if title_key not in citations:
+            citations[title_key] = {
+                "authors": author,
+                "year": year,
+                "title": "Retrieved from search results",
+                "title_source": "rag_context",
+                "canonical_key": canonical_key,
+            }
+    return citations
 
 
 class CitationValidator:
-    """学术引用验证器
-    
-    实现5步验证流程：
-    1. Search - 从RAG结果中检索引用
-    2. Verify - 双源验证引用存在性
-    3. Retrieve - 获取官方BibTeX
-    4. Validate - 核对论文摘要与声明匹配
-    5. Add - 写入到最终参考文献库
-    """
-    
-    # 学术数据库API端点
-    CROSSREF_API = "https://api.crossref.org/works"
-    ARXIV_API = "http://export.arxiv.org/api/query"
-    OPENALEX_API = "https://api.openalex.org/works"
-    
-    def __init__(self, model=None, timeout: int = 5):
-        """
-        Args:
-            model: LLM模型，用于Validate步骤
-            timeout: API请求超时时间（秒）
-        """
+    """仅支持 JSON 引用列表 + 段落文本的五步验证器。"""
+
+    SOURCE_HINTS = {
+        "arxiv.org": "arxiv",
+        "crossref.org": "crossref",
+        "doi.org": "crossref",
+        "openalex.org": "openalex",
+    }
+
+    def __init__(self, model=None, timeout: int = 5, min_source_count: int = 2):
         self.model = model
         self.timeout = timeout
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Academic-Citation-Validator/1.0 (Research System)'
-        })
-        
-        # 缓存已验证的引用
-        self.verified_cache: Dict[str, CitationRecord] = {}
-        # 记录验证历史
-        self.validation_log: List[Dict] = []
-    
-    def step1_search(self, author: str, year: str, title: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Step 1: Search (检索)
-        从多个学术数据库检索引用
-        
-        Args:
-            author: 作者名字
-            year: 出版年份
-            title: 论文标题（可选，提高精准度）
-            
-        Returns:
-            包含多个数据库搜索结果的字典
-        """
-        search_results = {
-            'crossref': [],
-            'arxiv': [],
-            'openalex': [],
-            'query_time': datetime.now().isoformat()
+        self.min_source_count = max(1, int(min_source_count))
+
+    def step1_search(self, citations: CitationMap, paragraph: str) -> StepOutput:
+        citations_map = self._ensure_citation_map(citations)
+        updated: CitationMap = {}
+        for title_key, item in citations_map.items():
+            row = dict(item)
+            if not str(row.get("title") or "").strip():
+                row["title"] = str(title_key)
+            source_list = self._normalize_source_list(row.get("source") or row.get("sources"))
+            url_source = self._source_from_url(str(row.get("url") or ""))
+            if url_source and url_source not in source_list:
+                source_list.append(url_source)
+            row["source"] = source_list
+            row["source_count"] = len(source_list)
+            row["step1_status"] = "searched"
+            updated[str(title_key)] = row
+        return updated, self._ensure_paragraph(paragraph)
+
+    def step2_verify(self, citations: CitationMap, paragraph: str) -> StepOutput:
+        citations_map = self._ensure_citation_map(citations)
+        updated: CitationMap = {}
+        for title_key, item in citations_map.items():
+            row = dict(item)
+            source_list = self._normalize_source_list(row.get("source"))
+            passed = len(source_list) >= self.min_source_count
+            row["source"] = source_list
+            row["source_count"] = len(source_list)
+            row["dual_source_verified"] = passed
+            row["verification_status"] = "verified" if passed else "rejected"
+            row["verification_counter"] = f"{len(source_list)}/{self.min_source_count}"
+            row["step2_status"] = "verified"
+            updated[str(title_key)] = row
+        return updated, self._ensure_paragraph(paragraph)
+
+    def step3_retrieve(self, citations: CitationMap, paragraph: str) -> StepOutput:
+        citations_map = self._ensure_citation_map(citations)
+        updated: CitationMap = {}
+        for title_key, item in citations_map.items():
+            row = dict(item)
+            if not str(row.get("bibtex") or "").strip():
+                row["bibtex"] = self._generate_basic_bibtex(row)
+            row["step3_status"] = "retrieved"
+            updated[str(title_key)] = row
+        return updated, self._ensure_paragraph(paragraph)
+
+    def step4_validate(self, citations: CitationMap, paragraph: str) -> StepOutput:
+        citations_map = self._ensure_citation_map(citations)
+        text = self._ensure_paragraph(paragraph)
+        inline_markers_in_text = {
+            self._normalize_citation_marker(m)
+            for m in re.findall(r"\([^()]*\d{4}[a-z]?[^()]*\)", text)
         }
-        
-        # 缓存键
-        cache_key = f"{author}_{year}"
-        if cache_key in self.verified_cache:
-            return {'cached': True, 'record': asdict(self.verified_cache[cache_key])}
-        
-        # 在CrossRef中搜索
-        search_results['crossref'] = self._search_crossref(author, year, title)
-        
-        # 在arXiv中搜索
-        search_results['arxiv'] = self._search_arxiv(author, year, title)
-        
-        # 在OpenAlex中搜索
-        search_results['openalex'] = self._search_openalex(author, year, title)
-        
-        return search_results
-    
-    def step2_verify(self, search_results: Dict) -> Tuple[bool, Dict]:
-        """
-        Step 2: Verify (双源存在性验证)
-        验证引用是否在至少两个独立来源中存在
-        
-        Args:
-            search_results: 来自step1的搜索结果
-            
-        Returns:
-            (是否验证通过, 最高质量的结果信息)
-        """
-        sources_found = []
-        best_result = None
-        best_score = -1
-        
-        # 检查各个来源的结果
-        if search_results.get('crossref') and len(search_results['crossref']) > 0:
-            sources_found.append('crossref')
-            best_candidate = search_results['crossref'][0]
-            if self._calculate_match_score(best_candidate) > best_score:
-                best_result = best_candidate
-                best_score = self._calculate_match_score(best_candidate)
-        
-        if search_results.get('arxiv') and len(search_results['arxiv']) > 0:
-            sources_found.append('arxiv')
-            best_candidate = search_results['arxiv'][0]
-            if self._calculate_match_score(best_candidate) > best_score:
-                best_result = best_candidate
-                best_score = self._calculate_match_score(best_candidate)
-        
-        if search_results.get('openalex') and len(search_results['openalex']) > 0:
-            sources_found.append('openalex')
-            best_candidate = search_results['openalex'][0]
-            if self._calculate_match_score(best_candidate) > best_score:
-                best_result = best_candidate
-                best_score = self._calculate_match_score(best_candidate)
-        
-        # 至少需要在两个来源中找到
-        verified = len(sources_found) >= 2 and best_result is not None
-        
-        return verified, {
-            'verified': verified,
-            'sources_found': sources_found,
-            'best_result': best_result,
-            'match_score': best_score
-        }
-    
-    def step3_retrieve(self, best_result: Dict) -> Optional[str]:
-        """
-        Step 3: Retrieve (获取官方 BibTeX)
-        从API获取标准BibTeX格式
-        
-        Args:
-            best_result: 最佳匹配结果（来自step2）
-            
-        Returns:
-            BibTeX格式字符串，或None如果获取失败
-        """
-        bibtex = None
-        
-        # 优先从CrossRef获取（最完整）
-        if 'doi' in best_result:
-            bibtex = self._get_bibtex_from_crossref(best_result['doi'])
-        
-        # 如果CrossRef失败，尝试arXiv
-        if not bibtex and 'arxiv_id' in best_result:
-            bibtex = self._get_bibtex_from_arxiv(best_result['arxiv_id'])
-        
-        # 如果仍未获得，尝试OpenAlex
-        if not bibtex and 'openalex_id' in best_result:
-            bibtex = self._get_bibtex_from_openalex(best_result['openalex_id'])
-        
-        # 如果所有API都失败，生成基础BibTeX
-        if not bibtex:
-            bibtex = self._generate_basic_bibtex(best_result)
-        
-        return bibtex
-    
-    def step4_validate(self, citation_record: CitationRecord, context_claim: str) -> Dict[str, Any]:
-        """
-        Step 4: Validate (核对声明)
-        使用LLM验证论文摘要是否真的支持论文中的观点
-        
-        这是防止引用误用和编造的关键步骤
-        
-        Args:
-            citation_record: 引用记录
-            context_claim: 论文中使用该引用的具体观点
-            
-        Returns:
-            验证结果，包含：
-            - is_valid: 是否验证通过
-            - confidence: 置信度 (0-1)
-            - evidence: 摘要中的支持证据
-            - issues: 发现的问题列表
-        """
-        if not self.model or not citation_record.abstract:
-            return {
-                'is_valid': True,
-                'confidence': 0.5,
-                'reason': 'No model or abstract available - skip validation',
-                'evidence': None
-            }
-        
-        # 构建验证提示
-        prompt = self._build_validation_prompt(citation_record, context_claim)
-        
-        try:
-            # 调用LLM进行验证
-            response = self.model.forward(
-                [{'role': 'user', 'content': prompt}],
-                temperature=0.3,
-                top_p=0.9
-            )
-            
-            # 解析LLM的响应
-            result = self._parse_validation_response(response)
-            
-            return result
-        except Exception as e:
-            return {
-                'is_valid': None,
-                'confidence': 0.0,
-                'error': str(e),
-                'evidence': None
-            }
-    
-    def step5_add(self, citation_record: CitationRecord) -> bool:
-        """
-        Step 5: Add (写入)
-        将经过验证的引用写入最终的参考文献库
-        
-        Args:
-            citation_record: 经过验证的引用记录
-            
-        Returns:
-            是否成功添加
-        """
-        # 最终检查：确保所有必要字段都已填充
-        if not all([
-            citation_record.authors,
-            citation_record.year,
-            citation_record.verification_status == 'verified'
-        ]):
-            citation_record.verification_status = 'rejected'
-            return False
-        
-        # 缓存该引用
-        cache_key = f"{citation_record.authors}_{citation_record.year}"
-        self.verified_cache[cache_key] = citation_record
-        
-        # 记录验证历史
-        self.validation_log.append({
-            'timestamp': datetime.now().isoformat(),
-            'authors': citation_record.authors,
-            'year': citation_record.year,
-            'status': citation_record.verification_status
-        })
-        
-        return True
-    
-    async def validate_citations_batch(self, 
-                                     citations: List[Tuple[str, str, str]], 
-                                     context_claims: Optional[Dict[str, str]] = None) -> Dict:
-        """
-        批量验证多个引用
-        
-        Args:
-            citations: [(author, year, title), ...] 列表
-            context_claims: {key: claim_text} 映射（用于validate步骤）
-            
-        Returns:
-            验证结果总结
-        """
-        results = {}
-        
-        for author, year, title in citations:
-            key = f"{author}_{year}"
-            
-            try:
-                # Step 1: Search
-                search_results = self.step1_search(author, year, title)
-                if search_results.get('cached'):
-                    results[key] = {
-                        'status': 'cached',
-                        'record': search_results['record']
-                    }
-                    continue
-                
-                # Step 2: Verify
-                verified, verify_info = self.step2_verify(search_results)
-                if not verified:
-                    results[key] = {
-                        'status': 'rejected',
-                        'reason': 'Failed dual-source verification',
-                        'sources_found': verify_info.get('sources_found', [])
-                    }
-                    continue
-                
-                best_result = verify_info['best_result']
-                
-                # Step 3: Retrieve
-                bibtex = self.step3_retrieve(best_result)
-                
-                # 创建引用记录
-                record = CitationRecord(
-                    authors=author,
-                    year=year,
-                    title=title or best_result.get('title', 'Unknown'),
-                    source=verify_info['sources_found'][0],
-                    url=best_result.get('url', ''),
-                    bibtex=bibtex or '',
-                    abstract=best_result.get('abstract', ''),
-                    verification_status='pending',
-                    claim_text=context_claims.get(key, '') if context_claims else ''
-                )
-                
-                # Step 4: Validate
-                if record.abstract and context_claims and key in context_claims:
-                    validation = self.step4_validate(record, context_claims[key])
-                    record.validation_result = validation
-                    
-                    # 根据验证结果更新状态
-                    if validation.get('is_valid'):
-                        record.verification_status = 'verified'
-                    else:
-                        record.verification_status = 'rejected'
-                
-                # Step 5: Add
-                success = self.step5_add(record)
-                
-                results[key] = {
-                    'status': record.verification_status,
-                    'record': asdict(record) if success else None
-                }
-                
-            except Exception as e:
-                results[key] = {
-                    'status': 'error',
-                    'error': str(e)
-                }
-            
-            # 降速（避免API限流）
-            time.sleep(0.5)
-        
-        return results
-    
-    # ===== 内部辅助方法 =====
-    
-    def _search_crossref(self, author: str, year: str, title: Optional[str] = None) -> List[Dict]:
-        """在CrossRef中搜索"""
-        try:
-            query = f"{author} {year}"
-            if title:
-                query += f" {title}"
-            
-            params = {
-                'query': query,
-                'rows': 3,
-                'select': 'title,author,published,DOI,abstract'
-            }
-            
-            response = self.session.get(self.CROSSREF_API, params=params, timeout=self.timeout)
-            response.raise_for_status()
-            
-            data = response.json()
-            results = []
-            
-            for item in data.get('message', {}).get('items', []):
-                results.append({
-                    'title': item.get('title', [''])[0],
-                    'authors': self._format_authors(item.get('author', [])),
-                    'year': item.get('published', {}).get('date-parts', [[None]])[0][0],
-                    'doi': item.get('DOI', ''),
-                    'url': f"https://doi.org/{item.get('DOI', '')}",
-                    'abstract': item.get('abstract', ''),
-                    'source': 'crossref'
-                })
-            
-            return results
-        except Exception as e:
-            print(f"CrossRef search failed: {e}")
-            return []
-    
-    def _search_arxiv(self, author: str, year: str, title: Optional[str] = None) -> List[Dict]:
-        """在arXiv中搜索"""
-        try:
-            query = f'author:"{author}"'
-            if title:
-                query += f' AND title:{title}'
-            
-            params = {
-                'search_query': query,
-                'start': 0,
-                'max_results': 3,
-                'sortBy': 'relevance',
-                'sortOrder': 'descending'
-            }
-            
-            response = self.session.get(self.ARXIV_API, params=params, timeout=self.timeout)
-            response.raise_for_status()
-            
-            # 解析Atom XML格式
-            import xml.etree.ElementTree as ET
-            root = ET.fromstring(response.content)
-            
-            results = []
-            for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
-                arxiv_id = entry.find('{http://www.w3.org/2005/Atom}id').text.split('/abs/')[-1]
-                results.append({
-                    'title': entry.find('{http://www.w3.org/2005/Atom}title').text,
-                    'authors': self._extract_arxiv_authors(entry),
-                    'year': arxiv_id.split('.')[0][:2] + '20',  # 近似从arxiv_id提取
-                    'arxiv_id': arxiv_id,
-                    'url': f"https://arxiv.org/abs/{arxiv_id}",
-                    'abstract': entry.find('{http://www.w3.org/2005/Atom}summary').text,
-                    'source': 'arxiv'
-                })
-            
-            return results
-        except Exception as e:
-            print(f"arXiv search failed: {e}")
-            return []
-    
-    def _search_openalex(self, author: str, year: str, title: Optional[str] = None) -> List[Dict]:
-        """在OpenAlex中搜索"""
-        try:
-            query = f'author.display_name:"{author}"'
-            if title:
-                query += f' AND title:"{title}"'
-            
-            params = {
-                'filter': f'{query},publication_year:{year}',
-                'per-page': 3,
-                'sort': 'cited_by_count:desc'
-            }
-            
-            response = self.session.get(self.OPENALEX_API, params=params, timeout=self.timeout)
-            response.raise_for_status()
-            
-            data = response.json()
-            results = []
-            
-            for item in data.get('results', []):
-                results.append({
-                    'title': item.get('display_name', ''),
-                    'authors': ', '.join([a.get('display_name', '') for a in item.get('authorships', [])]),
-                    'year': item.get('publication_year', year),
-                    'openalex_id': item.get('id', ''),
-                    'url': item.get('doi', '') or item.get('id', ''),
-                    'abstract': item.get('abstract_inverted_index', ''),  # OpenAlex以特殊格式存储摘要
-                    'source': 'openalex'
-                })
-            
-            return results
-        except Exception as e:
-            print(f"OpenAlex search failed: {e}")
-            return []
-    
-    def _calculate_match_score(self, result: Dict) -> float:
-        """计算搜索结果的匹配度分数"""
-        score = 0.0
-        
-        # 有DOI/arxiv_id/openalex_id加分
-        if result.get('doi') or result.get('arxiv_id') or result.get('openalex_id'):
-            score += 0.3
-        
-        # 有摘要加分
-        if result.get('abstract'):
-            score += 0.2
-        
-        # 基础分
-        score += 0.5
-        
-        return score
-    
-    def _get_bibtex_from_crossref(self, doi: str) -> Optional[str]:
-        """从CrossRef获取BibTeX"""
-        try:
-            headers = {'Accept': 'application/x-bibtex'}
-            url = f"https://api.crossref.org/works/{doi}/transform/application/x-bibtex"
-            response = self.session.get(url, headers=headers, timeout=self.timeout)
-            if response.status_code == 200:
-                return response.text
-        except Exception as e:
-            print(f"Failed to get BibTeX from CrossRef: {e}")
-        return None
-    
-    def _get_bibtex_from_arxiv(self, arxiv_id: str) -> Optional[str]:
-        """从arXiv获取BibTeX"""
-        try:
-            # arXiv不直接提供BibTeX，但可以构造
-            url = f"https://arxiv.org/abs/{arxiv_id}"
-            return f"@misc{{{arxiv_id.replace('/', '_')},\n  url={{{url}}}\n}}"
-        except Exception:
-            pass
-        return None
-    
-    def _get_bibtex_from_openalex(self, openalex_id: str) -> Optional[str]:
-        """从OpenAlex获取BibTeX"""
-        try:
-            params = {'mailto': 'research@example.com'}
-            response = self.session.get(f"{openalex_id}.bib", params=params, timeout=self.timeout)
-            if response.status_code == 200:
-                return response.text
-        except Exception:
-            pass
-        return None
-    
-    def _generate_basic_bibtex(self, result: Dict) -> str:
-        """生成基础BibTeX格式"""
-        # 构建安全的BibTeX键
-        key_prefix = result.get('authors', 'unknown').split()[0].lower()
-        year = result.get('year', 'nd')
-        bibtex_key = f"{key_prefix}{year}"
-        
-        title = result.get('title', 'Untitled').replace('"', '\\"')
-        
-        # 生成基本条目
-        bibtex = f"""@article{{{bibtex_key},
-  title="{{{title}}}",
-  author="{result.get('authors', 'Unknown')}",
-  year={year}"""
-        
-        if result.get('url'):
-            bibtex += f',\n  url="{result.get("url")}"'
-        
-        bibtex += "\n}"
-        return bibtex
-    
-    def _format_authors(self, authors: List[Dict]) -> str:
-        """格式化CrossRef的作者列表"""
-        if not authors:
-            return "Unknown"
-        
-        author_names = []
-        for author in authors[:3]:  # 最多显示3个作者
-            given = author.get('given', '')
-            family = author.get('family', '')
-            name = f"{given} {family}".strip()
-            if name:
-                author_names.append(name)
-        
-        if len(authors) > 3:
-            return f"{', '.join(author_names)} et al."
-        return ', '.join(author_names)
-    
-    def _extract_arxiv_authors(self, entry) -> str:
-        """提取arXiv条目的作者"""
-        try:
-            authors = []
-            for author_elem in entry.findall('{http://www.w3.org/2005/Atom}author'):
-                name = author_elem.find('{http://www.w3.org/2005/Atom}name').text
-                authors.append(name)
-            
-            if len(authors) > 3:
-                return f"{', '.join(authors[:3])} et al."
-            return ', '.join(authors)
-        except:
-            return "Unknown"
-    
-    def _build_validation_prompt(self, record: CitationRecord, claim: str) -> str:
-        """构建验证提示"""
-        return f"""请分析以下论文摘要是否能够支持所提出的学术观点：
 
-【论文信息】
-标题: {record.title}
-作者: {record.authors}
-出版年: {record.year}
+        updated: CitationMap = {}
+        for title_key, item in citations_map.items():
+            row = dict(item)
+            expected_markers = self._build_entry_citation_markers(row)
+            matched_markers = sorted(expected_markers.intersection(inline_markers_in_text))
+            claim_supported = bool(matched_markers)
+            confidence = 1.0 if claim_supported else 0.0
 
-【论文摘要】
-{record.abstract[:500]}...
+            row["validation_result"] = {
+                "is_valid": claim_supported,
+                "confidence": confidence,
+                "reason": "apa-inline-citation-match",
+                "matched_markers": matched_markers,
+            }
+            row["claim_supported"] = claim_supported
+            if row.get("verification_status") == "verified" and claim_supported:
+                row["verification_status"] = "verified"
+            else:
+                row["verification_status"] = "rejected"
+            row["step4_status"] = "validated"
+            updated[str(title_key)] = row
 
-【在我们的报告中的使用观点】
-{claim}
+        return updated, text
 
-请判断：
-1. 论文摘要中是否确实有证据支持这个观点？
-2. 这个引用是否被合适地使用？
-3. 是否存在过度解读或不当引用？
+    def step5_add(self, citations: CitationMap, paragraph: str) -> StepOutput:
+        citations_map = self._ensure_citation_map(citations)
+        text = self._ensure_paragraph(paragraph)
 
-请用JSON格式回答：
-{{
-  "is_valid": true/false,
-  "confidence": 0.0-1.0,
-  "evidence": "摘要中的具体支持证据",
-  "issues": ["问题1", "问题2"]
-}}
-"""
-    
-    def _parse_validation_response(self, response: str) -> Dict[str, Any]:
-        """解析LLM的验证响应"""
-        try:
-            # 提取JSON部分
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                result = json.loads(json_match.group())
-                return result
-        except:
-            pass
-        
-        # 降级方案：简单判断
-        return {
-            'is_valid': 'valid' in response.lower(),
-            'confidence': 0.5,
-            'evidence': 'Unable to parse response',
-            'issues': []
-        }
-    
-    def export_verified_citations(self, format: str = 'json') -> str:
-        """导出所有已验证的引用
-        
-        Args:
-            format: 'json' 或 'bibtex'
-            
-        Returns:
-            格式化的引用文本
-        """
-        if format == 'json':
-            return json.dumps(
-                {k: asdict(v) for k, v in self.verified_cache.items()},
-                indent=2,
-                ensure_ascii=False
-            )
-        elif format == 'bibtex':
-            bibtex_entries = []
-            for record in self.verified_cache.values():
-                if record.bibtex:
-                    bibtex_entries.append(record.bibtex)
-            return '\n\n'.join(bibtex_entries)
+        accepted: CitationMap = {}
+        for title_key, item in citations_map.items():
+            row = dict(item)
+            is_verified = bool(row.get("verification_status") == "verified")
+            is_supported = bool(row.get("claim_supported", False))
+            if is_verified and is_supported:
+                row["step5_status"] = "added"
+                accepted[str(title_key)] = row
+            else:
+                row["step5_status"] = "dropped"
+
+        valid_citation_markers = self._build_valid_citation_markers(accepted)
+        cleaned_text = self._remove_invalid_citation_sentences(text, valid_citation_markers)
+
+        if accepted:
+            titles = "；".join(str(c.get("title") or "Unknown") for c in accepted.values())
+            updated_paragraph = f"{cleaned_text}\n\n[Validated References] {titles}" if cleaned_text else f"[Validated References] {titles}"
         else:
-            raise ValueError(f"Unsupported format: {format}")
-    
-    def get_validation_report(self) -> Dict[str, Any]:
-        """生成验证统计报告"""
-        total = len(self.validation_log)
-        verified = len([r for r in self.validation_log if r['status'] == 'verified'])
-        rejected = len([r for r in self.validation_log if r['status'] == 'rejected'])
-        
-        return {
-            'total_citations_processed': total,
-            'verified_count': verified,
-            'rejected_count': rejected,
-            'verification_rate': verified / total if total > 0 else 0,
-            'verification_log': self.validation_log
+            updated_paragraph = cleaned_text
+
+        return accepted, updated_paragraph
+
+    def run_five_step_validation(self, citations: CitationMap, paragraph: str) -> StepOutput:
+        c1, p1 = self.step1_search(citations, paragraph)
+        c2, p2 = self.step2_verify(c1, p1)
+        c3, p3 = self.step3_retrieve(c2, p2)
+        c4, p4 = self.step4_validate(c3, p3)
+        c5, p5 = self.step5_add(c4, p4)
+        return c5, p5
+
+    def _ensure_paragraph(self, paragraph: Any) -> str:
+        return str(paragraph or "").strip()
+
+    def _ensure_citation_map(self, citations: Any) -> CitationMap:
+        if not isinstance(citations, dict):
+            raise ValueError("citations 必须是 JSON 对象（Dict[title, citation_info]）")
+
+        result: CitationMap = {}
+        for title, item in citations.items():
+            if not isinstance(item, dict):
+                raise ValueError(f"citations[{title!r}] 必须是 JSON 对象（Dict）")
+            result[str(title)] = dict(item)
+        return result
+
+    def _normalize_source_list(self, source_value: Any) -> List[str]:
+        if source_value is None:
+            return []
+
+        if isinstance(source_value, str):
+            candidates = [s.strip().lower() for s in re.split(r"[,;]", source_value) if s.strip()]
+        elif isinstance(source_value, (list, tuple, set)):
+            candidates = [str(s).strip().lower() for s in source_value if str(s).strip()]
+        else:
+            raw = str(source_value).strip().lower()
+            candidates = [raw] if raw else []
+
+        deduped: List[str] = []
+        for source in candidates:
+            if source and source not in deduped:
+                deduped.append(source)
+        return deduped
+
+    def _source_from_url(self, url: str) -> str:
+        low_url = url.lower()
+        for host, source in self.SOURCE_HINTS.items():
+            if host in low_url:
+                return source
+        return ""
+
+    def _title_tokens(self, title: str) -> List[str]:
+        raw_tokens = re.findall(r"[a-zA-Z]{4,}", title.lower())
+        stop_words = {
+            "from", "with", "into", "that", "this", "have", "been", "their",
+            "using", "large", "model", "models", "language",
         }
+        tokens = [t for t in raw_tokens if t not in stop_words]
+        deduped: List[str] = []
+        for token in tokens:
+            if token not in deduped:
+                deduped.append(token)
+        return deduped[:8]
+
+    def _generate_basic_bibtex(self, row: Dict[str, Any]) -> str:
+        title = str(row.get("title") or "Unknown").strip()
+        year = str(row.get("year") or "n.d.").strip()
+        authors = str(row.get("authors") or "Unknown").strip()
+        url = str(row.get("url") or "").strip()
+
+        key_base = re.sub(r"[^a-zA-Z0-9]+", "", title)[:20] or "citation"
+        key = f"{key_base}{year}"
+
+        return (
+            f"@article{{{key},\n"
+            f"  title={{{title}}},\n"
+            f"  author={{{authors}}},\n"
+            f"  year={{{year}}},\n"
+            f"  url={{{url}}}\n"
+            f"}}"
+        )
+
+    def _build_valid_citation_markers(self, citations: CitationMap) -> set[str]:
+        markers: set[str] = set()
+        for row in citations.values():
+            markers.update(self._build_entry_citation_markers(row))
+
+        return markers
+
+    def _build_entry_citation_markers(self, row: Dict[str, Any]) -> set[str]:
+        markers: set[str] = set()
+        apa = str(row.get("apa_citation") or "").strip()
+        if apa:
+            markers.add(self._normalize_citation_marker(apa))
+
+        year = str(row.get("year") or "").strip()
+        authors = str(row.get("authors") or "").strip()
+        if not year or not authors:
+            return markers
+
+        first_author = self._first_author_token(authors)
+        if first_author:
+            markers.add(self._normalize_citation_marker(f"({first_author}, {year})"))
+            markers.add(self._normalize_citation_marker(f"({first_author} et al., {year})"))
+
+        if "contributors" in authors.lower():
+            markers.add(self._normalize_citation_marker(f"({authors}, {year})"))
+
+        return markers
+
+    def _first_author_token(self, authors: str) -> str:
+        first_chunk = authors.split(";")[0].strip()
+        if not first_chunk:
+            return ""
+        if "," in first_chunk:
+            return first_chunk.split(",")[0].strip()
+        return first_chunk.strip()
+
+    def _normalize_citation_marker(self, marker: str) -> str:
+        text = marker.replace("，", ",")
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def _remove_invalid_citation_sentences(self, paragraph: str, valid_markers: set[str]) -> str:
+        if not paragraph:
+            return ""
+
+        blocks = [b for b in paragraph.split("\n\n")]
+        cleaned_blocks: List[str] = []
+
+        for block in blocks:
+            # 不按英文句点 "." 切句，避免把 "et al., 2024" 这类引用拆断
+            sentences = re.findall(r"[^。！？!?]*[。！？!?]|[^。！？!?]+$", block, flags=re.S)
+            kept: List[str] = []
+            for sentence in sentences:
+                sent = sentence.strip()
+                if not sent:
+                    continue
+
+                cited_markers = re.findall(
+                    r"[\(\（][^\(\)\（\）]{0,220}?(?:19|20)\d{2}[a-zA-Z]?[^\(\)\（\）]{0,80}[\)\）]",
+                    sent,
+                )
+                if not cited_markers:
+                    kept.append(sent)
+                    continue
+
+                normalized = [self._normalize_citation_marker(c) for c in cited_markers]
+                if all(c in valid_markers for c in normalized):
+                    kept.append(sent)
+
+            cleaned_block = "".join(kept).strip()
+            if cleaned_block:
+                cleaned_blocks.append(cleaned_block)
+
+        return "\n\n".join(cleaned_blocks).strip()
