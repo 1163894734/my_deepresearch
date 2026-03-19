@@ -189,8 +189,8 @@ class KeywordSearchExpansionComponent(JsonWorkflowComponent):
         agent.logger.log("📋 执行5步关键词搜索扩展流程...", level=LogLevel.INFO)
         
         initial_concepts = self._extract_initial_concepts(agent, task)
-        top_20_papers = self._first_shot_retrieval(agent, initial_concepts)
-        candidate_keywords = self._extract_and_filter_keywords(agent, top_20_papers, initial_concepts)
+        available_citations = self._first_shot_retrieval(agent, initial_concepts)
+        candidate_keywords = self._extract_and_filter_keywords(agent, available_citations, initial_concepts)
         upgraded_concepts = self._upgrade_concepts_with_keywords(agent, initial_concepts, candidate_keywords)
         final_retrieval_results = self._second_shot_retrieval(agent, upgraded_concepts)
 
@@ -199,7 +199,7 @@ class KeywordSearchExpansionComponent(JsonWorkflowComponent):
         return {
             "task": task,
             "initial_concepts": initial_concepts,
-            "top_20_papers": top_20_papers,
+            "available_citations": available_citations,
             "candidate_keywords": candidate_keywords,
             "upgraded_concepts": upgraded_concepts,
             "final_retrieval_results": final_retrieval_results,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import sys
+import sys,json
 from typing import Any, Dict, List
 
 from smolagents.monitoring import LogLevel
@@ -35,10 +35,7 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
     description = "大纲生成和反思修订组件：输入检索证据，输出最终大纲。"
     input_format = {
         "task": "str",
-        "upgraded_concepts": "List[Dict]",
-        "top_20_papers": "List[Dict]",
-        "candidate_keywords": "List[str]",
-        "final_retrieval_results": "str",
+        "available_citations": "Dict{str, Dict}"
     }
     output_format = {
         "outline_input": "str",
@@ -46,43 +43,6 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
         "final_outline": "str",
     }
 
-    @staticmethod
-    def _build_outline_generation_input(
-        agent,
-        task: str,
-        upgraded_concepts: List[Dict[str, Any]],
-        top_20_papers: List[Dict[str, str]],
-        candidate_keywords: List[str],
-        final_retrieval_results: str,
-    ) -> str:
-        """
-        主要作用：为大纲组件组装最终输入提示。
-
-        输入参数：
-        - agent: 当前 LongWriterAgent 或兼容宿主对象，负责模型调用、工具调度、状态管理和日志写入。
-        - task (str): 用户给出的原始写作任务，或经清洗后的任务描述。
-        - upgraded_concepts (List[Dict[str, Any]]): 融合扩展关键词后的升级概念集合。
-        - top_20_papers (List[Dict[str, str]]): 该参数用于承载 `top_20_papers` 相关的业务上下文或控制信息。
-        - candidate_keywords (List[str]): 从检索材料中提炼得到的候选关键词列表。
-        - final_retrieval_results (str): 该参数用于承载 `final_retrieval_results` 相关的业务上下文或控制信息。
-
-        返回值：
-        - str：返回处理后的文本、提示词、章节内容或格式化字符串。
-
-        实现逻辑：
-        - 读取当前上下文中的关键字段。
-        - 按既定模板和业务规则拼装输入结构。
-        - 返回下游阶段可直接消费的提示词、映射或载荷。
-        """
-
-        return agent._keyword_search_service.build_outline_generation_input(
-            agent,
-            task,
-            upgraded_concepts,
-            top_20_papers,
-            candidate_keywords,
-            final_retrieval_results,
-        )
 
     def run(self, agent, payload: dict) -> dict:
         """
@@ -102,30 +62,16 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
         - 返回结果或通过副作用更新状态、日志和文件。
         """
 
-        task = str(payload.get("task", "")).strip()
-        upgraded_concepts = payload.get("upgraded_concepts", [])
-        top_20_papers = payload.get("top_20_papers", [])
-        candidate_keywords = payload.get("candidate_keywords", [])
-        final_retrieval_results = str(payload.get("final_retrieval_results", ""))
 
-        outline_input = self._build_outline_generation_input(
-            agent,
-            task=task,
-            upgraded_concepts=upgraded_concepts,
-            top_20_papers=top_20_papers,
-            candidate_keywords=candidate_keywords,
-            final_retrieval_results=final_retrieval_results,
-        )
-        outline_v1 = str(agent.execute_tool_call("outline_generation", {"input": outline_input}))
+        outline_v1 = str(agent.execute_tool_call("outline_generation", {"input": json.dumps(payload)}))
         final_outline = self._outline_reflection_loop_v2(
             agent,
             outline_v1,
-            upgraded_concepts,
-            final_retrieval_results,
+            payload
         )
 
         return {
-            "outline_input": outline_input,
+            "outline_input": payload,
             "outline_v1": outline_v1,
             "final_outline": final_outline,
         }
@@ -134,8 +80,7 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
     def _outline_reflection_loop_v2(
         agent,
         outline: str,
-        upgraded_concepts: List[Dict[str, Any]],
-        retrieval_results: str,
+        payload: dict
     ) -> str:
         """
         主要作用：执行大纲反思与修订循环。
@@ -160,18 +105,7 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
             agent.logger.log(f"  大纲反思 {i+1}/{agent.outline_max_iter}", level=LogLevel.DEBUG)
 
             try:
-                reflection_input = f"大纲:\n{current}"
-                reflection_input += "\n\n【核心概念组】需要确保大纲覆盖以下所有概念：\n"
-                for idx, concept in enumerate(upgraded_concepts, 1):
-                    name = concept.get("concept_name", "")
-                    kws = concept.get("keywords", [])
-                    reflection_input += f"{idx}. {name}: {', '.join(kws)}\n"
-                reflection_input += "\n请检查大纲是否覆盖了所有概念组的核心内容。"
-
-                if retrieval_results:
-                    reflection_input += f"\n\n【Second-Shot 精准检索结果】\n{retrieval_results[:3000]}\n"
-                    reflection_input += "\n请确保大纲的各章节能够充分利用这些检索到的内容。"
-
+                reflection_input = f"大纲:\n{current}\n参考资料:\n{payload}"
                 report = str(agent.execute_tool_call("outline_reflection", {"input": reflection_input}))
                 data = agent._parse_json(report)
                 if not isinstance(data, dict):
@@ -191,26 +125,7 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
                     level=LogLevel.DEBUG,
                 )
 
-                revision_prompt = f"""大纲:
-{current}
-
-评审报告:
-{report}
-
-【参考：核心概念组】
-"""
-                for concept in upgraded_concepts:
-                    name = concept.get("concept_name", "")
-                    kws = concept.get("keywords", [])
-                    revision_prompt += f"- {name}: {', '.join(kws)}\n"
-
-                if retrieval_results:
-                    revision_prompt += f"\n【参考：Second-Shot 检索结果】\n{retrieval_results[:2000]}\n"
-
-                revision_prompt += """
-
-重要提示：请直接输出修改后的完整大纲，不要使用任何修改标记（如~~删除线~~、**加粗**等），只输出最终的干净文本。确保大纲覆盖所有概念组的内容。"""
-
+                revision_prompt = f"""大纲:\n{current}\n评审报告:\n{report}\n参考资料:\n{payload}"""
                 current = str(agent.execute_tool_call("outline_revision", {"input": revision_prompt}))
                 agent._log_revision_to_file(f"大纲修订第{i+1}轮", current)
 
@@ -239,43 +154,27 @@ def main() -> int:
 
     if len(sys.argv) <= 1:
         payload_json_text = r'''{
-    "task": "大模型领域前沿进展",
-    "upgraded_concepts": [
-        {
-            "concept_name": "推理优化",
-            "keywords": ["OPRO", "自然语言优化", "提示工程自动化", "无梯度优化"]
-        },
-        {
-            "concept_name": "大模型综述",
-            "keywords": ["LoRA", "前缀微调", "指令微调", "RAG"]
-        }
-    ],
-    "top_20_papers": [
-        {
-            "title": "Large Language Models as Optimizers",
-            "abstract": "该研究提出OPRO框架，利用大语言模型作为优化器，通过自然语言迭代优化任务目标。",
-            "keywords": ["OPRO优化框架", "自然语言优化循环", "提示工程自动化"],
-            "authors": "Chengrun Yang, Xuezhi Wang, Yifeng Lu, Hanxiao Liu, Quoc V. Le, Denny Zhou, Xinyun Chen",
-            "url": "https://arxiv.org/abs/2309.03409",
-            "published_time": "2023-09",
-            "year": "2023",
+    "query": "大模型领域前沿进展",
+    "available_citations": {
+        "OPUS: Optimizer-induced Projected Utility Selection": {
+            "authors": "阿里巴巴, 上海交大, UW-Madison等",
+            "year": "2026",
+            "title": "OPUS: Optimizer-induced Projected Utility Selection for Dynamic Data Selection in LLM Pre-training",
+            "url": "https://arxiv.org/pdf/2602.0540",
             "source_type": "paper",
-            "apa_citation": "(Yang et al., 2023)"
+            "apa_citation": "(阿里巴巴等, 2026)",
+            "key_words": ["动态数据选择", "预训练优化", "AdamW", "Muon", "效用最大化", "Bench-Proxy"]
         },
-        {
-            "title": "A Comprehensive Overview of Large Language Models",
-            "abstract": "该综述总结了大模型在架构创新、训练策略、微调技术与推理优化方面的进展。",
-            "keywords": ["LoRA低秩适配", "前缀微调技术", "指令微调范式", "检索增强生成(RAG)"],
-            "authors": "Humza Naveed, Asad Ullah Khan, Qiu Yuanchao, Muhammad Ali Raza, Farhan Hassan Khan",
-            "url": "https://arxiv.org/abs/2307.06435",
-            "published_time": "2023-07",
-            "year": "2023",
+        "Understanding Transformer Architecture through Continuous Dynamics: A Partial Differential Equation Perspective": {
+            "authors": "Yukun Zhang et al.",
+            "year": "2024",
+            "title": "Understanding Transformer Architecture through Continuous Dynamics: A Partial Differential Equation Perspective",
+            "url": "https://arxiv.org/abs/2408.09523",
             "source_type": "paper",
-            "apa_citation": "(Naveed et al., 2023)"
+            "apa_citation": "(Zhang et al., 2024)",
+            "key_words": ["Transformer", "偏微分方程", "连续动力学", "残差连接", "层归一化", "表示漂移"]
         }
-    ],
-    "candidate_keywords": ["推理优化", "OPRO", "LoRA", "指令微调", "RAG"],
-    "final_retrieval_results": "[1] Large Language Models as Optimizers\\nURL: https://arxiv.org/abs/2309.03409\\n时间: 2023-09\\n摘要: 该研究提出OPRO框架，利用大语言模型作为优化器，通过自然语言迭代优化任务目标。\\n关键词: OPRO优化框架, 自然语言优化循环, 提示工程自动化\\n\\n[2] A Comprehensive Overview of Large Language Models\\nURL: https://arxiv.org/abs/2307.06435\\n时间: 2023-07\\n摘要: 该综述总结了大模型在架构创新、训练策略、微调技术与推理优化方面的进展。\\n关键词: LoRA低秩适配, 前缀微调技术, 指令微调范式, 检索增强生成(RAG)"
+    }
 }'''
 
         return run_component_cli(

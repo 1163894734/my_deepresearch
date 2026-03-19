@@ -1497,6 +1497,7 @@ class CustomAgent(MultiStepAgent):
         planning_interval: int | None = None,
         stream_outputs: bool = False,
         max_tool_threads: int | None = None,
+        provide_run_summary: bool = False,
         **kwargs,
     ):
         prompt_templates = prompt_templates or yaml.safe_load(

@@ -100,7 +100,7 @@ def create_agent(model_id="o1"):
     #     # max_tokens=2048,  # 强制必填：设置生成的最大 tokens 数（根据 GPTs 限制调整）
     #     # temperature=0.7,  # 可选：保持原有配置
     # )
-    text_limit = 100000
+    text_limit = 20000
     browser = SimpleTextBrowser(**BROWSER_CONFIG)
     WEB_TOOLS = [
         # GoogleSearchTool(provider="serper"),

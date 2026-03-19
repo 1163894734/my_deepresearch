@@ -1095,11 +1095,8 @@ class LongWriterAgent(CustomAgent):
                 "keyword_search_expansion",
                 {"task": cleaned_task},
             )
-
-            top_20_papers = search_stage_result.get("top_20_papers", [])
-            candidate_keywords = search_stage_result.get("candidate_keywords", [])
-            upgraded_concepts = search_stage_result.get("upgraded_concepts", [])
-            final_retrieval_results = str(search_stage_result.get("final_retrieval_results", ""))
+            
+            available_citations = search_stage_result.get("available_citations", [])
 
             # ============== 第6-7步：大纲生成 + 反思修订（组件） ==============
             self.logger.log("📝 基于精准检索结果生成大纲...", level=LogLevel.INFO)
@@ -1108,10 +1105,7 @@ class LongWriterAgent(CustomAgent):
                 "outline_generation_reflection",
                 {
                     "task": cleaned_task,
-                    "upgraded_concepts": upgraded_concepts,
-                    "top_20_papers": top_20_papers,
-                    "candidate_keywords": candidate_keywords,
-                    "final_retrieval_results": final_retrieval_results,
+                    "available_citations": available_citations,
                 },
             )
             outline_v1 = str(outline_stage_result.get("outline_v1", ""))
@@ -1200,16 +1194,14 @@ class LongWriterAgent(CustomAgent):
                     fine_rag_context = self._run_fine_rag_for_section(section)
                     # 从检索结果中提取可用的引用
                     if fine_rag_context:
-                        available_citations = self._citation_flow_service.extract_citations_from_rag(self, fine_rag_context)
+                        available_citations = json.loads(fine_rag_context)
 
                 # 根据类型选择 skill，并按章节语义传最小必要上下文
-                # 获取字数目标（如果有）
-                word_count_target = section.get('word_count_target', 0)
                 
                 cleaned_task = self._clean_task_description()
                 if section_type == "references":
                     # 参考文献章节应传递全局可用引用
-                    references_available_citations, _ = self._citation_flow_service.build_available_citation_maps(self._citations)
+                    references_available_citations = self._citation
                     references_payload = {
                         "section": section,
                         "available_citations": references_available_citations,
@@ -1236,7 +1228,9 @@ class LongWriterAgent(CustomAgent):
                     )
                     self.logger.log(f"[Component输出] introduction_writing: {json.dumps(intro_result, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
                     final = str(intro_result.get("content", ""))
+                    available_citations, final = self._citation_validator.run_five_step_validation(available_citations,final)
                     self._prev_body_or_intro_content = final
+                    self._citations={**self._citations,**available_citations}
                 elif section_type == "conclusion":
                     # 直接使用实时维护的 self._full_text_body
                     conclusion_payload = {
@@ -1252,42 +1246,23 @@ class LongWriterAgent(CustomAgent):
                     )
                     self.logger.log(f"[Component输出] conclusion_writing: {json.dumps(conclusion_result, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
                     final = str(conclusion_result.get("content", ""))
-                    if not self._abstract_section:
-                        abstract_config = deferred_abstract_section or {"title": "摘要", "goal": "凝练全文核心发现与价值", "word_count_target": 300}
-                        # 直接使用实时维护的 self._full_text_body
-                        abstract_payload = {
-                            "section": abstract_config,
-                            "conclusion_text": final,
-                            "full_text": self._full_text_body,
-                            "task": cleaned_task,
-                        }
-                        self.logger.log(f"[Component输入] abstract_writing: {json.dumps(abstract_payload, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
-                        abstract_result = self._invoke_workflow_component(
-                            "abstract_writing",
-                            abstract_payload,
-                        )
-                        self.logger.log(f"[Component输出] abstract_writing: {json.dumps(abstract_result, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
-                        abstract_content = str(abstract_result.get("content", ""))
-                        if abstract_content:
-                            abstract_section_ref = self._get_section_ref(abstract_config)
-                            abstract_allowed_keys = set(self._citations.keys()) if self._citations else set()
-                            self._log_reference_usage_in_section(abstract_section_ref, str(abstract_content))
-                            self._citation_flow_service.collect_citations_from_text(
-                                self,
-                                str(abstract_content),
-                                abstract_section_ref,
-                                allowed_citation_keys=abstract_allowed_keys,
-                                add_new_from_text=self.allow_add_citation_from_generated_text,
-                            )
-                            self._abstract_section = {
-                                "title": abstract_config.get("title", "摘要"),
-                                "content": abstract_content,
-                                "type": "abstract",
-                                "number": abstract_config.get("number", ""),
-                                "level": abstract_config.get("level", 1),
-                            }
-                            self._insert_abstract_before_introduction()
-                            self._log_abstract_materialized("结论阶段")
+                    available_citations, final = self._citation_validator.run_five_step_validation(available_citations,final)
+                    self._prev_body_or_intro_content = final
+                    self._citations={**self._citations,**available_citations}
+                elif section_type == "abstract":
+                    # 直接使用实时维护的 self._full_text_body
+                    abstract_payload = {
+                        "section": section,
+                        "full_text": self._full_text_body,
+                        "task": cleaned_task,
+                    }
+                    self.logger.log(f"[Component输入] abstract: {json.dumps(abstract_payload, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
+                    abstract_result = self._invoke_workflow_component(
+                        "abstract_writing",
+                        abstract_payload,
+                    )
+                    self.logger.log(f"[Component输出] abstract: {json.dumps(abstract_result, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
+                    final = str(abstract_result.get("content", ""))                 
                 else:
                     body_payload = {
                         "section": section,
@@ -1304,6 +1279,9 @@ class LongWriterAgent(CustomAgent):
                     self.logger.log(f"[Component输出] body_writing: {json.dumps(body_result, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
                     final = str(body_result.get("content", ""))
                     self._prev_body_or_intro_content = final
+                    available_citations, final = self._citation_validator.run_five_step_validation(available_citations,final)
+                    self._prev_body_or_intro_content = final
+                    self._citations={**self._citations,**available_citations}
                 
                 # 更新内存（参考文献不参与正文记忆）
                 if section_type != "references":
@@ -1332,42 +1310,6 @@ class LongWriterAgent(CustomAgent):
             except Exception as e:
                 self._log_section_result(current_section_num, total_sections, section['title'], "", error=e)
                 raise
-
-        # 如果没有结论章节但有摘要需求，则在写作末尾补写摘要
-        if deferred_abstract_section and not self._abstract_section:
-            fallback_payload = {
-                "section": deferred_abstract_section,
-                "conclusion_text": "",
-                "full_text": self._full_text_body,
-                "task": self._clean_task_description(),
-            }
-            self.logger.log(f"[Component输入] abstract_writing: {json.dumps(fallback_payload, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
-            fallback_result = self._invoke_workflow_component(
-                "abstract_writing",
-                fallback_payload,
-            )
-            self.logger.log(f"[Component输出] abstract_writing: {json.dumps(fallback_result, ensure_ascii=False, indent=2)}", level=LogLevel.INFO)
-            fallback_abstract = str(fallback_result.get("content", ""))
-            if fallback_abstract:
-                abstract_section_ref = self._get_section_ref(deferred_abstract_section)
-                abstract_allowed_keys = set(self._citations.keys()) if self._citations else set()
-                self._log_reference_usage_in_section(abstract_section_ref, str(fallback_abstract))
-                self._citation_flow_service.collect_citations_from_text(
-                    self,
-                    str(fallback_abstract),
-                    abstract_section_ref,
-                    allowed_citation_keys=abstract_allowed_keys,
-                    add_new_from_text=self.allow_add_citation_from_generated_text,
-                )
-                self._abstract_section = {
-                    "title": deferred_abstract_section.get("title", "摘要"),
-                    "content": fallback_abstract,
-                    "type": "abstract",
-                    "number": deferred_abstract_section.get("number", ""),
-                    "level": deferred_abstract_section.get("level", 1),
-                }
-                self._insert_abstract_before_introduction()
-                self._log_abstract_materialized("写作末尾")
 
     def _run_fine_rag_for_section(self, section: Dict[str, str]) -> str:
         """
@@ -1431,20 +1373,10 @@ class LongWriterAgent(CustomAgent):
             tagged_result = self._tagged_search_service.run_tagged_web_agent_search(
                 self,
                 query=search_query,
-                search_topic=section_title,
-                phase="writing_fine_rag",
+                search_time="2024-2026",
                 top_k=self.tagged_search_top_k,
             )
-
-            context_text = str(tagged_result.get("context_text", "") or "").strip()
-            if context_text:
-                payload = tagged_result.get("payload", {})
-                self.state.setdefault(self.STATE_SECTION_TAGGED_PAYLOAD, {})[section_title] = payload
-                self.logger.log(f"✅ tagged 检索返回内容 ({len(context_text)} 字)", level=LogLevel.INFO)
-                return self._trim_text(context_text, self.max_fine_rag_chars)
-
-            raise RuntimeError(f"tagged 检索无返回内容: section={section_title}, query={search_query}")
-
+            return json.dumps(tagged_result.get("available_citations"))
         except Exception as e:
             self.logger.log(f"⚠️ text_webbrowser_agent 调用异常: {e}", level=LogLevel.ERROR)
             raise
