@@ -120,40 +120,20 @@ class SectionWritingService:
     @staticmethod
     def write_intro_content_with_json(agent: "LongWriterAgent", payload: dict) -> str:
         """
-        主要作用：通过 JSON 载荷生成引言章节内容。
-        """
-        # 直接从 payload 中提取需要的参数
-        section = payload.get("section", {})
-        word_count_target = int(section.get("word_count_target", 0) or 0)
-        available_citations = payload.get("available_citations", {})
-        
-        # 构建 fine_rag_context（如果需要）
-        fine_rag_context = payload.get("fine_rag_context", "")
-        
-        # 直接调用对应的写作方法（假设存在 write_intro_content 方法）
-        # 如果不存在，需要先创建对应的方法
-        return SectionWritingService.write_intro_content(
-            agent=agent,
-            section=section,
-            available_citations=available_citations
-        )
-    @staticmethod
-    def write_intro_content(
-        agent: "LongWriterAgent",
-        section: Dict[str, Any],
-        available_citations: Dict[str, Dict[str, str]],
-    ) -> str:
-        """
-        主要作用：撰写引言。
+        主要作用：通过 JSON 载荷生成引言章节内容。（核心逻辑）
         """
         try:
-            intro_input = {"section": section, "available_citations": available_citations}
-            content = agent.execute_tool_call("introduction_write", {"input": SectionWritingService._json_dumps(intro_input)})
+            # 直接把 payload 丢给工具（里面已经有 section, available_citations, outline 等了）
+            content = agent.execute_tool_call("introduction_write", {"input": SectionWritingService._json_dumps(payload)})
             agent.logger.log("✅ 引言撰写完成", level=LogLevel.DEBUG)
         except Exception as e:
             agent.logger.log(f"⚠️ 引言撰写失败: {e}", level=LogLevel.ERROR)
             raise
-        available_citations,content=agent._citation_validator.run_five_step_validation(
+            
+        section = payload.get("section", {})
+        available_citations = payload.get("available_citations", {})
+        
+        available_citations, content = agent._citation_validator.run_five_step_validation(
             available_citations,
             content,
             log_file_path=getattr(agent, "_citations_validation_log", None),
@@ -162,71 +142,99 @@ class SectionWritingService:
         return content
 
     @staticmethod
-    def write_conclusion_content_with_json(agent: "LongWriterAgent", payload: dict) -> str:
-        """
-        主要作用：通过 JSON 载荷生成结论章节内容。
-        """
-        # 直接从 payload 中提取需要的参数
-        section = payload.get("section", {})
-        main_text = payload.get("main_text", "")
-        available_citations = payload.get("available_citations", {})
-        
-        # 构建 main_text（如果需要）
-        main_text = payload.get("main_text", "")
-        
-        # 直接调用对应的写作方法（假设存在 write_conclusion_content 方法）
-        return SectionWritingService.write_conclusion_content(
-            agent=agent,
-            section=section,
-            main_text=main_text,
-            available_citations=available_citations
-        )
-    @staticmethod
-    def write_conclusion_content(
+    def write_intro_content(
         agent: "LongWriterAgent",
         section: Dict[str, Any],
-        main_text: str,
         available_citations: Dict[str, Dict[str, str]],
+        outline: str = "",
     ) -> str:
         """
-        主要作用：撰写结论。
+        主要作用：撰写引言。（兼容保留层）
         """
+        payload = {
+            "section": section,
+            "available_citations": available_citations,
+            "outline": outline
+        }
+        return SectionWritingService.write_intro_content_with_json(agent, payload)
+
+    @staticmethod
+    def write_conclusion_content_with_json(agent: "LongWriterAgent", payload: dict) -> str:
+        """
+        主要作用：通过 JSON 载荷生成结论章节内容。（核心逻辑）
+        """
+        # 兼容一下键名：Agent传的是 full_text，工具可能期望 main_text
+        if "main_text" not in payload and "full_text" in payload:
+            payload["main_text"] = payload["full_text"]
+            
         try:
-            conclusion_input = {"section": section, "main_text": main_text, "available_citations": available_citations}
-            content = agent.execute_tool_call("conclusion_write", {"input": SectionWritingService._json_dumps(conclusion_input)})
+            content = agent.execute_tool_call("conclusion_write", {"input": SectionWritingService._json_dumps(payload)})
             agent.logger.log("✅ 结论撰写完成", level=LogLevel.DEBUG)
         except Exception as e:
             agent.logger.log(f"⚠️ 结论撰写失败: {e}", level=LogLevel.ERROR)
             raise
-        available_citations,content=agent._citation_validator.run_five_step_validation(
+            
+        section = payload.get("section", {})
+        available_citations = payload.get("available_citations", {})
+        
+        available_citations, content = agent._citation_validator.run_five_step_validation(
             available_citations,
             content,
             log_file_path=getattr(agent, "_citations_validation_log", None),
             section_ref=str(section.get("title", "结论")),
         )
         return content
+
+    @staticmethod
+    def write_conclusion_content(
+        agent: "LongWriterAgent",
+        section: Dict[str, Any],
+        main_text: str,
+        available_citations: Dict[str, Dict[str, str]],
+        outline: str = "",
+    ) -> str:
+        """
+        主要作用：撰写结论。（兼容保留层）
+        """
+        payload = {
+            "section": section,
+            "main_text": main_text,
+            "available_citations": available_citations,
+            "outline": outline
+        }
+        return SectionWritingService.write_conclusion_content_with_json(agent, payload)
     @staticmethod
     def write_abstract_content_with_json(agent: "LongWriterAgent", payload: dict) -> str:
         """
-        主要作用：通过 JSON 载荷生成摘要章节内容。
+        主要作用：通过 JSON 载荷生成摘要章节内容。（核心逻辑）
         """
-        # 直接从 payload 中提取需要的参数
-        section = payload.get("section", {})
-        
-        # 获取结论文本，支持多种字段名
-        conclusion_text = (
-            payload.get("conclusion_text") or 
-            payload.get("full_text") or 
-            payload.get("main_text") or 
-            ""
-        )
-        
-        # 直接调用 write_abstract_section
-        return SectionWritingService.write_abstract_section(
-            agent=agent,
-            section=section,
-            conclusion_text=conclusion_text
-        )
+        # 补齐工具需要的 conclusion_text
+        if "conclusion_text" not in payload:
+            payload["conclusion_text"] = payload.get("conclusion_text") or payload.get("full_text") or payload.get("main_text") or ""
+            
+        try:
+            content = agent.execute_tool_call("abstract_write", {"input": SectionWritingService._json_dumps(payload)})
+            return str(content)
+        except Exception as e:
+            agent.logger.log(f"⚠️ 摘要生成失败: {e}", level=LogLevel.ERROR)
+            raise
+
+    @staticmethod
+    def write_abstract_section(
+        agent: "LongWriterAgent", 
+        section: Dict[str, str], 
+        conclusion_text: str, 
+        outline: str = ""
+    ) -> str:
+        """
+        主要作用：直接调用摘要技能生成摘要文本。（兼容保留层）
+        """
+        payload = {
+            "section": section,
+            "conclusion_text": conclusion_text,
+            "outline": outline
+        }
+        return SectionWritingService.write_abstract_content_with_json(agent, payload)
 
     @staticmethod
     def write_body_content_with_json(agent: "LongWriterAgent", payload: dict) -> str:
@@ -287,18 +295,40 @@ class SectionWritingService:
             agent.logger.log(f"  ⚠️ web_search调用失败: {e}", level=LogLevel.DEBUG)
             raise
 
+
     @staticmethod
-    def write_abstract_section(agent: "LongWriterAgent", section: Dict[str, str], conclusion_text: str) -> str:
+    def write_body_content_with_json(agent: "LongWriterAgent", payload: dict) -> str:
         """
-        主要作用：直接调用摘要技能生成摘要文本。
+        主要作用：通过 JSON 载荷生成正文章节内容。（核心逻辑）
         """
+        section = payload.get("section", {})
+        available_citations = payload.get("available_citations", {})
+        
         try:
-            abstract_input = {"section": section, "conclusion_text": conclusion_text}
-            content = agent.execute_tool_call("abstract_write", {"input": SectionWritingService._json_dumps(abstract_input)})
-            return str(content)
+            # 骨架规划
+            skeleton = agent.execute_tool_call("section_skeleton_planning", {"input": SectionWritingService._json_dumps(payload)})
+            agent.logger.log("✅ 骨架规划完成", level=LogLevel.DEBUG)
         except Exception as e:
-            agent.logger.log(f"⚠️ 摘要生成失败: {e}", level=LogLevel.ERROR)
+            agent.logger.log(f"⚠️ 骨架规划失败: {e}", level=LogLevel.ERROR)
             raise
+
+        try:
+            # 文本组装：直接在 payload 基础上加入 skeleton 传给下一个工具
+            composition_payload = dict(payload)
+            composition_payload["skeleton"] = skeleton
+            content = agent.execute_tool_call("section_composition_styling", {"input": SectionWritingService._json_dumps(composition_payload)})
+            agent.logger.log("✅ 文本组装完成", level=LogLevel.DEBUG)
+        except Exception as e:
+            agent.logger.log(f"⚠️ 文本组装失败: {e}", level=LogLevel.ERROR)
+            raise
+            
+        available_citations, content = agent._citation_validator.run_five_step_validation(
+            available_citations,
+            content,
+            log_file_path=getattr(agent, "_citations_validation_log", None),
+            section_ref=str(section.get("title", "正文")),
+        )
+        return str(SectionWritingService.section_reflection_loop(agent, content, section, available_citations))
 
     @staticmethod
     def write_body_content(
@@ -306,32 +336,18 @@ class SectionWritingService:
         section: Dict[str, Any],
         fine_rag_context: str,
         available_citations: Dict[str, Dict[str, str]],
+        outline: str = "",
     ) -> str:
         """
-        主要作用：执行正文章节的骨架规划与成稿。
+        主要作用：执行正文章节的骨架规划与成稿。（兼容保留层）
         """
-        try:
-            skeleton_input = {"section": section, "fine_rag_context": fine_rag_context, "available_citations": available_citations}
-            skeleton = agent.execute_tool_call("section_skeleton_planning", {"input": SectionWritingService._json_dumps(skeleton_input)})
-            agent.logger.log("✅ 骨架规划完成", level=LogLevel.DEBUG)
-        except Exception as e:
-            agent.logger.log(f"⚠️ 骨架规划失败: {e}", level=LogLevel.ERROR)
-            raise
-
-        try:
-            composition_input = {"section": section, "fine_rag_context": fine_rag_context, "skeleton": skeleton, "available_citations": available_citations}
-            content = agent.execute_tool_call("section_composition_styling", {"input": SectionWritingService._json_dumps(composition_input)})
-            agent.logger.log("✅ 文本组装完成", level=LogLevel.DEBUG)
-        except Exception as e:
-            agent.logger.log(f"⚠️ 文本组装失败: {e}", level=LogLevel.ERROR)
-            raise
-        available_citations,content=agent._citation_validator.run_five_step_validation(
-            available_citations,
-            content,
-            log_file_path=getattr(agent, "_citations_validation_log", None),
-            section_ref=str(section.get("title", "正文")),
-        )
-        return str(SectionWritingService.section_reflection_loop(agent, content, section, available_citations))
+        payload = {
+            "section": section,
+            "fine_rag_context": fine_rag_context,
+            "available_citations": available_citations,
+            "outline": outline
+        }
+        return SectionWritingService.write_body_content_with_json(agent, payload)
 
     @staticmethod
     def section_reflection_loop(
