@@ -3,6 +3,13 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    try:
+        from ..long_writer_agent_v3 import LongWriterAgent
+    except Exception:
+        from long_writer_agent_v3 import LongWriterAgent
 
 try:
     from .base_component import JsonWorkflowComponent, run_component_cli
@@ -43,7 +50,7 @@ class BodyWritingComponent(JsonWorkflowComponent):
         "content": "str",
     }
 
-    def run(self, agent, payload: dict) -> dict:
+    def run(self, agent: "LongWriterAgent", payload: dict) -> dict:
         # 直接将payload整体作为上下文传递给大模型
         """
         主要作用：执行当前组件的主流程，处理输入并返回结构化输出。
@@ -65,22 +72,8 @@ class BodyWritingComponent(JsonWorkflowComponent):
         final = SectionWritingService.write_body_content_with_json(agent, payload)
         section = payload.get("section", {}) if isinstance(payload, dict) else {}
         section_ref = section.get("title", "未命名章节") if isinstance(section, dict) else "未命名章节"
-        
-        raw_citations = payload.get("available_citations", {}) if isinstance(payload, dict) else {}
-        if raw_citations and not isinstance(raw_citations, dict):
-            raise ValueError("available_citations 必须是 Dict[\"title\", citation_info]，不再接受 list")
-        available_citations = raw_citations if isinstance(raw_citations, dict) else {}
-
         if hasattr(agent, "_log_reference_usage_in_section"):
             agent._log_reference_usage_in_section(str(section_ref), str(final))
-
-        if hasattr(agent, "_run_inline_citation_validation_for_section"):
-            final = agent._run_inline_citation_validation_for_section(
-                section_type="body",
-                section_ref=str(section_ref),
-                section_content=str(final),
-                available_citations=available_citations,
-            )
         return {"content": str(final)}
 
 

@@ -14,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
 import importlib
 import json
 import os
@@ -1770,8 +1771,13 @@ class CodeAgent(MultiStepAgent):
         stream_outputs: bool = False,
         use_structured_outputs_internally: bool = False,
         code_block_tags: str | tuple[str, str] | None = None,
+        current_date_str: str | None = None,
         **kwargs,
     ):
+        if current_date_str is None:
+            now = datetime.datetime.now()
+            current_date_str = now.strftime("%Y年%m月%d日")
+        self.current_date_str = current_date_str
         self.additional_authorized_imports = additional_authorized_imports if additional_authorized_imports else []
         self.authorized_imports = sorted(set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports))
         self.max_print_outputs_length = max_print_outputs_length
@@ -1864,6 +1870,7 @@ class CodeAgent(MultiStepAgent):
                 "custom_instructions": self.instructions,
                 "code_block_opening_tag": self.code_block_tags[0],
                 "code_block_closing_tag": self.code_block_tags[1],
+                "current_date_str": self.current_date_str,
             },
         )
         return system_prompt

@@ -16,27 +16,48 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from smolagents.monitoring import LogLevel
 
-try:
-    from ..citation_validator import (
-        build_canonical_citation_key,
-        build_preferred_inline_citation,
-        extract_author_year_from_key,
-    )
-except ImportError:
-    import sys, os
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from citation_validator import (
-        build_canonical_citation_key,
-        build_preferred_inline_citation,
-        extract_author_year_from_key,
-    )
-
 if TYPE_CHECKING:
     pass  # avoid circular imports; agent type is duck-typed
 
 
 class TaggedSearchService:
     """Stateless service for structured tagged web-agent searches."""
+
+    @staticmethod
+    def _extract_json_candidate(raw_text: str) -> str:
+        text = str(raw_text or "").strip()
+        if text.startswith("```"):
+            fence_match = re.search(r"```(?:json)?\\s*(.*?)```", text, flags=re.DOTALL | re.IGNORECASE)
+            if fence_match:
+                text = fence_match.group(1).strip()
+        if text.startswith("{") and text.endswith("}"):
+            return text
+        match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+        return match.group(0).strip() if match else text
+
+    @staticmethod
+    def _escape_invalid_backslashes(text: str) -> str:
+        # Keep legal JSON escapes intact; only escape stray backslashes such as "\Delta".
+        return re.sub(r"(?<!\\\\)\\\\(?![\\\\\"/bfnrtu])", r"\\\\\\\\", text)
+
+    @staticmethod
+    def _parse_tagged_result_json(raw_result: Any) -> Dict[str, Any]:
+        if isinstance(raw_result, dict):
+            return raw_result
+
+        candidate = TaggedSearchService._extract_json_candidate(str(raw_result))
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError as e:
+            repaired = TaggedSearchService._escape_invalid_backslashes(candidate)
+            try:
+                parsed = json.loads(repaired)
+            except json.JSONDecodeError:
+                raise ValueError(f"tagged 检索结果不是合法 JSON: {e}") from e
+
+        if not isinstance(parsed, dict):
+            raise ValueError("tagged 检索结果 JSON 顶层必须是对象")
+        return parsed
 
     # ------------------------------------------------------------------ #
     # JSON parsing                                                         #
@@ -114,8 +135,11 @@ JSON schema:
             "✅raw_result:\n"+raw_result,
             level=LogLevel.INFO,
         )
-
-        return json.loads(raw_result)
+        try:
+            return TaggedSearchService._parse_tagged_result_json(raw_result)
+        except Exception as e:
+            agent.logger.log(f"⚠️ tagged 结果 JSON 解析失败: {e}", level=LogLevel.ERROR)
+            raise
 
     # ------------------------------------------------------------------ #
     # Logging                                                              #

@@ -3,6 +3,13 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    try:
+        from ..long_writer_agent_v3 import LongWriterAgent
+    except Exception:
+        from long_writer_agent_v3 import LongWriterAgent
 
 try:
     from .base_component import JsonWorkflowComponent, run_component_cli
@@ -41,7 +48,7 @@ class ConclusionWritingComponent(JsonWorkflowComponent):
         "content": "str",
     }
 
-    def run(self, agent, payload: dict) -> dict:
+    def run(self, agent: "LongWriterAgent", payload: dict) -> dict:
         """
         主要作用：执行当前组件的主流程，处理输入并返回结构化输出。
 

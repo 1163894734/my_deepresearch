@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import sys,json
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
+
+if TYPE_CHECKING:
+    try:
+        from ..long_writer_agent_v3 import LongWriterAgent
+    except Exception:
+        from long_writer_agent_v3 import LongWriterAgent
 
 from smolagents.monitoring import LogLevel
 
@@ -44,7 +50,7 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
     }
 
 
-    def run(self, agent, payload: dict) -> dict:
+    def run(self, agent: "LongWriterAgent", payload: dict) -> dict:
         """
         主要作用：执行当前组件的主流程，处理输入并返回结构化输出。
 
@@ -63,7 +69,7 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
         """
 
 
-        outline_v1 = str(agent.execute_tool_call("outline_generation", {"input": json.dumps(payload)}))
+        outline_v1 = str(agent.execute_tool_call("outline_generation", {"input": json.dumps(payload, ensure_ascii=False)}))
         final_outline = self._outline_reflection_loop_v2(
             agent,
             outline_v1,
@@ -78,7 +84,7 @@ class OutlineGenerationReflectionComponent(JsonWorkflowComponent):
 
     @staticmethod
     def _outline_reflection_loop_v2(
-        agent,
+        agent: "LongWriterAgent",
         outline: str,
         payload: dict
     ) -> str:

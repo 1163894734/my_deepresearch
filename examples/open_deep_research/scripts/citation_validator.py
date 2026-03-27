@@ -9,16 +9,19 @@
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
-
+import time
+import urllib.request
+import urllib.parse
+from typing import Any, Dict, List, Optional, Tuple
 
 CitationMap = Dict[str, Dict[str, Any]]
 StepOutput = Tuple[CitationMap, str]
 
 
 # ---------------------------------------------------------------------------
-# 模块级引用工具函数（原 CitationFlowService，不含 LLM rewrite）
+# 模块级引用工具函数
 # ---------------------------------------------------------------------------
 
 def build_canonical_citation_key(authors: str, year: str, fallback_title: str = "") -> str:
@@ -27,122 +30,6 @@ def build_canonical_citation_key(authors: str, year: str, fallback_title: str = 
     if authors_text and year_text:
         return f"{authors_text} ({year_text})"
     return str(fallback_title or "").strip()
-
-
-def extract_author_year_from_key(key: str) -> Tuple[str, str]:
-    text = str(key or "").strip()
-    match = re.match(r"^(.+?)\s*\(([^)]+)\)$", text)
-    if match:
-        return match.group(1).strip(), match.group(2).strip()
-    return text, ""
-
-
-def get_first_author_surface(authors: str) -> str:
-    raw = str(authors or "").strip()
-    if not raw:
-        return ""
-    first = re.split(r"\s*(?:;|,|&| and )\s*", raw, maxsplit=1)[0].strip() or raw
-    parts = [p for p in re.split(r"\s+", first) if p]
-    if re.search(r"[A-Za-z]", first) and len(parts) > 1:
-        return parts[-1].strip(".,")
-    return first.strip(".,")
-
-
-def build_preferred_inline_citation(authors: str, year: str) -> str:
-    authors_text = str(authors or "").strip()
-    year_text = str(year or "").strip()
-    if not authors_text or not year_text:
-        return ""
-    if "et al." in authors_text.lower():
-        label = authors_text
-    else:
-        multi_author = bool(re.search(r"[,;&]", authors_text) or " and " in authors_text.lower())
-        first_author = get_first_author_surface(authors_text)
-        label = f"{first_author} et al." if (multi_author and first_author) else (first_author or authors_text)
-    return f"({label}, {year_text})"
-
-
-def normalize_citation_surface(citation_text: str) -> str:
-    text = re.sub(r"\s+", " ", str(citation_text or "").strip())
-    if not text:
-        return ""
-    parenthetical = re.match(r"^\((.+?),\s*((?:19|20)\d{2}|n\.d\.)\)$", text)
-    if parenthetical:
-        return f"{parenthetical.group(1).strip()} ({parenthetical.group(2).strip()})"
-    narrative = re.match(r"^(.+?)\s*\(((?:19|20)\d{2}|n\.d\.)\)$", text)
-    if narrative:
-        return f"{narrative.group(1).strip()} ({narrative.group(2).strip()})"
-    return text
-
-
-def build_allowed_citation_alias_map(allowed_citation_keys: Optional[Set[str]]) -> Dict[str, str]:
-    alias_map: Dict[str, str] = {}
-    if not allowed_citation_keys:
-        return alias_map
-    for canonical_key in allowed_citation_keys:
-        canonical = str(canonical_key or "").strip()
-        if not canonical:
-            continue
-        authors, year = extract_author_year_from_key(canonical)
-        if not authors or not year:
-            continue
-        variants: Set[str] = {canonical, f"({authors}, {year})"}
-        first_author = get_first_author_surface(authors)
-        if first_author:
-            variants.add(f"{first_author} ({year})")
-            variants.add(f"({first_author}, {year})")
-        multi_author = bool(re.search(r"[,;&]", authors) or " and " in authors.lower())
-        if multi_author and first_author:
-            etal = f"{first_author} et al."
-            variants.add(f"{etal} ({year})")
-            variants.add(f"({etal}, {year})")
-        for variant in variants:
-            normalized = normalize_citation_surface(variant)
-            if normalized:
-                alias_map[normalized] = canonical
-    return alias_map
-
-
-def resolve_allowed_citation_key(raw_key: str, allowed_citation_keys: Optional[Set[str]]) -> Optional[str]:
-    if not allowed_citation_keys:
-        return None
-    alias_map = build_allowed_citation_alias_map(allowed_citation_keys)
-    return alias_map.get(normalize_citation_surface(raw_key))
-
-
-def scan_citations_in_text(text: str) -> List[Dict[str, Any]]:
-    findings: List[Dict[str, Any]] = []
-    seen_spans: Set[Tuple[int, int]] = set()
-    content = str(text or "")
-    parenthetical_pattern = r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)"
-    narrative_pattern = (
-        r"\b([A-Z][A-Za-zÀ-ÖØ-öø-ÿ'\-.]*"
-        r"(?:\s+(?:et al\.|[A-Z][A-Za-zÀ-ÖØ-öø-ÿ'\-.]*|AI|Research|Institute|Team|Face|Insights|Newsroom))*)"
-        r"\s*\(((?:19|20)\d{2}|n\.d\.)\)"
-    )
-    for match in re.finditer(parenthetical_pattern, content):
-        start, end = match.span()
-        seen_spans.add((start, end))
-        findings.append({
-            "kind": "parenthetical",
-            "raw_key": f"{match.group(1).strip()} ({match.group(2).strip()})",
-            "matched_text": match.group(0),
-            "start": start,
-            "end": end,
-        })
-    for match in re.finditer(narrative_pattern, content):
-        start, end = match.span()
-        if (start, end) in seen_spans:
-            continue
-        findings.append({
-            "kind": "narrative",
-            "raw_key": f"{match.group(1).strip()} ({match.group(2).strip()})",
-            "matched_text": match.group(0),
-            "start": start,
-            "end": end,
-        })
-    findings.sort(key=lambda item: item.get("start", 0))
-    return findings
 
 
 def normalize_available_citations(raw: Any) -> Dict[str, Dict[str, Any]]:
@@ -196,20 +83,6 @@ def build_available_citation_maps(available_citations: Any) -> Tuple[Dict[str, D
     return title_map, canonical_map
 
 
-def format_allowed_citation_whitelist(available_citations: Dict[str, Dict[str, str]]) -> str:
-    if not available_citations:
-        return "（当前段落没有可用引用，禁止输出任何 APA 文内引用）"
-    _, canonical_map = build_available_citation_maps(available_citations)
-    lines = []
-    for idx, (key, info) in enumerate(canonical_map.items(), 1):
-        authors = str(info.get("authors") or extract_author_year_from_key(key)[0]).strip()
-        year = str(info.get("year") or extract_author_year_from_key(key)[1]).strip()
-        title = str(info.get("title", "")).strip() or "Untitled source"
-        inline = str(info.get("inline_citation", "")).strip() or build_preferred_inline_citation(authors, year)
-        lines.append(f"- [{idx}] 只允许使用: {inline} | canonical_key: {key} | title: {title}")
-    return "\n".join(lines)
-
-
 def enqueue_unverified_citation(agent: Any, author: str, year: str, title: str, claim: str) -> None:
     author_norm = str(author or "").strip()
     year_norm = str(year or "").strip()
@@ -223,16 +96,17 @@ def enqueue_unverified_citation(agent: Any, author: str, year: str, title: str, 
 
 
 def add_citations(agent: Any, citations: Dict[str, Dict[str, str]], section_title: str = "") -> None:
-    _, canonical_map = build_available_citation_maps(citations)
-    for key, info in canonical_map.items():
-        match = re.match(r"^(.+?)\s*\(([^)]+)\)$", key)
-        author = match.group(1).strip() if match else str(info.get("authors", "")).strip()
-        year = match.group(2).strip() if match else str(info.get("year", "")).strip()
-        if key not in agent._citations:
+    # 同时获取 title_map 和 canonical_map
+    title_map, canonical_map = build_available_citation_maps(citations)
+    
+    # 1. 【核心修复】：统一使用 title 作为唯一的 Key 存入字典，彻底告别分身！
+    for title, info in title_map.items():
+        if title not in agent._citations:
             agent._citation_counter += 1
-            agent._citations[key] = info
+            agent._citations[title] = info
         else:
-            existing = agent._citations.get(key, {})
+            # 如果标题已存在，按需合并更新更丰富的信息
+            existing = agent._citations.get(title, {})
             existing_title = str(existing.get("title", "")).strip()
             incoming_title = str(info.get("title", "")).strip()
             improved = bool(incoming_title) and incoming_title.lower() not in {
@@ -243,94 +117,21 @@ def add_citations(agent: Any, citations: Dict[str, Dict[str, str]], section_titl
             })
             if should_update:
                 existing.update(info)
-                agent._citations[key] = existing
+                agent._citations[title] = existing
+
+    # 2. 保留底层的日志追踪功能（仅发往 reference_trace_log，不污染字典）
+    for key, info in canonical_map.items():
+        match = re.match(r"^(.+?)\s*\(([^)]+)\)$", key)
+        author = match.group(1).strip() if match else str(info.get("authors", "")).strip()
+        year = match.group(2).strip() if match else str(info.get("year", "")).strip()
+        
         if author and year:
-            citation_title = str(agent._citations.get(key, {}).get("title") or info.get("title") or "").strip()
+            citation_title = str(info.get("title", "")).strip()
             enqueue_unverified_citation(agent, author, year, citation_title, f"章节「{section_title or '未知章节'}」使用了该引用。")
 
 
-def collect_citations_from_text(
-    agent: Any,
-    text: str,
-    section_title: str = "",
-    allowed_citation_keys: Optional[Set[str]] = None,
-    add_new_from_text: bool = False,
-) -> None:
-    if not text:
-        return
-    normalized_allowed_keys: Optional[Set[str]] = None
-    if allowed_citation_keys is not None:
-        normalized_allowed_keys = {str(k).strip() for k in allowed_citation_keys if str(k).strip()}
-    pattern = r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)"
-    placeholder_authors = {"张三", "李四", "王五", "赵六", "某某", "佚名", "作者", "作者等", "author", "anonymous"}
-    sentences = [s.strip() for s in re.split(r'(?<=[。！？!?])\s+|\n+', str(text)) if s.strip()]
-    for sentence in sentences:
-        for author_raw, year_raw in re.findall(pattern, sentence):
-            author = author_raw.strip()
-            year = year_raw.strip()
-            if author in placeholder_authors or author.lower().replace(" ", "") in placeholder_authors:
-                continue
-            if re.search(r"张三|李四|王五|赵六|某某|^作者$|^Author$", author, re.IGNORECASE):
-                continue
-            key = f"{author} ({year})"
-            resolved_key = resolve_allowed_citation_key(key, normalized_allowed_keys)
-            if normalized_allowed_keys is not None and resolved_key is None:
-                continue
-            if resolved_key:
-                key = resolved_key
-                author, year = extract_author_year_from_key(resolved_key)
-            if key not in agent._citations:
-                if add_new_from_text:
-                    agent._citation_counter += 1
-                    agent._citations[key] = {
-                        "id": agent._citation_counter,
-                        "authors": author,
-                        "year": year,
-                        "title": "Title unavailable",
-                        "title_source": "generated_text_only",
-                        "title_note": "仅从正文 APA 文内引用提取，原句不含文献题名",
-                    }
-                else:
-                    continue
-            enqueue_unverified_citation(
-                agent,
-                author=author,
-                year=year,
-                title=str(agent._citations.get(key, {}).get("title") or "").strip(),
-                claim=sentence,
-            )
-
-
-def extract_citations_from_rag(agent: Any, rag_context: str) -> Dict[str, Dict[str, str]]:
-    citations: Dict[str, Dict[str, str]] = {}
-    latest_payload = agent.state.get(agent.STATE_LATEST_TAGGED_SEARCH_PAYLOAD, {})
-    if isinstance(latest_payload, dict):
-        citations.update(agent._tagged_search_service.extract_citations_from_tagged_payload(agent, latest_payload))
-    if not rag_context or agent.strict_citation_flow:
-        return citations
-    placeholder_authors = {"张三", "李四", "王五", "赵六", "某某", "佚名", "作者", "作者等", "author", "anonymous"}
-    for author_raw, year_raw in re.findall(r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)", str(rag_context)):
-        author = author_raw.strip()
-        year = year_raw.strip()
-        if author in placeholder_authors or author.lower().replace(" ", "") in placeholder_authors:
-            continue
-        if re.search(r"张三|李四|王五|赵六|某某|^作者$|^Author$", author, re.IGNORECASE):
-            continue
-        canonical_key = f"{author} ({year})"
-        title_key = f"Retrieved from search results - {canonical_key}"
-        if title_key not in citations:
-            citations[title_key] = {
-                "authors": author,
-                "year": year,
-                "title": "Retrieved from search results",
-                "title_source": "rag_context",
-                "canonical_key": canonical_key,
-            }
-    return citations
-
-
 class CitationValidator:
-    """仅支持 JSON 引用列表 + 段落文本的五步验证器。"""
+    """自带在线双源验证、标准BibTeX抓取能力与宽容匹配规则的引用验证器。"""
 
     SOURCE_HINTS = {
         "arxiv.org": "arxiv",
@@ -339,42 +140,169 @@ class CitationValidator:
         "openalex.org": "openalex",
     }
 
-    def __init__(self, model=None, timeout: int = 5, min_source_count: int = 2):
+    def __init__(self, model=None, timeout: int = 5, min_source_count: int = 2, remove_entire_invalid_sentence: bool = True):
         self.model = model
         self.timeout = timeout
         self.min_source_count = max(1, int(min_source_count))
+        
+        # 【新增配置】：处理不合规引用时，True表示删除整句话，False表示只抠掉(Author, Year)括号
+        self.remove_entire_invalid_sentence = remove_entire_invalid_sentence
+
+    def _verify_title_online(self, title: str) -> Dict[str, Any]:
+        """在线查证工具：返回命中的平台列表、标准BibTeX以及核心元数据补充"""
+        enrichment = {
+            "sources": [],
+            "bibtex": "",
+            "authors": "",
+            "year": "",
+            "url": ""
+        }
+        if not title or len(title) < 5:
+            return enrichment
+            
+        encoded_title = urllib.parse.quote(title)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        
+        # 1. 查 Semantic Scholar (它能最直接提供完美的 BibTeX)
+        try:
+            # 增加 citationStyles 字段，直接要求返回 BibTeX
+            url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={encoded_title}&limit=1&fields=title,authors,year,citationStyles,url"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode())
+                if data.get('data') and len(data['data']) > 0:
+                    enrichment["sources"].append("semantic_scholar")
+                    paper = data['data'][0]
+                    
+                    # 抓取标准 BibTeX
+                    if 'citationStyles' in paper and paper['citationStyles'] and 'bibtex' in paper['citationStyles']:
+                        enrichment["bibtex"] = paper['citationStyles']['bibtex']
+                        
+                    if 'authors' in paper and paper['authors']:
+                        enrichment["authors"] = " and ".join([a['name'] for a in paper['authors']])
+                    if 'year' in paper and paper['year']:
+                        enrichment["year"] = str(paper['year'])
+                    if 'url' in paper and paper['url']:
+                        enrichment["url"] = paper['url']
+        except Exception:
+            pass
+
+        # 2. 查 Crossref (DOI核心库，若 S2 没给 BibTeX，可通过 DOI 专门请求)
+        try:
+            url = f"https://api.crossref.org/works?query.bibliographic={encoded_title}&select=DOI,title,author,issued,URL&rows=1"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = json.loads(resp.read().decode())
+                items = data.get('message', {}).get('items', [])
+                if items:
+                    enrichment["sources"].append("crossref")
+                    item = items[0]
+                    doi = item.get("DOI")
+                    
+                    # 若依然没拿到 BibTeX，通过 Crossref 提供的 transform 接口抓取
+                    if doi and not enrichment["bibtex"]:
+                        try:
+                            bib_req = urllib.request.Request(f"https://api.crossref.org/works/{urllib.parse.quote(doi)}/transform/application/x-bibtex", headers=headers)
+                            with urllib.request.urlopen(bib_req, timeout=3) as bib_resp:
+                                enrichment["bibtex"] = bib_resp.read().decode('utf-8')
+                        except Exception:
+                            pass
+                    
+                    if not enrichment["year"] and 'issued' in item:
+                        date_parts = item['issued'].get('date-parts', [[]])[0]
+                        if date_parts:
+                            enrichment["year"] = str(date_parts[0])
+                    if not enrichment["authors"] and 'author' in item:
+                        enrichment["authors"] = " and ".join([f"{a.get('given', '')} {a.get('family', '')}".strip() for a in item['author']])
+                    if not enrichment["url"] and 'URL' in item:
+                        enrichment["url"] = item['URL']
+        except Exception:
+            pass
+
+        # 3. 查 ArXiv (作为双源的辅助确认)
+        try:
+            url = f"http://export.arxiv.org/api/query?search_query=ti:%22{encoded_title}%22&max_results=1"
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = resp.read().decode()
+                if "<entry>" in data:
+                    enrichment["sources"].append("arxiv")
+                    if not enrichment["year"]:
+                        year_match = re.search(r'<published>(\d{4})', data)
+                        if year_match: enrichment["year"] = year_match.group(1)
+                    if not enrichment["authors"]:
+                        authors = re.findall(r'<name>\s*([^<]+)\s*</name>', data)
+                        if authors: enrichment["authors"] = " and ".join(authors)
+                    if not enrichment["url"]:
+                        id_match = re.search(r'<id>(.*?)</id>', data)
+                        if id_match: enrichment["url"] = id_match.group(1)
+        except Exception:
+            pass
+
+        return enrichment
 
     def step1_search(self, citations: CitationMap, paragraph: str) -> StepOutput:
         citations_map = self._ensure_citation_map(citations)
         updated: CitationMap = {}
+
         for title_key, item in citations_map.items():
             row = dict(item)
-            if not str(row.get("title") or "").strip():
-                row["title"] = str(title_key)
-            source_list = self._normalize_source_list(row.get("source") or row.get("sources"))
-            url_source = self._source_from_url(str(row.get("url") or ""))
-            if url_source and url_source not in source_list:
-                source_list.append(url_source)
-            row["source"] = source_list
-            row["source_count"] = len(source_list)
-            row["step1_status"] = "searched"
+            
+            title = str(row.get("title") or "").strip()
+            if not title and row.get("apa_citation"):
+                title = str(row.get("apa_citation")).strip()
+            if not title:
+                title = str(title_key).strip()
+            
+            current_sources = self._normalize_source_list(row.get("source") or row.get("sources"))
+            
+            # 在线核实并获取增强数据（包括标准 BibTeX）
+            if title:
+                enrichment = self._verify_title_online(title)
+                
+                # 合并源头并去重
+                current_sources = list(set(current_sources + enrichment["sources"]))
+                
+                # 新增核心：将标准 BibTeX 存入字典
+                if enrichment["bibtex"]:
+                    row["standard_bibtex"] = enrichment["bibtex"]
+                    row["bibtex"] = enrichment["bibtex"]  # 顺便覆盖通用的 bibtex 字段
+                
+                # 动态补充缺失的元数据
+                if enrichment["authors"] and not row.get("authors"):
+                    row["authors"] = enrichment["authors"]
+                if enrichment["year"] and not row.get("year"):
+                    row["year"] = enrichment["year"]
+                if enrichment["url"] and not row.get("url"):
+                    row["url"] = enrichment["url"]
+            
+            row["source"] = current_sources
+            row["source_count"] = len(current_sources)
+            row["step1_status"] = "searched_online"
+            
             updated[str(title_key)] = row
+
         return updated, self._ensure_paragraph(paragraph)
 
     def step2_verify(self, citations: CitationMap, paragraph: str) -> StepOutput:
         citations_map = self._ensure_citation_map(citations)
         updated: CitationMap = {}
+        
         for title_key, item in citations_map.items():
             row = dict(item)
             source_list = self._normalize_source_list(row.get("source"))
+            
             passed = len(source_list) >= self.min_source_count
+            
             row["source"] = source_list
             row["source_count"] = len(source_list)
             row["dual_source_verified"] = passed
             row["verification_status"] = "verified" if passed else "rejected"
             row["verification_counter"] = f"{len(source_list)}/{self.min_source_count}"
             row["step2_status"] = "verified"
+            
             updated[str(title_key)] = row
+            
         return updated, self._ensure_paragraph(paragraph)
 
     def step3_retrieve(self, citations: CitationMap, paragraph: str) -> StepOutput:
@@ -382,8 +310,13 @@ class CitationValidator:
         updated: CitationMap = {}
         for title_key, item in citations_map.items():
             row = dict(item)
-            if not str(row.get("bibtex") or "").strip():
+            
+            # 改进：如果我们通过在线搜索拿到了 standard_bibtex，则不要用粗糙生成器覆盖它
+            if not str(row.get("standard_bibtex") or "").strip() and not str(row.get("bibtex") or "").strip():
                 row["bibtex"] = self._generate_basic_bibtex(row)
+            elif str(row.get("standard_bibtex") or "").strip():
+                row["bibtex"] = row["standard_bibtex"]
+                
             row["step3_status"] = "retrieved"
             updated[str(title_key)] = row
         return updated, self._ensure_paragraph(paragraph)
@@ -391,6 +324,7 @@ class CitationValidator:
     def step4_validate(self, citations: CitationMap, paragraph: str) -> StepOutput:
         citations_map = self._ensure_citation_map(citations)
         text = self._ensure_paragraph(paragraph)
+        
         inline_markers_in_text = {
             self._normalize_citation_marker(m)
             for m in re.findall(r"\([^()]*\d{4}[a-z]?[^()]*\)", text)
@@ -399,22 +333,42 @@ class CitationValidator:
         updated: CitationMap = {}
         for title_key, item in citations_map.items():
             row = dict(item)
+            
+            # 1. 标题直接匹配测试
+            title = str(row.get("title", "")).strip()
+            title_matched = False
+            if title and len(title) > 3 and title.lower() in text.lower():
+                title_matched = True
+            
+            # 2. APA严格正则匹配测试
             expected_markers = self._build_entry_citation_markers(row)
             matched_markers = sorted(expected_markers.intersection(inline_markers_in_text))
-            claim_supported = bool(matched_markers)
+            
+            # 3. 作者+年份宽容组合测试
+            authors_text = str(row.get("authors") or "").lower()
+            year_text = str(row.get("year") or "").strip()
+            loose_matched = False
+            if year_text and year_text in text:
+                first_name = re.split(r'[,;\s]', authors_text)[0].strip()
+                if first_name and first_name in text.lower():
+                    loose_matched = True
+
+            claim_supported = bool(matched_markers) or title_matched or loose_matched
             confidence = 1.0 if claim_supported else 0.0
 
             row["validation_result"] = {
                 "is_valid": claim_supported,
                 "confidence": confidence,
-                "reason": "apa-inline-citation-match",
+                "reason": "title-or-apa-or-loose-match",
                 "matched_markers": matched_markers,
             }
             row["claim_supported"] = claim_supported
+            
             if row.get("verification_status") == "verified" and claim_supported:
                 row["verification_status"] = "verified"
             else:
                 row["verification_status"] = "rejected"
+                
             row["step4_status"] = "validated"
             updated[str(title_key)] = row
 
@@ -438,21 +392,158 @@ class CitationValidator:
         valid_citation_markers = self._build_valid_citation_markers(accepted)
         cleaned_text = self._remove_invalid_citation_sentences(text, valid_citation_markers)
 
-        if accepted:
-            titles = "；".join(str(c.get("title") or "Unknown") for c in accepted.values())
-            updated_paragraph = f"{cleaned_text}\n\n[Validated References] {titles}" if cleaned_text else f"[Validated References] {titles}"
-        else:
-            updated_paragraph = cleaned_text
+        # 拿到清洗完无效引用的纯净正文
+        cleaned_text = self._remove_invalid_citation_sentences(text, valid_citation_markers)
+
+        # 【核心修改】：直接使用纯净文本，不再拼接 [Validated References] 尾巴
+        updated_paragraph = cleaned_text
 
         return accepted, updated_paragraph
 
-    def run_five_step_validation(self, citations: CitationMap, paragraph: str) -> StepOutput:
-        c1, p1 = self.step1_search(citations, paragraph)
-        c2, p2 = self.step2_verify(c1, p1)
-        c3, p3 = self.step3_retrieve(c2, p2)
-        c4, p4 = self.step4_validate(c3, p3)
-        c5, p5 = self.step5_add(c4, p4)
-        return c5, p5
+    def run_five_step_validation(
+        self,
+        citations: CitationMap,
+        paragraph: str,
+        log_file_path: Optional[str] = None,
+        section_ref: str = "",
+    ) -> StepOutput:
+        steps = [
+            (1, "search", self.step1_search),
+            (2, "verify", self.step2_verify),
+            (3, "retrieve", self.step3_retrieve),
+            (4, "validate", self.step4_validate),
+            (5, "add", self.step5_add),
+        ]
+
+        current_citations, current_paragraph = citations, paragraph
+        run_id = f"{int(time.time() * 1000)}"
+
+        for step_no, action, step_func in steps:
+            input_summary = self._build_step_summary(current_citations, current_paragraph)
+            started_at = time.time()
+            try:
+                next_citations, next_paragraph = step_func(current_citations, current_paragraph)
+                elapsed_ms = int((time.time() - started_at) * 1000)
+                output_summary = self._build_step_summary(next_citations, next_paragraph)
+                self._append_five_step_log(
+                    log_file_path=log_file_path,
+                    run_id=run_id,
+                    section_ref=section_ref,
+                    step_no=step_no,
+                    action=action,
+                    input_summary=input_summary,
+                    output_summary=output_summary,
+                    elapsed_ms=elapsed_ms,
+                    status="success",
+                )
+                current_citations, current_paragraph = next_citations, next_paragraph
+            except Exception as exc:
+                elapsed_ms = int((time.time() - started_at) * 1000)
+                self._append_five_step_log(
+                    log_file_path=log_file_path,
+                    run_id=run_id,
+                    section_ref=section_ref,
+                    step_no=step_no,
+                    action=action,
+                    input_summary=input_summary,
+                    output_summary={},
+                    elapsed_ms=elapsed_ms,
+                    status="failed",
+                    error=str(exc),
+                )
+                raise
+
+        return current_citations, current_paragraph
+
+    def _build_step_summary(self, citations: Any, paragraph: Any) -> Dict[str, Any]:
+        citation_map: CitationMap = {}
+        try:
+            citation_map = self._ensure_citation_map(citations)
+        except Exception:
+            citation_map = {}
+
+        total = len(citation_map)
+        verified = 0
+        rejected = 0
+        claim_supported = 0
+        with_source = 0
+        with_bibtex = 0
+
+        for item in citation_map.values():
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("verification_status") or "").strip().lower() == "verified":
+                verified += 1
+            if str(item.get("verification_status") or "").strip().lower() == "rejected":
+                rejected += 1
+            if bool(item.get("claim_supported", False)):
+                claim_supported += 1
+            if self._normalize_source_list(item.get("source") or item.get("sources")):
+                with_source += 1
+            if str(item.get("standard_bibtex") or item.get("bibtex") or "").strip():
+                with_bibtex += 1
+
+        paragraph_text = self._ensure_paragraph(paragraph)
+        return {
+            "citation_total": total,
+            "verified_count": verified,
+            "rejected_count": rejected,
+            "claim_supported_count": claim_supported,
+            "with_source_count": with_source,
+            "with_bibtex_count": with_bibtex,
+            "paragraph_length": len(paragraph_text),
+        }
+
+    def _append_five_step_log(
+        self,
+        log_file_path: Optional[str],
+        run_id: str,
+        section_ref: str,
+        step_no: int,
+        action: str,
+        input_summary: Dict[str, Any],
+        output_summary: Dict[str, Any],
+        elapsed_ms: int,
+        status: str,
+        error: str = "",
+    ) -> None:
+        if not log_file_path:
+            return
+
+        try:
+            payload: Dict[str, Any] = {}
+            try:
+                with open(log_file_path, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    payload = loaded
+            except Exception:
+                payload = {}
+
+            logs = payload.get("five_step_logs", [])
+            if not isinstance(logs, list):
+                logs = []
+
+            logs.append(
+                {
+                    "timestamp": time.time(),
+                    "run_id": run_id,
+                    "section_ref": str(section_ref or ""),
+                    "step": step_no,
+                    "action": action,
+                    "status": status,
+                    "elapsed_ms": int(elapsed_ms),
+                    "input_summary": input_summary,
+                    "output_summary": output_summary,
+                    "error": str(error or ""),
+                }
+            )
+
+            payload["five_step_logs"] = logs
+            with open(log_file_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+        except Exception:
+            return
 
     def _ensure_paragraph(self, paragraph: Any) -> str:
         return str(paragraph or "").strip()
@@ -528,7 +619,6 @@ class CitationValidator:
         markers: set[str] = set()
         for row in citations.values():
             markers.update(self._build_entry_citation_markers(row))
-
         return markers
 
     def _build_entry_citation_markers(self, row: Dict[str, Any]) -> set[str]:
@@ -566,6 +656,11 @@ class CitationValidator:
         return text
 
     def _remove_invalid_citation_sentences(self, paragraph: str, valid_markers: set[str]) -> str:
+        """
+        根据配置，清理正文中的非法引用。
+        - 若 remove_entire_invalid_sentence=True: 只要句子里含有一个非法引用，整句话直接删掉。
+        - 若 remove_entire_invalid_sentence=False: 只抹除句子里非法的 "(Author, Year)" 标记，保留正文内容。
+        """
         if not paragraph:
             return ""
 
@@ -573,26 +668,44 @@ class CitationValidator:
         cleaned_blocks: List[str] = []
 
         for block in blocks:
-            # 不按英文句点 "." 切句，避免把 "et al., 2024" 这类引用拆断
+            # 使用正则按中文/英文句号、问号、叹号进行安全分句，保留标点符号
             sentences = re.findall(r"[^。！？!?]*[。！？!?]|[^。！？!?]+$", block, flags=re.S)
             kept: List[str] = []
+            
             for sentence in sentences:
                 sent = sentence.strip()
                 if not sent:
                     continue
 
+                # 提取当前句子中所有的文献引用标记 (匹配典型的 APA 格式)
                 cited_markers = re.findall(
-                    r"[\(\（][^\(\)\（\）]{0,220}?(?:19|20)\d{2}[a-zA-Z]?[^\(\)\（\）]{0,80}[\)\）]",
+                    r"[\(\（][^\(\)\（\）]{0,220}?(?:19|20)\d{2}[a-z]?[^\(\)\（\）]{0,80}[\)\）]",
                     sent,
                 )
-                if not cited_markers:
+                
+                if cited_markers:
+                    has_invalid_marker = False
+                    
+                    for raw_marker in cited_markers:
+                        normalized_marker = self._normalize_citation_marker(raw_marker)
+                        
+                        # 如果发现这个标记不在合法名单 (valid_markers) 里
+                        if normalized_marker not in valid_markers:
+                            has_invalid_marker = True
+                            
+                            # 如果配置为“只删括号”，就在这里把非法的括号抠掉
+                            if not self.remove_entire_invalid_sentence:
+                                sent = sent.replace(raw_marker, "").strip()
+                    
+                    # 如果句子里存在非法引用，且配置为“删除整句”，则直接丢弃这句话
+                    if has_invalid_marker and self.remove_entire_invalid_sentence:
+                        continue 
+                
+                # 如果句子存活下来了（或者被抠掉括号后还有内容），加回最终段落
+                if sent:
                     kept.append(sent)
-                    continue
 
-                normalized = [self._normalize_citation_marker(c) for c in cited_markers]
-                if all(c in valid_markers for c in normalized):
-                    kept.append(sent)
-
+            # 把幸存的句子重新拼成段落
             cleaned_block = "".join(kept).strip()
             if cleaned_block:
                 cleaned_blocks.append(cleaned_block)

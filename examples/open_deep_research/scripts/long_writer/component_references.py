@@ -2,6 +2,13 @@ from __future__ import annotations
 
 import re
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    try:
+        from ..long_writer_agent_v3 import LongWriterAgent
+    except Exception:
+        from long_writer_agent_v3 import LongWriterAgent
 
 try:
     from .base_component import JsonWorkflowComponent, run_component_cli
@@ -90,7 +97,7 @@ class ReferencesWritingComponent(JsonWorkflowComponent):
 
         return {}
 
-    def run(self, agent, payload: dict) -> dict:
+    def run(self, agent: "LongWriterAgent", payload: dict) -> dict:
         """
         主要作用：执行当前组件的主流程，处理输入并返回结构化输出。
 
@@ -119,13 +126,12 @@ class ReferencesWritingComponent(JsonWorkflowComponent):
             if not isinstance(getattr(agent, "_citations", None), dict):
                 agent._citations = {}
             for _title, info in normalized_citations.items():
-                key = str(info.get("canonical_key") or "").strip()
-                if not key:
-                    authors = str(info.get("authors", "")).strip()
-                    year = str(info.get("year", "")).strip()
-                    key = f"{authors} ({year})" if authors and year else str(info.get("title") or "").strip()
+                # ⬇️ 【核心修改】：抛弃 canonical_key，强制统一使用 title 作为去重键！
+                key = str(_title).strip() 
+                
                 if not key:
                     continue
+                    
                 if key not in agent._citations:
                     agent._citation_counter = int(getattr(agent, "_citation_counter", 0) or 0) + 1
                     merged = dict(info)
@@ -136,7 +142,7 @@ class ReferencesWritingComponent(JsonWorkflowComponent):
                     existing.update(dict(info))
                     agent._citations[key] = existing
 
-        content = agent._write_references_section(section)
+        content = agent._format_references_section()
         return {"content": str(content)}
 
 

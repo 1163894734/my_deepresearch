@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import argparse
 import re
-from typing import Any, Dict, List, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple
+
+if TYPE_CHECKING:
+    try:
+        from ..long_writer_agent_v3 import LongWriterAgent
+    except Exception:
+        from long_writer_agent_v3 import LongWriterAgent
 
 from smolagents.monitoring import LogLevel
 
@@ -11,7 +17,7 @@ class OutlineParsingService:
     """大纲解析服务：章节抽取、叶子节点标注与写作前清洗。"""
 
     @staticmethod
-    def parse_sections(agent, outline: str) -> List[Dict[str, str]]:
+    def parse_sections(agent: "LongWriterAgent", outline: str) -> List[Dict[str, str]]:
         """
         主要作用：把大纲文本解析为章节结构列表。
 
@@ -161,7 +167,7 @@ class OutlineParsingService:
                 section["word_count_target"] = 0
 
     @staticmethod
-    def parse_and_add_section(agent, raw_content: str, sections: List, number: str = None, level: int = None):
+    def parse_and_add_section(agent: "LongWriterAgent", raw_content: str, sections: List, number: str = None, level: int = None):
         """
         主要作用：解析单段大纲文本并追加到章节列表。
 
