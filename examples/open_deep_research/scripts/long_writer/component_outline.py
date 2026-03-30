@@ -12,9 +12,12 @@ if TYPE_CHECKING:
 from smolagents.monitoring import LogLevel
 
 try:
-    from .base_component import JsonWorkflowComponent, run_component_cli
+    from .base_component import JsonWorkflowComponent
+    from .cli_debugger import run_component_cli
 except ImportError:
-    from base_component import JsonWorkflowComponent, run_component_cli
+    from base_component import JsonWorkflowComponent
+    from cli_debugger import run_component_cli
+
 
 
 # 输入 JSON 示例:

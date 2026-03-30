@@ -32,6 +32,158 @@ except ImportError:
     )
 
 
+class ReportWorkspace:
+    """独立的文件与状态持久化管理器，彻底剥离 Agent 的 IO 职责"""
+    def __init__(self, base_dir: str, agent_logger):
+        self.logger = agent_logger
+        self.output_dir = base_dir
+        
+        self.output_file = f"{self.output_dir}/report.md"
+        self.final_output_file = f"{self.output_dir}/report_final.md"
+        self.log_file = f"{self.output_dir}/generation_log.txt"
+        self.reference_trace_file = f"{self.output_dir}/reference_trace_log.txt"
+        self.citations_validation_log = f"{self.output_dir}/citations_validation.json"
+        self.tagged_search_log_file = f"{self.output_dir}/tagged_search_log.jsonl"
+        
+        self.max_skill_log_chars = 1200
+        self._init_directories()
+
+    def _init_directories(self):
+        os.makedirs(self.output_dir, exist_ok=True)
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.safe_write(self.output_file, f"# 生成的长文本报告\n\n初始化时间 {timestamp}\n\n---\n\n", "w")
+        self.safe_write(self.reference_trace_file, f"# 参考文献追踪日志\n\n生成时间 {timestamp}\n\n说明 记录正文中每条引用出现的章节与句子，以及引用库新增条目详情。\n\n---\n\n", "w")
+        self.safe_write(self.tagged_search_log_file, f"# tagged web 检索结构化日志(JSONL)\n# 生成时间 {timestamp}\n# 每行一个 JSON 对象，便于后处理/回放\n", "w")
+
+    def safe_write(self, file_path: str, content: str, mode: str = "a") -> None:
+        try:
+            with open(file_path, mode, encoding='utf-8') as f:
+                f.write(content)
+        except Exception as e:
+            self.logger.log(f"文件操作失败 {file_path} {e}", level=LogLevel.ERROR)
+
+    def get_heading_prefix(self, section_number: str = "", section_level: Optional[int] = None) -> str:
+        if not section_number:
+            return "##" if section_level is None or section_level <= 1 else ("###" if section_level == 2 else "####")
+        normalized = str(section_number).strip().rstrip('.')
+        if not normalized:
+            return "##" if section_level is None or section_level <= 1 else ("###" if section_level == 2 else "####")
+        depth = normalized.count('.') + 1
+        return "##" if depth <= 1 else ("###" if depth == 2 else "####")
+
+    def filter_references(self, content: str) -> str:
+        pattern = r'\n(#+\s*(参考文献|References|引用|Bibliography)|\*\*(参考文献|References)\*\*).*'
+        match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
+        if match:
+            self.logger.log("🔍 检测到参考文献部分，已从正文中移除", level=LogLevel.DEBUG)
+            return content[:match.start()].strip()
+        return content.strip()
+
+    def append_section(self, title: str, content: str, section_index: int = 0, total_sections: int = 0, section_type: str = "body", section_number: str = "", section_level: Optional[int] = None):
+        progress = f" [{section_index}/{total_sections}]" if section_index > 0 and total_sections > 0 else ""
+        heading_prefix = self.get_heading_prefix(section_number, section_level)
+        numbered_title = f"{section_number} {title}".strip() if section_number else title
+        
+        filtered_content = content if section_type == "references" else self.filter_references(content)
+        block = f"{heading_prefix} {numbered_title}{progress}\n\n{filtered_content}\n\n"
+        self.safe_write(self.output_file, block)
+        self.logger.log(f"✅ 段落已保存到文件{progress} {self.output_file}", level=LogLevel.INFO)
+
+    def save_outline(self, outline: str):
+        try:
+            content = f"## 📋 文章大纲\n\n{outline}\n\n---\n\n"
+            self.safe_write(self.output_file, content, "a")
+            self.logger.log(f"✅ 大纲已保存到文件 {self.output_file}", level=LogLevel.INFO)
+        except Exception as e:
+            self.logger.log(f"⚠️ 保存大纲失败 {e}", level=LogLevel.ERROR)
+
+    def write_final_report(self, outline: str, sections: List[Dict[str, Any]]):
+        content_blocks = [f"# 生成的长文本报告 (最终排版版)\n\n## 📋 文章大纲\n\n{outline}\n\n---\n\n"]
+        for section in sections:
+            title = section.get("title", "未命名章节")
+            section_type = section.get("type", "body")
+            section_number = str(section.get("number", "")).strip()
+            heading_prefix = self.get_heading_prefix(section_number, section.get("level"))
+            numbered_title = f"{section_number} {title}".strip() if section_number else title
+            
+            raw_content = str(section.get("content", ""))
+            filtered = raw_content if section_type == "references" else self.filter_references(raw_content)
+            content_blocks.append(f"{heading_prefix} {numbered_title}\n\n{filtered}\n\n")
+            
+        self.safe_write(self.final_output_file, "".join(content_blocks), "w")
+
+    def preview_for_log(self, value: Any) -> str:
+        try:
+            text = json.dumps(value, ensure_ascii=False, indent=2) if isinstance(value, (dict, list)) else str(value)
+        except Exception:
+            text = repr(value)
+        text = text.strip()
+        return text if len(text) <= self.max_skill_log_chars else f"{text[:self.max_skill_log_chars]}\n... (已截断，原始长度 {len(text)} 字符)"
+
+    def log_skill_call(self, tool_name: str, arguments: Any, output: Any = None, status: str = "success", elapsed_ms: Optional[int] = None, error_message: str = "", current_step: str = "unknown", resolved_skill_key: str = "") -> None:
+        try:
+            input_preview = self.preview_for_log(arguments).replace('\n', ' ')
+            cost_str = f" ({elapsed_ms}ms)" if elapsed_ms is not None else ""
+            
+            if status == "success":
+                self.logger.log(f"🟢 [Skill成功] {tool_name}{cost_str} | 输入简览: {input_preview[:50]}...", level=LogLevel.INFO)
+            else:
+                self.logger.log(f"🔴 [Skill失败] {tool_name}{cost_str} | 错误: {error_message}", level=LogLevel.ERROR)
+
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            full_input = json.dumps(arguments, ensure_ascii=False, indent=2) if isinstance(arguments, (dict, list)) else str(arguments)
+            full_output = json.dumps(output, ensure_ascii=False, indent=2) if isinstance(output, (dict, list)) else (str(output) if output is not None else "")
+            
+            log_block = f"\n## 🧩 [Skill调用] {tool_name} @ {timestamp}\n"
+            log_block += f"- **状态**: `{'成功' if status == 'success' else '失败'}`\n"
+            log_block += f"- **耗时**: `{elapsed_ms} ms`\n"
+            log_block += f"- **当前阶段**: `{current_step}`\n"
+            log_block += f"- **提示词映射**: `{resolved_skill_key or '未命中'}`\n\n"
+            log_block += "### 输入参数 (Input)\n" + full_input + "\n\n"
+            if status == "success": log_block += "### 返回结果 (Output)\n" + full_output + "\n\n"
+            else: log_block += "### 错误信息 (Error)\n" + error_message + "\n\n"
+            log_block += "---\n"
+            self.safe_write(self.log_file, log_block)
+        except Exception as e:
+            self.logger.log(f"⚠️ [系统异常] Skill日志写入失败: {e}", level=LogLevel.ERROR)
+
+    def log_reference_event(self, stage: str, section_title: str, detail: str) -> None:
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        self.safe_write(self.reference_trace_file, f"[{timestamp}] [{stage}] 章节 {section_title or '未知章节'}\n{detail}\n\n")
+        
+    def log_reflection(self, stage: str, score: int, report: str):
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        content = f"\n{'='*80}\n【{stage}】 - {timestamp}\n评分 {score}\n{'-'*80}\n{report}\n{'='*80}\n\n"
+        self.safe_write(self.log_file, content)
+        
+    def log_revision(self, stage: str, content: str):
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        log_content = f"\n{'='*80}\n【{stage} - 修订结果】 - {timestamp}\n{'-'*80}\n{content}\n{'='*80}\n\n"
+        self.safe_write(self.log_file, log_content)
+
+    def append_citation_validation_text_log(self, section_type: str, section_ref: str, before_text: str, after_text: str, validation_result: Optional[Dict[str, Any]] = None, error: str = "") -> None:
+        try:
+            existing_data: Dict[str, Any] = {}
+            if os.path.exists(self.citations_validation_log):
+                with open(self.citations_validation_log, "r", encoding="utf-8") as f:
+                    existing_data = json.load(f)
+
+            section_text_logs = existing_data.get("section_text_logs", [])
+            summary = {k: validation_result.get(k) for k in ["status", "total", "verified", "rejected", "verification_rate"]} if isinstance(validation_result, dict) else {}
+
+            section_text_logs.append({
+                "timestamp": time.time(), "section_type": section_type, "section_title": section_ref,
+                "before_text": str(before_text or ""), "after_text": str(after_text or ""),
+                "changed": str(before_text or "") != str(after_text or ""), "validation_result_summary": summary, "error": str(error or "")
+            })
+
+            existing_data["section_text_logs"] = section_text_logs
+            with open(self.citations_validation_log, "w", encoding="utf-8") as f:
+                json.dump(existing_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            self.logger.log(f"⚠️ 写入引用验证日志失败 {e}", level=LogLevel.ERROR)
+
+
 class LongWriterAgent(CustomAgent):
     STATE_COARSE_RAG_CONTEXT = "coarse_rag_context"
     STATE_LATEST_TAGGED_SEARCH_PAYLOAD = "_latest_tagged_search_payload"
@@ -43,20 +195,33 @@ class LongWriterAgent(CustomAgent):
     def __init__(self, model, tools: Optional[List] = None, **kwargs):
         super().__init__(model=model, tools=tools or [], **kwargs)
         
+        # --- 核心重构：隔离所有的 IO 与基础状态到 Workspace ---
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        self.workspace = ReportWorkspace(f"outputs/report_{timestamp}", self.logger)
+        
+        # 向下兼容：保留老代码组件中可能直接使用的属性
+        self._output_dir = self.workspace.output_dir
+        self._output_file = self.workspace.output_file
+        self._final_output_file = self.workspace.final_output_file
+        self._log_file = self.workspace.log_file
+        self._reference_trace_file = self.workspace.reference_trace_file
+        self._citations_validation_log = self.workspace.citations_validation_log
+        self._tagged_search_log_file = self.workspace.tagged_search_log_file
+        
+        # 全局缓冲与状态
         self._current_outline = ""
         self._generated_sections: List[Dict[str, str]] = []
         self._abstract_section: Optional[Dict[str, str]] = None
-        
         self._previous_section_content = ""
         self._prev_body_or_intro_content = ""
         self._global_summary = ""
         self._full_text_body = ""
-        
         self._citations: Dict[str, Dict[str, Any]] = {}
         self._citation_counter = 0
 
-        self.state["search_engine"] = "openalex"  # 可选: "arxiv" 或 "openalex"
-        self.state["search_sort"] = "citation"    # 可选: "date" 或 "citation"
+        # 配置参数
+        self.state["search_engine"] = "openalex"
+        self.state["search_sort"] = "citation"
         
         self._citation_validator = CitationValidator(model=model,remove_entire_invalid_sentence=False)
         self._unverified_citations: List[Tuple[str, str, str, str]] = []
@@ -66,16 +231,6 @@ class LongWriterAgent(CustomAgent):
         self.allow_add_citation_from_generated_text = False
         self.strict_citation_flow = True
         self.strict_citation_revision_max_attempts = 1
-        
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        self._output_dir = f"outputs/report_{timestamp}"
-        self._output_file = f"{self._output_dir}/report.md"
-        self._final_output_file = f"{self._output_dir}/report_final.md"
-        self._log_file = f"{self._output_dir}/generation_log.txt"
-        self._reference_trace_file = f"{self._output_dir}/reference_trace_log.txt"
-        self._citations_validation_log = f"{self._output_dir}/citations_validation.json"
-        self._tagged_search_log_file = f"{self._output_dir}/tagged_search_log.jsonl"
-        self._ensure_output_dir()
         
         self.outline_max_iter = 1
         self.section_max_iter = 1
@@ -87,17 +242,19 @@ class LongWriterAgent(CustomAgent):
         self.max_prev_section_chars = 900
         self.max_fine_rag_chars = 1600
         self.max_bibliography_chars = 2200
-        self.max_skill_log_chars = 1200
+        
+        self.workspace.max_skill_log_chars = 1200 # 同步给 workspace
         self._current_step = "init"
         
         self.enable_coarse_rag_web_search = True
         self.coarse_rag_mode = 'web_agent'
-        
         self.enable_fine_rag_web_search = True
         self.fine_rag_mode = 'web_agent'
         self.text_webbrowser_agent_name = "custom_search_agent"
         self.tagged_search_top_k = 8
         self._tagged_retrieval_records: List[Dict[str, Any]] = []
+        
+        # 服务装配
         self._keyword_search_service = KeywordSearchPlanningService()
         self._outline_parsing_service = OutlineParsingService()
         self._section_writing_service = SectionWritingService()
@@ -109,6 +266,21 @@ class LongWriterAgent(CustomAgent):
         self._skill_name_aliases: Dict[str, str] = {}
         self._cache_skill_prompts()
 
+    # ==========================
+    # IO 方法委托 (Delegation)
+    # ==========================
+    # 通过委托模式保障原有代码中的 `self._safe_write_file(...)` 等调用能够向下兼容无缝对接 Workspace
+    def _safe_write_file(self, *args, **kwargs): self.workspace.safe_write(*args, **kwargs)
+    def _append_section_to_file(self, *args, **kwargs): self.workspace.append_section(*args, **kwargs)
+    def _get_heading_prefix(self, *args, **kwargs): return self.workspace.get_heading_prefix(*args, **kwargs)
+    def _save_outline_to_file(self, *args, **kwargs): self.workspace.save_outline(*args, **kwargs)
+    def _write_final_output_file(self, *args, **kwargs): self.workspace.write_final_report(*args, **kwargs)
+    def _log_reference_event(self, *args, **kwargs): self.workspace.log_reference_event(*args, **kwargs)
+    def _append_citation_validation_text_log(self, *args, **kwargs): self.workspace.append_citation_validation_text_log(*args, **kwargs)
+    def _filter_references_from_content(self, *args, **kwargs): return self.workspace.filter_references(*args, **kwargs)
+    def _log_reflection_to_file(self, *args, **kwargs): self.workspace.log_reflection(*args, **kwargs)
+    def _log_revision_to_file(self, *args, **kwargs): self.workspace.log_revision(*args, **kwargs)
+
     def _parse_json(self, text: str) -> Any:
         try:
             return json.loads(text)
@@ -116,13 +288,6 @@ class LongWriterAgent(CustomAgent):
             self.logger.log(f"⚠️ JSON解析失败，返回原始文本", level=LogLevel.INFO)
             return text
 
-    def _safe_write_file(self, file_path: str, content: str, mode: str = "a") -> None:
-        try:
-            with open(file_path, mode, encoding='utf-8') as f:
-                f.write(content)
-        except Exception as e:
-            self.logger.log(f"文件操作失败 {file_path} {e}", level=LogLevel.ERROR)
-    
     def set_text_webbrowser_agent_name(self, agent_name: str):
         self.text_webbrowser_agent_name = agent_name
         self.logger.log(f"✅ text_webbrowser_agent 已配置 {agent_name}", level=LogLevel.INFO)
@@ -217,57 +382,6 @@ class LongWriterAgent(CustomAgent):
             name: component.contract()
             for name, component in self._workflow_components.items()
         }
-    
-    def _ensure_output_dir(self):
-        os.makedirs(self._output_dir, exist_ok=True)
-        self._safe_write_file(self._output_file, f"# 生成的长文本报告\n\n生成时间 {self.task}\n\n---\n\n", "w")
-        self._safe_write_file(self._reference_trace_file, f"# 参考文献追踪日志\n\n生成时间 {self.task}\n\n说明 记录正文中每条引用出现的章节与句子，以及引用库新增条目详情。\n\n---\n\n", "w")
-        self._safe_write_file(self._tagged_search_log_file, f"# tagged web 检索结构化日志(JSONL)\n# 生成时间 {self.task}\n# 每行一个 JSON 对象，便于后处理/回放\n", "w")
-    
-    def _append_section_to_file(self, section_title: str, content: str, section_index: int = 0, total_sections: int = 0, section_type: str = "body", section_number: str = "", section_level: Optional[int] = None):
-        progress = f" [{section_index}/{total_sections}]" if section_index > 0 and total_sections > 0 else ""
-        heading_prefix = self._get_heading_prefix(section_number, section_level)
-        numbered_title = f"{section_number} {section_title}".strip() if section_number else section_title
-        
-        filtered_content = content if section_type == "references" else self._filter_references_from_content(content)
-        block = f"{heading_prefix} {numbered_title}{progress}\n\n{filtered_content}\n\n"
-        self._safe_write_file(self._output_file, block)
-        self.logger.log(f"✅ 段落已保存到文件{progress} {self._output_file}", level=LogLevel.INFO)
-
-    def _get_heading_prefix(self, section_number: str = "", section_level: Optional[int] = None) -> str:
-        if not section_number:
-            return "##" if section_level is None or section_level <= 1 else ("###" if section_level == 2 else "####")
-        normalized = str(section_number).strip().rstrip('.')
-        if not normalized:
-            return "##" if section_level is None or section_level <= 1 else ("###" if section_level == 2 else "####")
-        depth = normalized.count('.') + 1
-        return "##" if depth <= 1 else ("###" if depth == 2 else "####")
-    
-    def _save_outline_to_file(self):
-        try:
-            content = f"## 📋 文章大纲\n\n{self._current_outline}\n\n---\n\n"
-            self._safe_write_file(self._output_file, content, "a")
-            self.logger.log(f"✅ 大纲已保存到文件 {self._output_file}", level=LogLevel.INFO)
-        except Exception as e:
-            self.logger.log(f"⚠️ 保存大纲失败 {e}", level=LogLevel.ERROR)
-    
-    def _log_reflection_to_file(self, stage: str, score: int, report: str):
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        content = f"\n{'='*80}\n【{stage}】 - {timestamp}\n评分 {score}\n{'-'*80}\n{report}\n{'='*80}\n\n"
-        self._safe_write_file(self._log_file, content)
-    
-    def _log_revision_to_file(self, stage: str, content: str):
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        log_content = f"\n{'='*80}\n【{stage} - 修订结果】 - {timestamp}\n{'-'*80}\n{content}\n{'='*80}\n\n"
-        self._safe_write_file(self._log_file, log_content)
-    
-    def _filter_references_from_content(self, content: str) -> str:
-        pattern = r'\n(#+\s*(参考文献|References|引用|Bibliography)|\*\*(参考文献|References)\*\*).*'
-        match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
-        if match:
-            self.logger.log("🔍 检测到参考文献部分，已从正文中移除", level=LogLevel.DEBUG)
-            return content[:match.start()].strip()
-        return content.strip()
 
     def _clean_task_description(self) -> str:
         task = self.task
@@ -279,61 +393,19 @@ class LongWriterAgent(CustomAgent):
             return task_content.strip()
         return task
 
-    def _preview_for_log(self, value: Any, max_len: Optional[int] = None) -> str:
-        limit = max_len or self.max_skill_log_chars
-        try:
-            text = json.dumps(value, ensure_ascii=False, indent=2) if isinstance(value, (dict, list)) else str(value)
-        except Exception:
-            text = repr(value)
-        text = text.strip()
-        return text if len(text) <= limit else f"{text[:limit]}\n... (已截断，原始长度 {len(text)} 字符)"
-
-    def _log_skill_call(self, tool_name: str, arguments: Any, output: Any = None, status: str = "success", elapsed_ms: Optional[int] = None, error_message: str = "") -> None:
-        try:
-            input_preview = self._preview_for_log(arguments, max_len=150).replace('\n', ' ')
-            output_preview = self._preview_for_log(output, max_len=150).replace('\n', ' ') if output is not None else ""
-            skill_prompt, resolved_skill_key = self._resolve_skill_prompt(tool_name)
-            
-            cost_str = f" ({elapsed_ms}ms)" if elapsed_ms is not None else ""
-            
-            if status == "success":
-                self.logger.log(f"🟢 [Skill成功] {tool_name}{cost_str} | 输入简览: {input_preview[:50]}...", level=LogLevel.INFO)
-            else:
-                self.logger.log(f"🔴 [Skill失败] {tool_name}{cost_str} | 错误: {error_message}", level=LogLevel.ERROR)
-
-            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-            full_input = json.dumps(arguments, ensure_ascii=False, indent=2) if isinstance(arguments, (dict, list)) else str(arguments)
-            full_output = json.dumps(output, ensure_ascii=False, indent=2) if isinstance(output, (dict, list)) else (str(output) if output is not None else "")
-            
-            log_block = f"\n## 🧩 [Skill调用] {tool_name} @ {timestamp}\n"
-            log_block += f"- **状态**: `{'成功' if status == 'success' else '失败'}`\n"
-            log_block += f"- **耗时**: `{elapsed_ms} ms`\n"
-            log_block += f"- **当前阶段**: `{getattr(self, '_current_step', 'unknown')}`\n"
-            log_block += f"- **提示词映射**: `{resolved_skill_key or '未命中'}`\n\n"
-            
-            log_block += "### 输入参数 (Input)\n" + full_input + "\n\n"
-            if status == "success":
-                log_block += "### 返回结果 (Output)\n" + full_output + "\n\n"
-            else:
-                log_block += "### 错误信息 (Error)\n" + error_message + "\n\n"
-            
-            log_block += "---\n"
-            self._safe_write_file(self._log_file, log_block)
-            
-        except Exception as e:
-            self.logger.log(f"⚠️ [系统异常] Skill日志写入失败: {e}", level=LogLevel.ERROR)
-
     def execute_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
         self.logger.log(f"🛠️ [Skill准备] 准备调用: {tool_name}", level=LogLevel.DEBUG)
         start = time.perf_counter()
         try:
             result = super().execute_tool_call(tool_name, arguments)
             cost = int((time.perf_counter() - start) * 1000)
-            self._log_skill_call(tool_name, arguments, result, "success", cost)
+            skill_prompt, resolved_skill_key = self._resolve_skill_prompt(tool_name)
+            self.workspace.log_skill_call(tool_name, arguments, result, "success", cost, current_step=self._current_step, resolved_skill_key=resolved_skill_key)
             return result
         except Exception as e:
             cost = int((time.perf_counter() - start) * 1000)
-            self._log_skill_call(tool_name, arguments, None, "failed", cost, str(e))
+            skill_prompt, resolved_skill_key = self._resolve_skill_prompt(tool_name)
+            self.workspace.log_skill_call(tool_name, arguments, None, "failed", cost, str(e), current_step=self._current_step, resolved_skill_key=resolved_skill_key)
             raise
     
     def _step_stream(self, memory_step: ActionStep) -> Generator[ToolOutput | ActionOutput, None, None]:
@@ -369,28 +441,22 @@ class LongWriterAgent(CustomAgent):
         cleaned_task = self._clean_task_description()
         
         self.logger.log("🔍 [阶段 1] 开始执行文献检索...", level=LogLevel.INFO)
-        
-        # 【修改 1】：换成你新写的5步关键词扩展检索组件
         search_stage_result = self._invoke_workflow_component("keyword_search_expansion", {"task": cleaned_task})
-        
-        # 拿到两轮合并后的完整文献字典
         combined_citations = search_stage_result.get("available_citations", {})
         
         self.logger.log("📝 [阶段 1] 基于检索结果生成大纲...", level=LogLevel.INFO)
         outline_stage_result = self._invoke_workflow_component("outline_generation_reflection", {
             "task": cleaned_task,
-            "available_citations": combined_citations # 把完整文献喂给大纲生成器
+            "available_citations": combined_citations
         })
         
         self._current_outline = str(outline_stage_result.get("final_outline", outline_stage_result.get("outline_v1", "")))
         
-        # 【修改 2】：直接将搜索组件搜出来的高质量文献，无脑塞入 Agent 的全局文献库！
         self._citations.update(combined_citations)
-        # 兜底：如果大纲生成环节也顺手补充了什么文献，也一并加进去
         self._citations.update(outline_stage_result.get("available_citations", {}))
         
         self.logger.log(f"✅ [阶段 1] 大纲规划完成，已将 {len(combined_citations)} 篇前沿文献载入全局记忆。", level=LogLevel.INFO)
-        self._save_outline_to_file()
+        self.workspace.save_outline(self._current_outline)
     
     def _writing_phase(self, memory_step: ActionStep) -> None:
         self.logger.log_rule("✍️ [阶段 2/3] 分发与撰写 (Writing Phase)", level=LogLevel.INFO)
@@ -415,7 +481,7 @@ class LongWriterAgent(CustomAgent):
                     "title": section['title'], "content": "", "type": section_type,
                     "number": section.get("number", ""), "level": section.get("level")
                 })
-                self._append_section_to_file(section['title'], "", current_section_num, total_sections, section_type, section.get('number', ''), section.get('level'))
+                self.workspace.append_section(section['title'], "", current_section_num, total_sections, section_type, section.get('number', ''), section.get('level'))
                 continue
 
             fine_rag_context = ""
@@ -474,7 +540,7 @@ class LongWriterAgent(CustomAgent):
                 "title": section['title'], "content": final, "type": section_type,
                 "number": section.get("number", ""), "level": section.get("level")
             })
-            self._append_section_to_file(section['title'], final, current_section_num, total_sections, section_type, section.get('number', ''), section.get('level'))
+            self.workspace.append_section(section['title'], final, current_section_num, total_sections, section_type, section.get('number', ''), section.get('level'))
             self.logger.log(f"🎉 [段落完成] {section['title']} 生成完毕 (字数: {len(str(final))})", level=LogLevel.INFO)
 
     def _run_fine_rag_for_section(self, section: Dict[str, str]) -> str:
@@ -501,68 +567,27 @@ class LongWriterAgent(CustomAgent):
                 if match: return match.group(1).strip()
         return text
 
-    def _write_final_output_file(self) -> None:
-        content_blocks = [f"# 生成的长文本报告 (最终排版版)\n\n## 📋 文章大纲\n\n{self._current_outline}\n\n---\n\n"]
-        for section in self._generated_sections:
-            title = section.get("title", "未命名章节")
-            section_type = section.get("type", "body")
-            section_number = str(section.get("number", "")).strip()
-            heading_prefix = self._get_heading_prefix(section_number, section.get("level"))
-            numbered_title = f"{section_number} {title}".strip() if section_number else title
-            
-            raw_content = str(section.get("content", ""))
-            filtered = raw_content if section_type == "references" else self._filter_references_from_content(raw_content)
-            content_blocks.append(f"{heading_prefix} {numbered_title}\n\n{filtered}\n\n")
-            
-        self._safe_write_file(self._final_output_file, "".join(content_blocks), "w")
-
-    def _log_reference_event(self, stage: str, section_title: str, detail: str) -> None:
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        self._safe_write_file(self._reference_trace_file, f"[{timestamp}] [{stage}] 章节 {section_title or '未知章节'}\n{detail}\n\n")
-
     def _log_reference_usage_in_section(self, section_title: str, text: str) -> None:
         if not text: return
         sentences = [s.strip() for s in re.split(r'(?<=[。！？!?])\s+|\n+', str(text)) if s.strip()]
         total_usage = 0
         for idx, sentence in enumerate(sentences, 1):
             for author_raw, year_raw in re.findall(r"\(([^()]{1,80}?),\s*((?:19|20)\d{2}|n\.d\.)\)", sentence):
-                self._log_reference_event("citation_used", section_title, f"引用键 {author_raw.strip()} ({year_raw.strip()})\n句子序号 第{idx}句\n句子内容 {sentence}")
+                self.workspace.log_reference_event("citation_used", section_title, f"引用键 {author_raw.strip()} ({year_raw.strip()})\n句子序号 第{idx}句\n句子内容 {sentence}")
                 total_usage += 1
         if total_usage == 0:
-            self._log_reference_event("citation_used", section_title, "本章节未检测到 APA 文内引用。")
+            self.workspace.log_reference_event("citation_used", section_title, "本章节未检测到 APA 文内引用。")
 
     def _log_reference_addition(self, source: str, section_title: str, citation_key: str, citation_info: Dict[str, Any]) -> None:
         try:
             info_text = json.dumps(citation_info, ensure_ascii=False, indent=2)
         except Exception:
             info_text = str(citation_info)
-        self._log_reference_event("citation_added", section_title, f"来源 {source}\n入库键 {citation_key}\n入库详情\n{info_text}")
+        self.workspace.log_reference_event("citation_added", section_title, f"来源 {source}\n入库键 {citation_key}\n入库详情\n{info_text}")
 
     def enable_citation_validation_mode(self, enable: bool = True):
         self.enable_citation_validation = enable
         if enable: self.logger.log("✅ 启用学术引用验证系统", level=LogLevel.INFO)
-
-    def _append_citation_validation_text_log(self, section_type: str, section_ref: str, before_text: str, after_text: str, validation_result: Optional[Dict[str, Any]] = None, error: str = "") -> None:
-        try:
-            existing_data: Dict[str, Any] = {}
-            if os.path.exists(self._citations_validation_log):
-                with open(self._citations_validation_log, "r", encoding="utf-8") as f:
-                    existing_data = json.load(f)
-
-            section_text_logs = existing_data.get("section_text_logs", [])
-            summary = {k: validation_result.get(k) for k in ["status", "total", "verified", "rejected", "verification_rate"]} if isinstance(validation_result, dict) else {}
-
-            section_text_logs.append({
-                "timestamp": time.time(), "section_type": section_type, "section_title": section_ref,
-                "before_text": str(before_text or ""), "after_text": str(after_text or ""),
-                "changed": str(before_text or "") != str(after_text or ""), "validation_result_summary": summary, "error": str(error or "")
-            })
-
-            existing_data["section_text_logs"] = section_text_logs
-            with open(self._citations_validation_log, "w", encoding="utf-8") as f:
-                json.dump(existing_data, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            self.logger.log(f"⚠️ 写入引用验证日志失败 {e}", level=LogLevel.ERROR)
 
     def _finalization_phase(self, memory_step: ActionStep) -> None:
         self.logger.log_rule("🎁 [阶段 3/3] 整合与后处理 (Finalization Phase)", level=LogLevel.INFO)
@@ -591,7 +616,7 @@ class LongWriterAgent(CustomAgent):
             self.logger.log("✅ [阶段 3] 摘要生成已完成并成功插入", level=LogLevel.INFO)
 
         self.logger.log("💾 [文件输出] 开始写入最终排版文件...", level=LogLevel.INFO)
-        self._write_final_output_file()
+        self.workspace.write_final_report(self._current_outline, self._generated_sections)
         
         self.state[self.STATE_OUTLINE] = self._current_outline
         self.state[self.STATE_SECTIONS] = self._generated_sections
@@ -628,7 +653,7 @@ class LongWriterAgent(CustomAgent):
 
     def _generate_final_output(self) -> str:
         try:
-            with open(self._final_output_file, 'r', encoding='utf-8') as f:
+            with open(self.workspace.final_output_file, 'r', encoding='utf-8') as f:
                 content = f.read()
         except (FileNotFoundError, IOError):
             content = "（最终文件生成失败，请检查日志）"
@@ -636,8 +661,8 @@ class LongWriterAgent(CustomAgent):
         summary_lines = [
             "# 📝 报告生成完成",
             "## 生成信息",
-            f"流式文件 {self._output_file}",
-            f"排版文件 {self._final_output_file}",
+            f"流式文件 {self.workspace.output_file}",
+            f"排版文件 {self.workspace.final_output_file}",
             f"任务摘要 {self.task[:60]}...",
             "## 预览内容",
             content[:1200] + "\n\n...完整报告见最终生成文件"

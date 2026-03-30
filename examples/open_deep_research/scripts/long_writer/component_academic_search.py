@@ -4,14 +4,14 @@ from smolagents.monitoring import LogLevel
 
 # ===== 修复导入路径 =====
 try:
-    # 当被外层 run.py 调用时，使用相对路径导入
-    from .base_component import JsonWorkflowComponent, run_component_cli
+    from .base_component import JsonWorkflowComponent
+    from .cli_debugger import run_component_cli
     from .academic_search_service import AcademicSearchService  # 👈 这是干活的服务类
 except ImportError:
-    # 当被本地单独执行测试时，使用绝对路径导入
-    from base_component import JsonWorkflowComponent, run_component_cli
+    from base_component import JsonWorkflowComponent
+    from cli_debugger import run_component_cli
     from examples.open_deep_research.scripts.long_writer.academic_search_service import AcademicSearchService
-# =========================
+
 
 # 🚨 核心修复：把组件的名字改成 Component，千万不能和服务类同名！
 class AcademicSearchComponent(JsonWorkflowComponent):

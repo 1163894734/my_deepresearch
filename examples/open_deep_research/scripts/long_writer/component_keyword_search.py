@@ -10,10 +10,12 @@ if TYPE_CHECKING:
         from long_writer_agent_v3 import LongWriterAgent
 
 try:
-    from .base_component import JsonWorkflowComponent, run_component_cli
+    from .base_component import JsonWorkflowComponent
+    from .cli_debugger import run_component_cli
     from .keyword_search_service import KeywordSearchPlanningService
 except ImportError:
-    from base_component import JsonWorkflowComponent, run_component_cli
+    from base_component import JsonWorkflowComponent
+    from cli_debugger import run_component_cli
     from keyword_search_service import KeywordSearchPlanningService
 
 from smolagents.monitoring import LogLevel

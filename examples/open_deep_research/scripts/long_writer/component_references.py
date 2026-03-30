@@ -11,9 +11,11 @@ if TYPE_CHECKING:
         from long_writer_agent_v3 import LongWriterAgent
 
 try:
-    from .base_component import JsonWorkflowComponent, run_component_cli
+    from .base_component import JsonWorkflowComponent
+    from .cli_debugger import run_component_cli
 except ImportError:
-    from base_component import JsonWorkflowComponent, run_component_cli
+    from base_component import JsonWorkflowComponent
+    from cli_debugger import run_component_cli
 
 
 class ReferencesWritingComponent(JsonWorkflowComponent):
