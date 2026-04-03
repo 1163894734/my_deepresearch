@@ -12,6 +12,7 @@ import concurrent.futures
 
 from smolagents.monitoring import LogLevel
 from smolagents.models import ChatMessage, MessageRole
+from utils.common_utils import safe_json_parse
 
 try:
     from ..citation_validator import add_citations
@@ -46,7 +47,7 @@ class KeywordSearchPlanningService:
         try:
             messages = [ChatMessage(role=MessageRole.USER, content=[{"type": "text", "text": prompt}])]
             response = agent.model(messages).content
-            parsed = agent._parse_json(str(response))
+            parsed = safe_json_parse(str(response))
             return int(parsed.get("year_start", 0)), int(parsed.get("year_end", 9999))
         except Exception as e:
             agent.logger.log(f"⚠️ 年份提取失败，默认不限制时间: {e}", level=LogLevel.INFO)
@@ -115,7 +116,7 @@ class KeywordSearchPlanningService:
             
             messages = [ChatMessage(role=MessageRole.USER, content=[{"type": "text", "text": prompt}])]
             response = agent.model(messages).content
-            concepts = agent._parse_json(str(response))
+            concepts = safe_json_parse(str(response))
 
             if not isinstance(concepts, list) or len(concepts) == 0:
                 raise ValueError("概念拆解结果无效：非列表或为空")
@@ -193,7 +194,7 @@ class KeywordSearchPlanningService:
         try:
             messages = [ChatMessage(role=MessageRole.USER, content=[{"type": "text", "text": prompt}])]
             response = agent.model(messages, temperature=0.1).content
-            parsed = agent._parse_json(str(response))
+            parsed = safe_json_parse(str(response))
             return parsed if isinstance(parsed, list) else []
         except Exception as e:
             agent.logger.log(f"⚠️ 单篇提取失败: {e}", level=LogLevel.INFO)
@@ -277,7 +278,7 @@ class KeywordSearchPlanningService:
             )
 
             response = agent.execute_tool_call("concept_decompose", {"input": skill_input})
-            upgraded_concepts = agent._parse_json(str(response))
+            upgraded_concepts = safe_json_parse(str(response))
 
             if not isinstance(upgraded_concepts, list) or len(upgraded_concepts) == 0:
                 raise ValueError("概念升级失败：结果无效")

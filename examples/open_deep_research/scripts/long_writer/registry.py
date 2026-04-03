@@ -9,7 +9,7 @@ from .component_body import BodyWritingComponent
 from .component_conclusion import ConclusionWritingComponent
 from .component_introduction import IntroductionWritingComponent
 from .component_keyword_search import KeywordSearchExpansionComponent
-from .component_outline import OutlineGenerationReflectionComponent
+from .component_outline import OutlineGenerationComponent
 from .component_references import ReferencesWritingComponent
 from .component_academic_search import AcademicSearchComponent
 
@@ -30,7 +30,7 @@ def build_workflow_components() -> Dict[str, JsonWorkflowComponent]:
     """
     components = [
         KeywordSearchExpansionComponent(),
-        OutlineGenerationReflectionComponent(),
+        OutlineGenerationComponent(),
         IntroductionWritingComponent(),
         BodyWritingComponent(),
         AbstractWritingComponent(),

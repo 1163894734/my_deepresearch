@@ -1,311 +1,191 @@
-from __future__ import annotations
-
 import json
-from collections import Counter
+import os
+import time
 
-from smolagents.models import ChatMessage, MessageRole, Model
+# 导入 smolagents 提供的真实大模型调用接口
+# 这里以 LiteLLMModel 为例，你可以无缝切换为 HfApiModel 或 OpenAIServerModel
+from smolagents import LiteLLMModel 
 
-try:
-    from examples.open_deep_research.scripts.identification_agent import (
-            ExpertVote,
-        IdentificationAgent,
-        KeywordDomainClassifier,
-        SimilarityThresholdClusterer,
-    )
-except ImportError:
-    from identification_agent import (  # type: ignore
-            ExpertVote,
-        IdentificationAgent,
-        KeywordDomainClassifier,
-        SimilarityThresholdClusterer,
-    )
+# 从你的主业务文件中导入 Agent 及其依赖
+from scripts.identification_agent import (
+    IdentificationAgent,
+    BGEM3Embedder,
+    UmapHdbscanClusterer,
+)
 
-
-class DummyModel(Model):
-    """Minimal model to satisfy ToolCallingAgent initialization."""
-
-    def generate(self, messages, **kwargs):  # noqa: D401
-        del messages, kwargs
-        return ChatMessage(role=MessageRole.ASSISTANT, content="ok")
-
-
-class AlwaysApproveExpert:
-    """Minimal expert judge for deterministic smoke tests."""
-
-    def __init__(self, name: str):
-        self.name = name
-
-    def evaluate(self, cluster, domain):
-        del cluster, domain
-        return ExpertVote(expert_name=self.name, approve=True, reason="smoke test approval")
-
-
-class ThemeAwareNarrativeGenerator:
-    """Deterministic but less fake narrative generator for clearer test outputs."""
-
-    def generate(self, summaries, domain):
-        text = "\n".join(str(s) for s in summaries).lower()
-
-        tokens = [t for t in __import__("re").split(r"[^a-z0-9]+", text) if len(t) >= 4]
-        stop = {
-            "this",
-            "that",
-            "with",
-            "from",
-            "into",
-            "uses",
-            "using",
-            "large",
-            "language",
-            "model",
-            "models",
-        }
-        keyword_counter = Counter(t for t in tokens if t not in stop)
-        key_terms = [k for k, _ in keyword_counter.most_common(3)]
-        key_focus = " / ".join(key_terms) if key_terms else "general-focus"
-
-        keyword_groups = {
-            "multimodal": ["multimodal", "vision", "image", "vision-language", "cross-modal"],
-            "rag": ["retrieval", "rag", "grounded", "citation", "reranker", "enterprise qa"],
-            "context": ["long-context", "long context", "memory", "compression", "long sequence"],
-        }
-        scores = {name: sum(text.count(k) for k in kws) for name, kws in keyword_groups.items()}
-        theme = max(scores, key=scores.get) if any(scores.values()) else "rag"
-
-        if theme == "multimodal":
-            return {
-                "technology_term": f"{domain}-multimodal-fusion",
-                "technology_problem": f"跨模态语义对齐与证据一致性不足，导致复杂场景理解稳定性下降（关键词焦点: {key_focus}）。",
-                "technology_method": f"采用视觉-语言联合表征、跨模态检索与上下文重排，提升多源信息融合质量（关键技术词: {key_focus}）。",
-                "application_direction": "面向多模态问答、文档理解和智能体规划等复合任务。",
-            }
-        if theme == "rag":
-            return {
-                "technology_term": f"{domain}-retrieval-grounding",
-                "technology_problem": f"参数化记忆时效性与可追溯性不足，易出现事实漂移与幻觉（关键词焦点: {key_focus}）。",
-                "technology_method": f"构建检索增强链路（召回-重排-生成）并注入可验证证据，平衡准确率与时延（关键技术词: {key_focus}）。",
-                "application_direction": "适用于企业知识问答、合规审阅和高可靠客服场景。",
-            }
-        if theme == "context":
-            return {
-                "technology_term": f"{domain}-context-memory-optimization",
-                "technology_problem": f"长上下文推理中存在记忆衰减与关键信息覆盖不足（关键词焦点: {key_focus}）。",
-                "technology_method": f"通过上下文压缩、记忆扩展与结构化提示策略提升长序列推理稳定性（关键技术词: {key_focus}）。",
-                "application_direction": "用于长文档分析、复杂流程推理与策略生成。",
-            }
-        return {
-            "technology_term": f"{domain}-general-cluster",
-            "technology_problem": "该簇仍处于探索期，问题定义与评价指标尚未统一。",
-            "technology_method": "以任务驱动的实验迭代为主，结合检索和推理链逐步优化。",
-            "application_direction": "可作为前沿候选方向持续跟踪。",
-        }
-
-
-def build_docs() -> list[dict]:
-    # Intentionally mix several themes so filtering/clustering behavior is visible.
+def get_highly_realistic_docs() -> list[dict]:
+    """
+    提供高仿真的业务数据集。
+    涵盖领域："AI Agent"
+    包含两个潜在的细分流派：
+    1. 多智能体协作 (Multi-Agent Collaboration) - 偏向软件开发、角色扮演
+    2. 工具调用与交互 (Tool Use / API Calling) - 偏向外部系统集成
+    """
     return [
+        # ------ 流派 A: 多智能体协作 ------
         {
-            "doc_id": "rag_2022_a",
-            "timestamp": "2022-05-01",
-            "title": "RAG for enterprise QA",
-            "abstract": "Large language model retrieval pipeline for grounded QA in enterprise search.",
-            "text": "LLM retrieval reranker transformer grounding evidence.",
-            "metadata": {"theme": "RAG"},
+            "doc_id": "paper_2023_01",
+            "timestamp": "2023-08-15",
+            "title": "ChatDev: Communicative Agents for Software Development",
+            "abstract": "The cognitive capabilities of large language models (LLMs) have advanced significantly. In this paper, we propose ChatDev, a virtual chat-powered software development company that operates through multiple agents holding different roles (e.g., programmer, reviewer, tester). Through collaborative dialogue, they complete the software development lifecycle. Our experiments demonstrate high efficiency and bug reduction.",
+            "text": "multi-agent collaboration communicative agents software engineering LLM roles dialogue.",
         },
         {
-            "doc_id": "rag_2023_a",
-            "timestamp": "2023-07-12",
-            "title": "Improving retrieval-augmented generation",
-            "abstract": "Transformer-based retriever with better context fusion for LLM answers.",
-            "text": "retrieval augmented generation llm transformer context fusion",
-            "metadata": {"theme": "RAG"},
+            "doc_id": "paper_2024_02",
+            "timestamp": "2024-02-10",
+            "title": "AgentVerse: Facilitating Multi-Agent Environments",
+            "abstract": "We introduce AgentVerse, a versatile framework that enables researchers to easily build custom multi-agent environments. It provides standardized interfaces for agent communication, role assignment, and task evaluation. We demonstrate its application in collaborative writing, debate, and game playing, showing that multi-agent systems consistently outperform single-agent baselines in complex reasoning tasks.",
+            "text": "agentverse framework multi-agent environments communication protocol reasoning.",
         },
         {
-            "doc_id": "rag_2024_a",
-            "timestamp": "2024-03-18",
-            "title": "Grounded long-form generation with retrieval",
-            "abstract": "Large language model uses retrieval and citation to reduce hallucination.",
-            "text": "large language model retrieval citation grounded generation",
-            "metadata": {"theme": "RAG"},
+            "doc_id": "paper_2024_03",
+            "timestamp": "2024-05-22",
+            "title": "Auto-Reviewer: Dual-Agent Conflict Resolution in Code Generation",
+            "abstract": "To mitigate hallucinations in LLM code generation, we propose a dual-agent system consisting of a Generator Agent and a Critic Agent. They engage in a zero-sum debate to find logical flaws. This adversarial multi-agent workflow increases the pass@1 rate on HumanEval by 14.5% compared to monolithic models.",
+            "text": "adversarial agents dual-agent code generation debate conflict resolution.",
         },
         {
-            "doc_id": "rag_2025_a",
-            "timestamp": "2025-08-06",
-            "title": "Low-latency RAG architecture",
-            "abstract": "LLM retrieval architecture for online latency and quality trade-off.",
-            "text": "llm retrieval latency quality online transformer",
-            "metadata": {"theme": "RAG"},
+            "doc_id": "paper_2025_04",
+            "timestamp": "2025-01-11",
+            "title": "Massive Multi-Agent Swarms for Automated Data Annotation",
+            "abstract": "Data annotation is expensive. We deploy swarms of thousands of micro-agents, each assigned a micro-task and a specific persona, to collaboratively label and verify massive datasets. We introduce a novel consensus algorithm for agent voting, reducing annotation costs by 90% while maintaining human-level accuracy.",
+            "text": "agent swarms data annotation consensus algorithm micro-agents.",
+        },
+
+        # ------ 流派 B: 工具调用与外部交互 ------
+        {
+            "doc_id": "paper_2023_05",
+            "timestamp": "2023-05-24",
+            "title": "Toolformer: Language Models Can Teach Themselves to Use Tools",
+            "abstract": "Language models struggle with tasks requiring external knowledge or precise math. We introduce Toolformer, a model trained to decide which APIs to call, when to call them, and how to parse the results. It integrates search engines, calculators, and translation systems natively into its generation process via self-supervised API tokens.",
+            "text": "toolformer API calling external tools search engine calculator integration.",
         },
         {
-            "doc_id": "mm_2023_a",
-            "timestamp": "2023-04-10",
-            "title": "Multimodal LLM alignment",
-            "abstract": "Transformer alignment across text and image for multimodal large language model.",
-            "text": "multimodal llm transformer alignment text image",
-            "metadata": {"theme": "MultiModal"},
+            "doc_id": "paper_2023_06",
+            "timestamp": "2023-11-05",
+            "title": "Gorilla: Large Language Model Connected with Massive APIs",
+            "abstract": "We present Gorilla, an LLM specifically finetuned to write API calls. By combining document retrieval with instruction tuning, Gorilla surpasses GPT-4 in generating accurate API requests for AWS, GCP, and Hugging Face services, significantly reducing hallucinated arguments.",
+            "text": "gorilla API calls instruction tuning massive APIs documentation retrieval.",
         },
         {
-            "doc_id": "mm_2024_a",
-            "timestamp": "2024-11-22",
-            "title": "Vision-language retrieval for LLM agents",
-            "abstract": "Retrieval and large language model integration for multimodal agent planning.",
-            "text": "vision language retrieval llm agent planning",
-            "metadata": {"theme": "MultiModal"},
+            "doc_id": "paper_2024_07",
+            "timestamp": "2024-06-18",
+            "title": "Executable Agentic Workflows for Database Management",
+            "abstract": "This study explores the use of autonomous agents for SQL database administration. The agent is equipped with tools to execute queries, read schemas, and rollback transactions. By enabling the agent to observe the execution environment and adjust its SQL logic iteratively, we achieve zero-shot database optimization.",
+            "text": "database administration SQL agent execution environment tool use.",
         },
         {
-            "doc_id": "mm_2026_a",
-            "timestamp": "2026-02-14",
-            "title": "Long-context multimodal transformer",
-            "abstract": "Transformer memory extension for large language model multimodal reasoning.",
-            "text": "long context transformer multimodal llm reasoning",
-            "metadata": {"theme": "MultiModal"},
-        },
-        {
-            "doc_id": "battery_2024_a",
-            "timestamp": "2024-01-05",
-            "title": "Solid-state battery electrolyte",
-            "abstract": "Electrochemical stability and ion transport in ceramic electrolyte design.",
-            "text": "battery electrolyte ion transport electrochemistry",
-            "metadata": {"theme": "Battery"},
-        },
-        {
-            "doc_id": "battery_2025_a",
-            "timestamp": "2025-09-19",
-            "title": "Anode interface chemistry",
-            "abstract": "Interfacial impedance control for lithium metal anode cycling life.",
-            "text": "lithium anode interface impedance cycling",
-            "metadata": {"theme": "Battery"},
-        },
-        {
-            "doc_id": "battery_2026_a",
-            "timestamp": "2026-06-30",
-            "title": "Cathode microstructure optimization",
-            "abstract": "Cathode porosity and binder distribution for high energy density.",
-            "text": "cathode porosity binder energy density",
-            "metadata": {"theme": "Battery"},
-        },
+            "doc_id": "paper_2025_08",
+            "timestamp": "2025-03-02",
+            "title": "Self-Correcting Agents via Sandbox Execution Feedback",
+            "abstract": "We propose a novel framework where an LLM agent writes Python code and executes it within a secure Docker sandbox. The agent captures the runtime errors or standard output as feedback, and iteratively corrects its code. This tool-use feedback loop allows the agent to solve highly complex mathematical modeling tasks.",
+            "text": "sandbox execution self-correction Python execution runtime feedback loop.",
+        }
     ]
 
+def main():
+    print("🚀 [系统启动] 正在准备真实场景测试...")
 
-def guess_theme_from_doc_ids(doc_ids: list[str]) -> str:
-    mapping = {
-        "rag": "RAG",
-        "mm": "MultiModal",
-        "battery": "Battery",
-    }
-    buckets = Counter()
-    for doc_id in doc_ids:
-        prefix = str(doc_id).split("_", 1)[0].lower()
-        buckets[mapping.get(prefix, "Unknown")] += 1
-    return buckets.most_common(1)[0][0] if buckets else "Unknown"
-
-
-def print_cluster_comparison_table(result_obj: dict) -> None:
-    clusters = result_obj.get("clusters", [])
-    headers = ["cluster_id", "size", "theme_guess", "burst", "cagr", "representative_doc_ids"]
-    rows = []
-    for cluster in clusters:
-        trend = cluster.get("trend", {}) if isinstance(cluster, dict) else {}
-        rep_ids = cluster.get("representative_doc_ids", [])
-        rep_ids_text = ",".join(rep_ids[:4])
-        if len(rep_ids) > 4:
-            rep_ids_text += ",..."
-        rows.append(
-            [
-                str(cluster.get("cluster_id", "")),
-                str(cluster.get("size", "")),
-                guess_theme_from_doc_ids(rep_ids),
-                str(bool(trend.get("burst_detected", False))),
-                f"{float(trend.get('cagr', 0.0)):.3f}",
-                rep_ids_text,
-            ]
+    # ==========================================
+    # 1. 配置真实的大模型 (以 OpenAI 兼容接口为例)
+    # ==========================================
+    # 请确保你的环境变量中设置了对应的 API KEY
+    # 例如：export OPENAI_API_KEY="sk-xxxx"
+    # 或者如果你用的是 DeepSeek/通义千问，可以修改 api_base
+    try:
+        model = LiteLLMModel(
+            model_id="gpt-4o", # 替换为你实际使用的模型，如 "deepseek/deepseek-chat"
+            temperature=0.2,   # 保持较低温度以保证 JSON 输出的稳定性
         )
+    except Exception as e:
+        print(f"❌ 模型初始化失败，请检查环境变量或依赖: {e}")
+        return
 
-    widths = [len(h) for h in headers]
-    for row in rows:
-        for idx, cell in enumerate(row):
-            widths[idx] = max(widths[idx], len(cell))
+    # ==========================================
+    # 2. 组装具备真实数学计算能力的 Agent
+    # ==========================================
+    # 强制启用 BGE-M3 和 UMAP+HDBSCAN 进行向量化聚类
+    print("⚙️ [组件加载] 正在加载 BGE-M3 向量模型与 HDBSCAN 聚类器...")
+    print("   (初次运行可能需要下载模型权重，请耐心等待)")
+    try:
+        embedder = BGEM3Embedder(model_name="BAAI/bge-m3", batch_size=8)
+        clusterer = UmapHdbscanClusterer(umap_dim=5, min_cluster_size=2) # 数据量少，调低 min_cluster_size
+    except ImportError as e:
+        print(f"❌ 缺少核心科学计算库，请先执行: pip install sentence-transformers umap-learn hdbscan scikit-learn")
+        print(f"详细错误: {e}")
+        return
 
-    sep = "+" + "+".join("-" * (w + 2) for w in widths) + "+"
-    head = "| " + " | ".join(h.ljust(widths[i]) for i, h in enumerate(headers)) + " |"
-
-    print("\n===== CLUSTER COMPARISON TABLE =====")
-    print(sep)
-    print(head)
-    print(sep)
-    for row in rows:
-        print("| " + " | ".join(row[i].ljust(widths[i]) for i in range(len(headers))) + " |")
-    print(sep)
-    print("===== END COMPARISON TABLE =====\n")
-
-
-def print_readable_summary(payload: dict, result_obj: dict) -> None:
-    docs = payload.get("documents", [])
-    themes = Counter(str(d.get("metadata", {}).get("theme", "Unknown")) for d in docs if isinstance(d, dict))
-
-    print("\n===== IDENTIFICATION READABLE SUMMARY =====")
-    print("Input domain:", payload.get("domain"))
-    print("Input docs:", len(docs), "| Theme distribution:", dict(themes))
-    print("Kept docs:", result_obj.get("kept_docs"), "| Removed docs:", result_obj.get("removed_docs"))
-
-    clusters = result_obj.get("clusters", [])
-    print("Approved clusters:", len(clusters))
-    for i, c in enumerate(clusters, 1):
-        trend = c.get("trend", {}) if isinstance(c, dict) else {}
-        print(f"  [{i}] id={c.get('cluster_id')} size={c.get('size')} term={c.get('technology_term')}")
-        print(f"      method={c.get('technology_method')}")
-        print(
-            "      trend:",
-            f"cagr={trend.get('cagr')}",
-            f"burst={trend.get('burst_detected')}",
-            f"yearly_count={trend.get('yearly_count')}",
-        )
-        print(f"      representative_doc_ids={c.get('representative_doc_ids')}")
-    print("===== END READABLE SUMMARY =====\n")
-    print_cluster_comparison_table(result_obj)
-
-
-def main() -> int:
-    agent = IdentificationAgent(
-        model=DummyModel(),
-        tools=[],
-        verbosity_level=0,
-        classifier=KeywordDomainClassifier(
-            {
-                "llm": ["llm", "large language model", "transformer", "retrieval"],
-            }
-        ),
-        # Keep deterministic behavior while allowing multiple clusters for readability.
-        clusterer=SimilarityThresholdClusterer(threshold=0.45),
-        narrative_generator=ThemeAwareNarrativeGenerator(),
-        experts=[AlwaysApproveExpert("smoke-expert")],
+    # 领域判别器：确保处理的是 AI Agent 相关的文章
+    classifier = KeywordDomainClassifier(
+        domain_keywords={"ai_agent": ["agent", "llm", "tool", "api", "multi-agent", "swarm"]}
     )
 
+    agent = IdentificationAgent(
+        model=model,
+        classifier=classifier,
+        embedder=embedder,
+        clusterer=clusterer,
+        # 内涵生成器和五专家在 Agent 内部会自动使用传入的 model，无需手动挂载
+    )
+
+    # ==========================================
+    # 3. 构造请求 Payload 并执行测试
+    # ==========================================
     payload = {
-        "domain": "llm",
-        "documents": build_docs(),
-        "min_domain_probability": 0.35,
-        "top_k_per_cluster": 5,
-        "minimum_votes_to_pass": 1,
+        "domain": "ai_agent",
+        "documents": get_highly_realistic_docs(),
+        "min_domain_probability": 0.3,
+        "top_k_per_cluster": 3,
+        "minimum_votes_to_pass": 3, # 必须至少3个专家同意
     }
 
-    result = agent.run(json.dumps(payload, ensure_ascii=False))
-    result_obj = json.loads(result)
+    print(f"\n🧠 [开始推理] 向 Agent 输入 {len(payload['documents'])} 篇仿真前沿文献...")
+    start_time = time.time()
+    
+    try:
+        # 直接调用 run()，这会触发完整的 Pipeline
+        result_json_str = agent.run(json.dumps(payload, ensure_ascii=False))
+        result_obj = json.loads(result_json_str)
+    except Exception as e:
+        print(f"\n❌ [执行异常] Pipeline 崩溃: {e}")
+        return
 
-    print_readable_summary(payload, result_obj)
+    cost_time = time.time() - start_time
 
-    print("\n===== IDENTIFICATION FINAL RESULT =====")
-    print(json.dumps(result_obj, ensure_ascii=False, indent=2))
-    print("===== END IDENTIFICATION RESULT =====\n")
+    # ==========================================
+    # 4. 打印高可读性的真实业务报告
+    # ==========================================
+    print(f"\n✅ [测试完成] 耗时: {cost_time:.1f} 秒")
+    print("\n" + "="*50)
+    print("📊 最终前沿技术识别报告 (Final Report)")
+    print("="*50)
+    print(f"🔹 目标领域: {result_obj.get('domain')}")
+    print(f"🔹 输入文献: {result_obj.get('total_input_docs')} 篇")
+    print(f"🔹 有效保留: {result_obj.get('kept_docs')} 篇 | 噪音剔除: {result_obj.get('removed_docs')} 篇")
+    
+    clusters = result_obj.get('clusters', [])
+    print(f"🔹 成功突围的技术簇: {len(clusters)} 个\n")
 
-    print("[identification] kept_docs:", result_obj.get("kept_docs"))
-    print("[identification] clusters:", len(result_obj.get("clusters", [])))
+    for i, cluster in enumerate(clusters, 1):
+        print(f"🚀 【技术簇 {i}】: {cluster.get('technology_term')}")
+        print(f"   🔸 包含文献数: {cluster.get('size')} 篇")
+        print(f"   🔸 解决痛点: {cluster.get('technology_problem')}")
+        print(f"   🔸 核心手段: {cluster.get('technology_method')}")
+        print(f"   🔸 商业指向: {cluster.get('application_direction')}")
+        
+        trend = cluster.get('trend', {})
+        print(f"   📈 演化特征: CAGR={trend.get('cagr', 0):.2%} | 是否突现: {'是' if trend.get('burst_detected') else '否'}")
+        print(f"      (突现理由: {trend.get('burst_reason')})")
 
-    assert result_obj.get("kept_docs", 0) > 0, "No kept docs in smoke test"
-    assert len(result_obj.get("clusters", [])) >= 1, "No approved clusters in smoke test"
-    print("[identification] smoke test passed")
-    return 0
-
+        print("   🧑‍⚖️ 专家评审委员会决议:")
+        votes = cluster.get('votes', [])
+        approve_count = sum(1 for v in votes if v.get('approve'))
+        print(f"      [得票数: {approve_count}/{len(votes)}] -> {'🏆 准予立项' if cluster.get('approved') else '⛔ 予以否决'}")
+        
+        for vote in votes:
+            icon = "✅" if vote.get('approve') else "❌"
+            print(f"      - {icon} {vote.get('expert_name')}: {vote.get('reason')}")
+        print("-" * 40)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

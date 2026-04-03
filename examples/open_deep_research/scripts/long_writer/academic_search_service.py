@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 from typing import Dict, Any
 from smolagents.monitoring import LogLevel
 from smolagents import ChatMessage, MessageRole
+from utils.common_utils import safe_json_parse
 
 class AcademicSearchService:
     """
@@ -45,7 +46,7 @@ class AcademicSearchService:
         try:
             messages = [ChatMessage(role=MessageRole.USER, content=[{"type": "text", "text": prompt}])]
             response = agent.model(messages).content
-            parsed = agent._parse_json(str(response))
+            parsed = safe_json_parse(str(response))
             agent.logger.log(f"🔍 意图解析结果: {parsed}", level=LogLevel.INFO)
             return parsed
         except Exception as e:

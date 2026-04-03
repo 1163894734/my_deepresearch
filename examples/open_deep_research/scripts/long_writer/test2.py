@@ -1,0 +1,28 @@
+def _extract_last_dict(text: str) -> str | None:
+    stack = []
+    start = None
+
+    for i, ch in enumerate(text):
+        if ch == "{":
+            if not stack:
+                start = i
+            stack.append(ch)
+        elif ch == "}":
+            if stack:
+                stack.pop()
+                if not stack and start is not None:
+                    # 找到一个完整 dict
+                    candidate = text[start:i + 1]
+
+    return candidate if 'candidate' in locals() else None
+
+
+text="""You're a helpful agent named 'identification_agent'.
+You have been submitted this task by your manager.
+---
+Task:
+Analyze the provided JSON payload to identify frontier technologies in the 'ai_agent' domain. Cluster the documents by technical theme, assess temporal trends from 2023 to 2025, and apply multi-expert voting to determine which technologies qualify as frontier based on novelty, impact, and consistency across sources.
+You have been provided with these additional arguments, that you can access directly using the keys as variables:
+{'domain': 'ai_agent', 'documents': [{'doc_id': 'paper_2023_01', 'timestamp': '2023-08-15', 'title': 'ChatDev: Communicative Agents for Software Development', 'abstract': 'The cognitive capabilities of large language models (LLMs) have advanced significantly. In this paper, we propose ChatDev, a virtual chat-powered software development company that operates through multiple agents holding different roles (e.g., programmer, reviewer, tester). Through collaborative dialogue, they complete the software development lifecycle. Our experiments demonstrate high efficiency and bug reduction.', 'text': 'multi-agent collaboration communicative agents software engineering LLM roles dialogue.'}, {'doc_id': 'paper_2024_02', 'timestamp': '2024-02-10', 'title': 'AgentVerse: Facilitating Multi-Agent Environments', 'abstract': 'We introduce AgentVerse, a versatile framework that enables researchers to easily build custom multi-agent environments. It provides standardized interfaces for agent communication, role assignment, and task evaluation. We demonstrate its application in collaborative writing, debate, and game playing, showing that multi-agent systems consistently outperform single-agent baselines in complex reasoning tasks.', 'text': 'agentverse framework multi-agent environments communication protocol reasoning.'}, {'doc_id': 'paper_2024_03', 'timestamp': '2024-05-22', 'title': 'Auto-Reviewer: Dual-Agent Conflict Resolution in Code Generation', 'abstract': 'To mitigate hallucinations in LLM code generation, we propose a dual-agent system consisting of a Generator Agent and a Critic Agent. They engage in a zero-sum debate to find logical flaws. This adversarial multi-agent workflow increases the pass@1 rate on HumanEval by 14.5% compared to monolithic models.', 'text': 'adversarial agents dual-agent code generation debate conflict resolution.'}, {'doc_id': 'paper_2025_04', 'timestamp': '2025-01-11', 'title': 'Massive Multi-Agent Swarms for Automated Data Annotation', 'abstract': 'Data annotation is expensive. We deploy swarms of thousands of micro-agents, each assigned a micro-task and a specific persona, to collaboratively label and verify massive datasets. We introduce a novel consensus algorithm for agent voting, reducing annotation costs by 90% while maintaining human-level accuracy.', 'text': 'agent swarms data annotation consensus algorithm micro-agents.'}, {'doc_id': 'paper_2023_05', 'timestamp': '2023-05-24', 'title': 'Toolformer: Language Models Can Teach Themselves to Use Tools', 'abstract': 'Language models struggle with tasks requiring external knowledge or precise math. We introduce Toolformer, a model trained to decide which APIs to call, when to call them, and how to parse the results. It integrates search engines, calculators, and translation systems natively into its generation process via self-supervised API tokens.', 'text': 'toolformer API calling external tools search engine calculator integration.'}, {'doc_id': 'paper_2023_06', 'timestamp': '2023-11-05', 'title': 'Gorilla: Large Language Model Connected with Massive APIs', 'abstract': 'We present Gorilla, an LLM specifically finetuned to write API calls. By combining document retrieval with instruction tuning, Gorilla surpasses GPT-4 in generating accurate API requests for AWS, GCP, and Hugging Face services, significantly reducing hallucinated arguments.', 'text': 'gorilla API calls instruction tuning massive APIs documentation retrieval.'}, {'doc_id': 'paper_2024_07', 'timestamp': '2024-06-18', 'title': 'Executable Agentic Workflows for Database Management', 'abstract': 'This study explores the use of autonomous agents for SQL database administration. The agent is equipped with tools to execute queries, read schemas, and rollback transactions. By enabling the agent to observe the execution environment and adjust its SQL logic iteratively, we achieve zero-shot database optimization.', 'text': 'database administration SQL agent execution environment tool use.'}, {'doc_id': 'paper_2025_08', 'timestamp': '2025-03-02', 'title': 'Self-Correcting Agents via Sandbox Execution Feedback', 'abstract': 'We propose a novel framework where an LLM agent writes Python code and executes it within a secure Docker sandbox. The agent captures the runtime errors or standard output as feedback, and iteratively corrects its code. This tool-use feedback loop allows the agent to solve highly complex mathematical modeling tasks.', 'text': 'sandbox execution self-correction Python execution runtime feedback loop.'}], 'min_domain_probability': 0.3, 'top_k_per_cluster': 3, 'minimum_votes_to_pass': 3}."""
+
+print(_extract_last_dict(text))

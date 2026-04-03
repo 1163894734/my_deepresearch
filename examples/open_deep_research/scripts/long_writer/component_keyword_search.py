@@ -18,8 +18,6 @@ except ImportError:
     from cli_debugger import run_component_cli
     from keyword_search_service import KeywordSearchPlanningService
 
-from smolagents.monitoring import LogLevel
-
 class KeywordSearchExpansionComponent(JsonWorkflowComponent):
     """关键词搜索与扩展（输入任务 -> 初始检索 -> 扩展检索）。"""
 
@@ -59,8 +57,6 @@ class KeywordSearchExpansionComponent(JsonWorkflowComponent):
 
     def run(self, agent: "LongWriterAgent", payload: dict) -> dict:
         task = str(payload.get("task", "")).strip()
-
-        agent.logger.log("📋 执行5步关键词搜索扩展流程...", level=LogLevel.INFO)
         
         initial_concepts = self._extract_initial_concepts(agent, task)
         first_shot_papers = self._first_shot_retrieval(agent, initial_concepts)
@@ -75,14 +71,13 @@ class KeywordSearchExpansionComponent(JsonWorkflowComponent):
         for paper_dict in second_shot_papers:
             combined_citations.update(paper_dict)
 
-        agent.logger.log(f"✅ 5步搜索流程完成，两轮共收集并去重文献 {len(combined_citations)} 篇", level=LogLevel.INFO)
-
         return {
             "task": task,
             "initial_concepts": initial_concepts,
             "candidate_keywords": candidate_keywords,
             "upgraded_concepts": upgraded_concepts,
             "available_citations": combined_citations,  # 将合并后的文献字典作为核心输出
+            "combined_citations_count":len(combined_citations)
         }
 
 def main() -> int:

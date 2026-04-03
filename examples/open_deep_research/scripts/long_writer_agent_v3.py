@@ -17,7 +17,6 @@ try:
         KeywordSearchPlanningService,
         OutlineParsingService,
         SectionWritingService,
-        TaggedSearchService,
         build_workflow_components,
     )
 except ImportError:
@@ -27,7 +26,6 @@ except ImportError:
         KeywordSearchPlanningService,
         OutlineParsingService,
         SectionWritingService,
-        TaggedSearchService,
         build_workflow_components,
     )
 
@@ -197,7 +195,7 @@ class LongWriterAgent(CustomAgent):
         
         # --- 核心重构：隔离所有的 IO 与基础状态到 Workspace ---
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        self.workspace = ReportWorkspace(f"outputs/report_{timestamp}", self.logger)
+        self.workspace = ReportWorkspace(f"outputs/report_Frontier_Review_{timestamp}", self.logger)
         
         # 向下兼容：保留老代码组件中可能直接使用的属性
         self._output_dir = self.workspace.output_dir
@@ -231,6 +229,9 @@ class LongWriterAgent(CustomAgent):
         self.allow_add_citation_from_generated_text = False
         self.strict_citation_flow = True
         self.strict_citation_revision_max_attempts = 1
+        self.debug_mode = True
+        self.debug_max_body_sections = 1
+        self.body_generated_count = 0
         
         self.outline_max_iter = 1
         self.section_max_iter = 1
@@ -258,7 +259,6 @@ class LongWriterAgent(CustomAgent):
         self._keyword_search_service = KeywordSearchPlanningService()
         self._outline_parsing_service = OutlineParsingService()
         self._section_writing_service = SectionWritingService()
-        self._tagged_search_service = TaggedSearchService()
         self._workflow_components = self._build_workflow_components()
         self.state["workflow_component_contracts"] = self.get_workflow_component_contracts()
         
@@ -269,7 +269,6 @@ class LongWriterAgent(CustomAgent):
     # ==========================
     # IO 方法委托 (Delegation)
     # ==========================
-    # 通过委托模式保障原有代码中的 `self._safe_write_file(...)` 等调用能够向下兼容无缝对接 Workspace
     def _safe_write_file(self, *args, **kwargs): self.workspace.safe_write(*args, **kwargs)
     def _append_section_to_file(self, *args, **kwargs): self.workspace.append_section(*args, **kwargs)
     def _get_heading_prefix(self, *args, **kwargs): return self.workspace.get_heading_prefix(*args, **kwargs)
@@ -280,13 +279,6 @@ class LongWriterAgent(CustomAgent):
     def _filter_references_from_content(self, *args, **kwargs): return self.workspace.filter_references(*args, **kwargs)
     def _log_reflection_to_file(self, *args, **kwargs): self.workspace.log_reflection(*args, **kwargs)
     def _log_revision_to_file(self, *args, **kwargs): self.workspace.log_revision(*args, **kwargs)
-
-    def _parse_json(self, text: str) -> Any:
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            self.logger.log(f"⚠️ JSON解析失败，返回原始文本", level=LogLevel.INFO)
-            return text
 
     def set_text_webbrowser_agent_name(self, agent_name: str):
         self.text_webbrowser_agent_name = agent_name
@@ -363,14 +355,21 @@ class LongWriterAgent(CustomAgent):
         start_time = time.perf_counter()
         
         component = self._workflow_components.get(component_name)
-        if component is None:
-            self.logger.log(f"❌ [组件错误] 未知的工作流组件: {component_name}", level=LogLevel.ERROR)
-            raise ValueError(f"Unknown workflow component {component_name}")
-            
         try:
-            result = component.run(self, payload)
+            # ✅ BUG FIXED: 传入 self (Agent实例本身) 而非 self.state
+            result = component.run(self, payload) 
             cost = int((time.perf_counter() - start_time) * 1000)
-            self.logger.log(f"✅ [组件完成] {component_name} (耗时: {cost}ms)", level=LogLevel.INFO)
+            
+            if component_name == "academic_search":
+                engine = result.get("engine_used", "未知")
+                count = len(result.get("available_citations", {}))
+                self.logger.log(f"✅ [检索完成] 使用 {engine} 引擎，获取到 {count} 篇文献 (耗时: {cost}ms)", level=LogLevel.INFO)
+            elif component_name == "keyword_search_expansion":
+                kws = result.get("candidate_keywords", [])
+                self.logger.log(f"✅ [关键词扩展] 挖掘出新候选词: {kws} (耗时: {cost}ms)", level=LogLevel.INFO)
+            else:
+                self.logger.log(f"✅ [组件完成] {component_name} (耗时: {cost}ms)", level=LogLevel.INFO)
+                
             return result
         except Exception as e:
             cost = int((time.perf_counter() - start_time) * 1000)
@@ -436,6 +435,63 @@ class LongWriterAgent(CustomAgent):
         if index == 0 or any(kw in title_lower for kw in ["引言", "介绍", "introduction", "背景", "background"]): return "introduction"
         return "body"
 
+    def _outline_reflection_loop(self, initial_outline: str, payload: dict) -> str:
+        current = initial_outline
+        for i in range(self.outline_max_iter):
+            self.logger.log(f"  🔄 [大纲反思] 第 {i+1}/{self.outline_max_iter} 轮", level=LogLevel.DEBUG)
+            try:
+                reflection_input = f"大纲:\n{current}\n参考资料:\n{payload}"
+                report_raw = self.execute_tool_call("outline_reflection", {"input": reflection_input})
+                report = str(report_raw)
+                
+                from utils.common_utils import safe_json_parse
+                data = safe_json_parse(report)
+                if not isinstance(data, dict): data = {}
+                
+                score = data.get("score", 0)
+                is_pass = data.get("is_pass", False)
+                self._log_reflection_to_file(f"大纲反思第{i+1}轮", score, report)
+
+                if is_pass or score > self.outline_score_threshold:
+                    self.logger.log(f"  ✅ [大纲通过] 得分 {score}", level=LogLevel.INFO)
+                    return current
+
+                self.logger.log(f"  ⚠️ [需要修订] 得分 {score} 未达标 ({self.outline_score_threshold})", level=LogLevel.INFO)
+                revision_prompt = f"大纲:\n{current}\n评审报告:\n{report}\n参考资料:\n{payload}"
+                current = str(self.execute_tool_call("outline_revision", {"input": revision_prompt}))
+                self._log_revision_to_file(f"大纲修订第{i+1}轮", current)
+
+            except Exception as e:
+                self.logger.log(f"  ❌ 反思出错中断: {e}", level=LogLevel.ERROR)
+                return current
+        return current
+
+    def _section_reflection_loop(self, text: str, section: dict, available_citations: dict) -> str:
+        current = text
+        for i in range(self.section_max_iter):
+            self.logger.log(f"  🔍 [段落反思] 章节《{section.get('title', '')}》", level=LogLevel.DEBUG)
+            try:
+                import json
+                evidence_reflection_input = {"section": section, "content": current, "available_citations": available_citations}
+                report_raw = self.execute_tool_call("evidence_reflection", {"input": json.dumps(evidence_reflection_input, ensure_ascii=False)})
+                report = str(report_raw)
+                self._log_reflection_to_file(f"证据反思 - {section.get('goal', '')[:30]}", 0, report)
+
+                from utils.common_utils import safe_json_parse
+                section_revision_input = {
+                    "section": section,
+                    "original_content": current,
+                    "reflection_report": safe_json_parse(report),
+                }
+                current = str(self.execute_tool_call("section_revision", {"input": json.dumps(section_revision_input, ensure_ascii=False)}))
+                self._log_revision_to_file(f"段落修订 - {section.get('goal', '')[:30]}", current)
+                self.logger.log("  ✅ 段落修订完成", level=LogLevel.INFO)
+
+            except Exception as e:
+                self.logger.log(f"  ❌ 反思出错中断: {e}", level=LogLevel.ERROR)
+                return current
+        return current
+
     def _planning_phase(self, memory_step: ActionStep) -> None:
         self.logger.log_rule("🗺️ [阶段 1/3] 规划与大纲生成 (Planning Phase)", level=LogLevel.INFO)
         cleaned_task = self._clean_task_description()
@@ -445,12 +501,12 @@ class LongWriterAgent(CustomAgent):
         combined_citations = search_stage_result.get("available_citations", {})
         
         self.logger.log("📝 [阶段 1] 基于检索结果生成大纲...", level=LogLevel.INFO)
-        outline_stage_result = self._invoke_workflow_component("outline_generation_reflection", {
+        outline_stage_result = self._invoke_workflow_component("outline_generation", {
             "task": cleaned_task,
             "available_citations": combined_citations
         })
-        
-        self._current_outline = str(outline_stage_result.get("final_outline", outline_stage_result.get("outline_v1", "")))
+        outline_v1 = outline_stage_result.get("outline_v1", "")
+        self._current_outline = self._outline_reflection_loop(outline_v1, outline_stage_result.get("outline_input", {}))
         
         self._citations.update(combined_citations)
         self._citations.update(outline_stage_result.get("available_citations", {}))
@@ -459,9 +515,17 @@ class LongWriterAgent(CustomAgent):
         self.workspace.save_outline(self._current_outline)
     
     def _writing_phase(self, memory_step: ActionStep) -> None:
+        def parse_logger(msg: str, level_str: str):
+            from smolagents.monitoring import LogLevel
+            level_map = {"DEBUG": LogLevel.DEBUG, "INFO": LogLevel.INFO, "ERROR": LogLevel.ERROR}
+            self.logger.log(msg, level=level_map.get(level_str, LogLevel.INFO))
+            
+        sections = self._outline_parsing_service.parse_sections(
+            outline=self._current_outline, 
+            log_callable=parse_logger
+        )
         self.logger.log_rule("✍️ [阶段 2/3] 分发与撰写 (Writing Phase)", level=LogLevel.INFO)
         self._prev_body_or_intro_content = ""
-        sections = self._outline_parsing_service.parse_sections(self, self._current_outline)
         total_sections = len(sections)
         self.logger.log(f"📊 [阶段 2] 大纲解析完毕，共拆分为 {total_sections} 个章节", level=LogLevel.INFO)
 
@@ -487,7 +551,12 @@ class LongWriterAgent(CustomAgent):
             fine_rag_context = ""
             available_citations = {}
             if section_type == "body":
+                if self.debug_mode and self.body_generated_count >= self.debug_max_body_sections:
+                    self.logger.log("🛑 [调试模式] 已达到最大正文段落数限制", level=LogLevel.INFO)
+                    break
+                self.body_generated_count += 1
                 self.logger.log(f"🔎 [资料检索] 开始针对章节主体进行细粒度检索...", level=LogLevel.INFO)
+                
                 fine_rag_context = self._run_fine_rag_for_section(section)
                 if fine_rag_context:
                     try:
@@ -507,29 +576,56 @@ class LongWriterAgent(CustomAgent):
                 }).get("content", ""))
                 
             elif section_type == "introduction":
-                available_citations = self._citations.copy()
-                final = str(self._invoke_workflow_component("introduction_writing", {
-                    "section": section, "available_citations": available_citations, "task": cleaned_task, "prev_section_content": self._prev_body_or_intro_content, "outline": self._current_outline
-                }).get("content", ""))
+                payload = {
+                    "section": section, "available_citations": self._citations.copy(), 
+                    "task": cleaned_task, "prev_section_content": self._prev_body_or_intro_content, "outline": self._current_outline
+                }
+                self.logger.log("✍️ [引言撰写] 开始生成引言...", level=LogLevel.INFO)
+                final = SectionWritingService.write_intro(self, payload)
+                self.logger.log("✅ [引言撰写] 引言生成完毕", level=LogLevel.INFO)
+                
                 self.logger.log(f"🛡️ [引用校验] 开始校验 {section['title']} 的引用规范...", level=LogLevel.INFO)
-                available_citations, final = self._citation_validator.run_five_step_validation(available_citations, final, self._citations_validation_log, section.get("title", "引言"))
+                available_citations, final = self._citation_validator.run_five_step_validation(self._citations.copy(), final, self._citations_validation_log, section.get("title", "引言"))
                 self._prev_body_or_intro_content = final
                 
             elif section_type == "conclusion":
-                available_citations = self._citations.copy()
-                final = str(self._invoke_workflow_component("conclusion_writing", {
-                    "section": section, "available_citations": available_citations, "full_text": self._full_text_body, "task": cleaned_task, "outline": self._current_outline
-                }).get("content", ""))
+                payload = {
+                    "section": section, "available_citations": self._citations.copy(), 
+                    "full_text": self._full_text_body, "task": cleaned_task, "outline": self._current_outline
+                }
+                self.logger.log("✍️ [结论撰写] 开始生成结论...", level=LogLevel.INFO)
+                final = SectionWritingService.write_conclusion(self, payload)
+                self.logger.log("✅ [结论撰写] 结论生成完毕", level=LogLevel.INFO)
+                
                 self.logger.log(f"🛡️ [引用校验] 开始校验 {section['title']} 的引用规范...", level=LogLevel.INFO)
-                available_citations, final = self._citation_validator.run_five_step_validation(available_citations, final, self._citations_validation_log, section.get("title", "结论"))
+                available_citations, final = self._citation_validator.run_five_step_validation(self._citations.copy(), final, self._citations_validation_log, section.get("title", "结论"))
                 self._prev_body_or_intro_content = final
                 
             else:
-                final = str(self._invoke_workflow_component("body_writing", {
-                    "section": section, "available_citations": available_citations, "task": cleaned_task, "prev_section_content": self._prev_body_or_intro_content, "outline": self._current_outline    
-                }).get("content", ""))
-                self.logger.log(f"🛡️ [引用校验] 开始校验 {section['title']} 的引用规范...", level=LogLevel.INFO)
+                if self.debug_mode and self.body_generated_count > self.debug_max_body_sections:
+                    self.logger.log("🛑 [调试模式] 已达到最大正文段落数限制，跳过剩余正文生成", level=LogLevel.INFO)
+                    break
+                payload = {
+                    "section": section, "available_citations": available_citations, 
+                    "fine_rag_context": fine_rag_context, "task": cleaned_task, 
+                    "prev_section_content": self._prev_body_or_intro_content, "outline": self._current_outline    
+                }
+                
+                self.logger.log("🏗️ [正文撰写] 步骤 1/4 - 骨架规划...", level=LogLevel.INFO)
+                skeleton = SectionWritingService.plan_body_skeleton(self, payload)
+                self.logger.log("✅ [正文撰写] 骨架规划完毕", level=LogLevel.INFO)
+                
+                self.logger.log("✍️ [正文撰写] 步骤 2/4 - 文本成稿...", level=LogLevel.INFO)
+                payload["skeleton"] = skeleton
+                final = SectionWritingService.compose_body_content(self, payload)
+                self.logger.log("✅ [正文撰写] 文本组装完毕", level=LogLevel.INFO)
+                
+                self.logger.log(f"🛡️ [正文撰写] 步骤 3/4 - 校验引用规范...", level=LogLevel.INFO)
                 available_citations, final = self._citation_validator.run_five_step_validation(available_citations, final, self._citations_validation_log, section.get("title", "正文"))
+                
+                self.logger.log(f"🔍 [正文撰写] 步骤 4/4 - 执行反思修订...", level=LogLevel.INFO)
+                final = self._section_reflection_loop(final, section, available_citations)
+                
                 self._prev_body_or_intro_content = final
                 self._citations.update(available_citations)
             
@@ -553,19 +649,15 @@ class LongWriterAgent(CustomAgent):
             tagged_result = self._invoke_workflow_component("academic_search", {"task": section_title})
             return json.dumps(tagged_result.get("available_citations"), ensure_ascii=False)
         elif self.fine_rag_mode == 'web_search':
-            return self._section_writing_service.run_fine_rag_web_search(self, section_title, search_query)
+            self.logger.log(f"🔎 [资料检索] 调用 web_search 检索: {search_query}", level=LogLevel.DEBUG)
+            try:
+                result = self._section_writing_service.run_fine_rag_web_search(self, section_title, search_query)
+                self.logger.log(f"✅ [资料检索] web_search成功 ({len(result)} 字)", level=LogLevel.DEBUG)
+                return result
+            except Exception as e:
+                self.logger.log(f"⚠️ [资料检索] web_search调用失败: {e}", level=LogLevel.ERROR)
+                raise
         raise ValueError(f"未知的细粒度资料检索模式 {self.fine_rag_mode}")
-
-    def _clean_agent_output(self, output: str) -> str:
-        text = output.strip()
-        if "<summary_of_work>" in text:
-            text = re.sub(r"\n?For more detail, find below a summary of this agent's work:\n<summary_of_work>.*?</summary_of_work>", "", text, flags=re.DOTALL).strip()
-        
-        for marker in ["### 1. Task outcome (short version):", '"### 1. Task outcome (short version)":']:
-            if marker in text:
-                match = re.search(r"###\s*1\.\s*Task outcome \(short version\):\s*(.*?)(?:\n###\s*2\.|$)", text, re.IGNORECASE | re.DOTALL)
-                if match: return match.group(1).strip()
-        return text
 
     def _log_reference_usage_in_section(self, section_title: str, text: str) -> None:
         if not text: return
@@ -605,15 +697,19 @@ class LongWriterAgent(CustomAgent):
         if self._abstract_section:
             self.logger.log("📝 [阶段 3] 开始基于全局全文生成最终摘要...", level=LogLevel.INFO)
             cleaned_task = self._clean_task_description()
-            final_abstract = str(self._invoke_workflow_component("abstract_writing", {
+            
+            payload = {
                 "section": self._abstract_section, "full_text": self._full_text_body, "task": cleaned_task
-            }).get("content", ""))
+            }
+            final_abstract = SectionWritingService.write_abstract(self, payload)
+            self.logger.log("✅ [阶段 3] 摘要生成完毕", level=LogLevel.INFO)
+            
             self._abstract_section["content"] = final_abstract
             
             self._generated_sections = [s for s in self._generated_sections if s.get("type") != "abstract"]
             intro_index = next((i for i, s in enumerate(self._generated_sections) if s.get("type") == "introduction"), 0)
             self._generated_sections.insert(intro_index, self._abstract_section)
-            self.logger.log("✅ [阶段 3] 摘要生成已完成并成功插入", level=LogLevel.INFO)
+            self.logger.log("✅ [阶段 3] 摘要已成功插入", level=LogLevel.INFO)
 
         self.logger.log("💾 [文件输出] 开始写入最终排版文件...", level=LogLevel.INFO)
         self.workspace.write_final_report(self._current_outline, self._generated_sections)

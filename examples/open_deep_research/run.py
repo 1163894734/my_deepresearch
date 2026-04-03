@@ -2,6 +2,7 @@ import argparse
 import os
 import threading
 import time
+from scripts.test_identification_agent_simple import get_highly_realistic_docs
 from smolagents import InferenceClientModel
 from smolagents import OpenAIModel
 

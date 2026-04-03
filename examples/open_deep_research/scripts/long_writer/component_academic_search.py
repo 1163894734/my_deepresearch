@@ -33,7 +33,6 @@ class AcademicSearchComponent(JsonWorkflowComponent):
         
         # 顺手把外层的日志也搞成双引擎动态显示
         engine = agent.state.get('search_engine', 'arxiv').upper()
-        agent.logger.log(f"📋 开始 {engine} 精准文献检索流程...", level=LogLevel.INFO)
 
         # 1. 意图解析 (提取查询词和年份) -> 此时调用的就是真正导入的服务类了！
         intent = AcademicSearchService.parse_search_intent(agent, task)
@@ -52,13 +51,13 @@ class AcademicSearchComponent(JsonWorkflowComponent):
             max_fetch=50, 
             target_count=10
         )
-        
-        agent.logger.log(f"✅ 获取到 {len(papers_dict)} 篇符合条件的真实 {engine} 文献", level=LogLevel.INFO)
 
         return {
             "task": task,
             "search_intent": intent,
-            "available_citations": papers_dict
+            "available_citations": papers_dict,
+            "engine": engine,
+            "retrieved_count": len(papers_dict)
         }
 
 if __name__ == "__main__":
