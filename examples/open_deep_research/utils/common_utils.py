@@ -49,3 +49,34 @@ def safe_json_parse(text: str, fallback_type: type = dict) -> Union[Dict, List, 
                 
     # 全都失败，返回保底类型
     return fallback_type()
+import os
+from smolagents import OpenAIModel
+
+class ModelProvider:
+    _instances = {}
+
+    @classmethod
+    def get_model(cls, model_type="main"):
+        """
+        获取模型单例。支持 'main' (大模型) 和 'small' (小模型)
+        """
+        if model_type not in cls._instances:
+            if model_type == "main":
+                cls._instances[model_type] = OpenAIModel(
+                    model_id="Qwen3-235B-A22B-Instruct-2507",
+                    api_base="https://llmapi.paratera.com/v1",
+                    api_key=os.environ.get("DYM_API_KEY", ""),
+                    max_tokens=8192
+                )
+            elif model_type == "small":
+                # 对应 run_agent3.py 中的本地小模型逻辑
+                cls._instances[model_type] = OpenAIModel(
+                    model_id="local-model",
+                    api_base="http://localhost:1234/v1",
+                    api_key="not-needed",
+                )
+        return cls._instances[model_type]
+
+    @classmethod
+    def clear_cache(cls):
+        cls._instances = {}

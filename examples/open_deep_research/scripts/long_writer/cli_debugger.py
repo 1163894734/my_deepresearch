@@ -6,6 +6,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from utils import common_utils
+
 # ==========================================
 # 🚀 路径魔法：解决直接运行时的报错
 # ==========================================
@@ -52,18 +54,9 @@ def _mock_agent_for_cli():
         from skill_loader import load_skills_from_directory
 
     from smolagents import OpenAIModel
-    from dotenv import load_dotenv
-    
-    # 加载环境变量以确保能读取到 DYM_API_KEY
-    load_dotenv(override=True)
 
     # 同步使用 run.py 中的真实模型配置
-    real_model = OpenAIModel(
-        model_id="Qwen3-235B-A22B-Instruct-2507",
-        api_base="https://llmapi.paratera.com/v1",
-        api_key=os.environ.get("DYM_API_KEY", ""),  # 确保你的环境中已配置此 KEY
-        max_tokens=8192
-    )
+    real_model = common_utils.ModelProvider.get_model()
     
     # 动态获取项目根目录并加载 skills 文件夹下的所有工具
     root_dir = Path(__file__).resolve().parent.parent.parent

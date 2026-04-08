@@ -181,7 +181,6 @@ class ReportWorkspace:
         except Exception as e:
             self.logger.log(f"⚠️ 写入引用验证日志失败 {e}", level=LogLevel.ERROR)
 
-
 class LongWriterAgent(CustomAgent):
     STATE_COARSE_RAG_CONTEXT = "coarse_rag_context"
     STATE_LATEST_TAGGED_SEARCH_PAYLOAD = "_latest_tagged_search_payload"
@@ -189,13 +188,17 @@ class LongWriterAgent(CustomAgent):
     STATE_SECTION_TAGGED_PAYLOAD = "section_tagged_payload"
     STATE_OUTLINE = "outline"
     STATE_SECTIONS = "sections"
-
-    def __init__(self, model, tools: Optional[List] = None, **kwargs):
+    def __init__(self, model, tools: Optional[List] = None, output_dir: Optional[str] = None, **kwargs):
         super().__init__(model=model, tools=tools or [], **kwargs)
         
-        # --- 核心重构：隔离所有的 IO 与基础状态到 Workspace ---
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        self.workspace = ReportWorkspace(f"outputs/report_Frontier_Review_{timestamp}", self.logger)
+        # 如果外部没有传 output_dir，再走默认逻辑
+        if not output_dir:
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            # 确保默认路径也在 outputs 下
+            base_project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            output_dir = os.path.join(base_project_dir, "outputs", f"report_Frontier_Review_{timestamp}")
+            
+        self.workspace = ReportWorkspace(output_dir, self.logger)
         
         # 向下兼容：保留老代码组件中可能直接使用的属性
         self._output_dir = self.workspace.output_dir

@@ -303,7 +303,8 @@ class InterpretationAgent(ToolCallingAgent):
     def _assemble_output(self, term: str, objective_facts: str, blocks: Sequence[RetrievedBlock], outline: str, drafts: Dict[str, str]) -> str:
         clean_drafts = {}
         for k, v in drafts.items():
-            clean_text = re.sub(r"^(#+|## 动态评估大纲|## 客观事实底稿).*", "", v, flags=re.MULTILINE | re.DOTALL).strip()
+            # 安全地清理模型可能在其输出开头生成的标题词
+            clean_text = re.sub(r"^(#+ *(百科版|专报版|科普版|解读报告)).*\n?", "", v.strip(), flags=re.IGNORECASE).strip()
             clean_drafts[k] = clean_text or v
 
         src_lines = [f"- [{i+1}] ({b.source}) {b.text[:80]}..." for i, b in enumerate(blocks)]

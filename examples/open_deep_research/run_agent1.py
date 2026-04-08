@@ -15,6 +15,7 @@ from scripts.text_web_browser import (
     SimpleTextBrowser,
     VisitTool,
 )
+from utils import common_utils
 
 # 加载环境变量 (DYM_API_KEY, SERPAPI_API_KEY 等)
 load_dotenv(override=True)
@@ -50,12 +51,7 @@ def create_long_writer_agent():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
     # 1. 初始化模型 (保持你原有的模型配置)
-    model = OpenAIModel(
-        model_id="Qwen3-235B-A22B-Instruct-2507",
-        api_base="https://llmapi.paratera.com/v1",
-        api_key=os.environ.get("DYM_API_KEY", ""),
-        max_tokens=8192
-    )
+    model = common_utils.ModelProvider.get_model()
     
     # 2. 从本地加载 Skills (自定义工具)
     skills_dir = os.path.join(base_dir, "skills")

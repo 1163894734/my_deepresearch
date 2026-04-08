@@ -1,19 +1,12 @@
 import os
+from utils import common_utils
 from smolagents import OpenAIModel
 from examples.open_deep_research.scripts.custom_tools import LongWriterTool # 确保路径正确
 
 def test_long_writer():
     # 1. 初始化模型 (建议用你现有的配置)
     # 这里为了演示，假设你已经设置好了环境变量
-    try:
-        model = OpenAIModel(
-            model_id="Qwen3-235B-A22B-Instruct-2507", # 替换为你实际可用的模型ID
-            api_base="https://llmapi.paratera.com/v1",
-            api_key=os.environ.get("DYM_API_KEY")
-        )
-    except Exception as e:
-        print(f"模型初始化失败，请检查环境变量: {e}")
-        return
+    model = common_utils.ModelProvider.get_model()
 
     # 2. 初始化工具
     # 设置一个较小的 max_context_tokens 以便更容易触发“滑动窗口”逻辑

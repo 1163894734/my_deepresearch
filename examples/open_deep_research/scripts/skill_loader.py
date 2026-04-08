@@ -16,6 +16,7 @@ class SkillMetadata:
     description: str
     skill_dir: Path
     skill_md_path: Path | None
+    skill_type: str = "prompt"
 
 
 def _split_frontmatter(markdown_text: str) -> tuple[dict[str, str], str]:
@@ -59,11 +60,15 @@ def _extract_metadata(skill_dir: Path) -> SkillMetadata:
     skill_md_path = skill_dir / "SKILL.md"
     raw_name = ""
     raw_description = ""
+    skill_type = "prompt" # 默认值
+    
     if skill_md_path.exists():
         content = skill_md_path.read_text(encoding="utf-8")
         metadata, body = _split_frontmatter(content)
         raw_name = metadata.get("name", "").strip()
         raw_description = metadata.get("description", "").strip()
+        skill_type = metadata.get("type", "prompt").strip().lower() # 读取 type 字段
+        
         if not raw_description:
             for line in body.splitlines():
                 stripped = line.strip()
@@ -73,7 +78,7 @@ def _extract_metadata(skill_dir: Path) -> SkillMetadata:
 
     name = _sanitize_tool_name(raw_name, skill_dir.name)
     description = raw_description or f"Skill loaded from {skill_dir.name}."
-    return SkillMetadata(name=name, description=description, skill_dir=skill_dir, skill_md_path=skill_md_path)
+    return SkillMetadata(name=name, description=description, skill_dir=skill_dir, skill_md_path=skill_md_path, skill_type=skill_type)
 
 
 def _read_skill_prompt(skill_md_path: Path) -> str:
@@ -115,6 +120,26 @@ class PromptSkillTool(Tool):
         response = self.model(messages)
         return response.content
 
+class SopSkillTool(Tool):
+    """
+    专门用于读取并返回 SKILL.md 正文的工具。
+    不需要输入参数，Agent 调用它时，它直接吐出操作指南（SOP）。
+    """
+    output_type = "string"
+    inputs = {}  # 零输入参数
+
+    def __init__(self, metadata: SkillMetadata):
+        super().__init__()
+        self.name = metadata.name
+        self.description = metadata.description
+        self._skill_md_path = metadata.skill_md_path
+
+    def forward(self) -> str:
+        if not self._skill_md_path or not self._skill_md_path.exists():
+            return "SOP 文件不存在。"
+
+        # 复用已有的读取函数，提取正文内容
+        return _read_skill_prompt(self._skill_md_path)
 
 def _adapt_function_to_tool(func: Any, metadata: SkillMetadata) -> Tool:
     sig = inspect.signature(func)
@@ -219,14 +244,19 @@ def load_skills_from_directory(skills_root_dir: str, model=None) -> list[Tool]:
         metadata = _extract_metadata(skill_dir)
         scripts_dir = skill_dir / "scripts"
 
-        # 1. 纯 Prompt 技能 (无 scripts 目录)
-        if not scripts_dir.exists():
-            if metadata.skill_md_path and metadata.skill_md_path.exists():
+        # 1. 只要存在 SKILL.md，就先注册 SOP 或 Prompt 工具
+        if metadata.skill_md_path and metadata.skill_md_path.exists():
+            if metadata.skill_type == "sop":
+                loaded_tools.append(SopSkillTool(metadata=metadata))
+                print(f"  ┣━ 📖 [SOP Tool]    {metadata.name:<28} (from {skill_dir.name})")
+            else:
                 loaded_tools.append(PromptSkillTool(metadata=metadata, model=model))
                 print(f"  ┣━ 📝 [Prompt Tool] {metadata.name:<28} (from {skill_dir.name})")
+
+        # 2. 如果存在 scripts 目录，继续将 Python 代码注册为全局工具
+        if not scripts_dir.exists():
             continue
 
-        # 2. Python 代码技能
         for py_file in scripts_dir.glob("*.py"):
             if py_file.name == "__init__.py":
                 continue
@@ -262,7 +292,7 @@ def load_skills_from_directory(skills_root_dir: str, model=None) -> list[Tool]:
                     # 4.2 适配普通函数或类
                     if not tool_found:
                         for obj_name, obj in inspect.getmembers(module):
-                            if obj_name.startswith("_") or obj.__module__ != module.__name__:
+                            if obj_name.startswith("_") or getattr(obj, "__module__", None) != module.__name__:
                                 continue
                             
                             if inspect.isfunction(obj):

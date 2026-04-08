@@ -2,6 +2,7 @@ import argparse
 import os
 import threading
 import time
+from utils import common_utils
 from scripts.test_identification_agent_simple import get_highly_realistic_docs
 from smolagents import InferenceClientModel
 from smolagents import OpenAIModel
@@ -76,12 +77,7 @@ def create_agent(model_id="o1"):
         model_params["reasoning_effort"] = "high"
     # model = LiteLLMModel(**model_params)
 
-    model = OpenAIModel(
-        model_id="Qwen3-235B-A22B-Instruct-2507",
-        api_base="https://llmapi.paratera.com/v1",
-        api_key=os.environ["DYM_API_KEY"],
-        max_tokens=8192
-    )
+    model = common_utils.ModelProvider.get_model()
     skills_dir = os.path.join(base_dir, "skills")
     
     print(f"Loading skills from {skills_dir}...")
