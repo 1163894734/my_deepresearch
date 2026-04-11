@@ -35,7 +35,7 @@ class AcademicSearchComponent(JsonWorkflowComponent):
         engine = agent.state.get('search_engine', 'arxiv').upper()
 
         # 1. 意图解析 (提取查询词和年份) -> 此时调用的就是真正导入的服务类了！
-        intent = AcademicSearchService.parse_search_intent(agent, task)
+        intent = AcademicSearchService.parse_search_intent(agent.model,task)
         
         search_query = intent.get("search_query", task)
         year_start = intent.get("year_start", 0)

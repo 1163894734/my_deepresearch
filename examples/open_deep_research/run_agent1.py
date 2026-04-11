@@ -17,7 +17,6 @@ from scripts.text_web_browser import (
 )
 from utils import common_utils
 
-# 加载环境变量 (DYM_API_KEY, SERPAPI_API_KEY 等)
 load_dotenv(override=True)
 
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0"

@@ -29,5 +29,6 @@ type: sop
 
 ### 第五步：组装与持久化 (Assembly & Save)
 调用 `assemble_and_save_report_tool` 工具。
-传入 `target_term`, `outline`, `facts`, `judged_drafts` 以及环境变量 `run_dir`。
+传入 `target_term`, `outline`, `facts`, `judged_drafts` 以及 `run_dir`。
+注意：代码执行环境中已为你注入了全局变量 `run_dir`，请直接使用它，严禁自行定义或赋值。
 最后使用 `final_answer()` 返回成功提示。

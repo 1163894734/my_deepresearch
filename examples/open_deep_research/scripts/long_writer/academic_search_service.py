@@ -1,3 +1,4 @@
+import logging
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -10,6 +11,7 @@ from typing import Dict, Any
 from smolagents.monitoring import LogLevel
 from smolagents import ChatMessage, MessageRole
 from utils.common_utils import safe_json_parse
+logger = logging.getLogger(__name__)
 
 class AcademicSearchService:
     """
@@ -18,7 +20,7 @@ class AcademicSearchService:
     """
 
     @staticmethod
-    def parse_search_intent(agent, user_input: str) -> dict:
+    def parse_search_intent(model, user_input: str) -> dict:
         """调用大模型，将用户输入转换为通用的英文关键词"""
         current_year = datetime.datetime.now().year
         prompt = f"""
@@ -45,12 +47,12 @@ class AcademicSearchService:
         """
         try:
             messages = [ChatMessage(role=MessageRole.USER, content=[{"type": "text", "text": prompt}])]
-            response = agent.model(messages).content
+            response = model(messages).content
             parsed = safe_json_parse(str(response))
-            agent.logger.log(f"🔍 意图解析结果: {parsed}", level=LogLevel.INFO)
+            logger.info(f"🔍 意图解析结果: {parsed}")
             return parsed
         except Exception as e:
-            agent.logger.log(f"⚠️ 意图解析失败: {e}", level=LogLevel.ERROR)
+            logger.error(f"⚠️ 意图解析失败: {e}")
             return {"search_query": '"large language model"', "year_start": "", "year_end": ""}
 
     @staticmethod
@@ -84,7 +86,7 @@ class AcademicSearchService:
         except Exception:
             pass
 
-        agent.logger.log(f"🌐 准备发起学术检索 | 引擎: {engine.upper()} | 排序: {sort_by.upper()} | 关键词: {search_query}", level=LogLevel.INFO)
+        logger.info(f"🌐 准备发起学术检索 | 引擎: {engine.upper()} | 排序: {sort_by.upper()} | 关键词: {search_query}")
 
         # 组装请求对象
         req = None
@@ -166,17 +168,17 @@ class AcademicSearchService:
                                 "year": year, "citation_count": 0, "source_type": "paper", "apa_citation": apa_citation
                             }
 
-                agent.logger.log(f"✅ {engine.upper()} 检索成功！获取到 {len(citations_dict)} 篇有效文献。", level=LogLevel.INFO)
+                logger.info(f"✅ {engine.upper()} 检索成功！获取到 {len(citations_dict)} 篇有效文献。")
                 break 
 
             except urllib.error.HTTPError as e:
-                agent.logger.log(f"⚠️ HTTP 异常 {e.code}: {e.reason} ({attempt+1}/{max_retries})", level=LogLevel.INFO)
+                logger.info(f"⚠️ HTTP 异常 {e.code}: {e.reason} ({attempt+1}/{max_retries})")
                 if attempt < max_retries - 1: time.sleep(3)
             except (urllib.error.URLError, socket.timeout, ConnectionResetError) as e:
-                agent.logger.log(f"⚠️ 网络波动检测 ({type(e).__name__}: {e}) ({attempt+1}/{max_retries})", level=LogLevel.INFO)
+                logger.info(f"⚠️ 网络波动检测 ({type(e).__name__}: {e}) ({attempt+1}/{max_retries})")
                 if attempt < max_retries - 1: time.sleep(2)
             except Exception as e:
-                agent.logger.log(f"❌ 检索发生未知错误: {e}", level=LogLevel.ERROR)
+                logger.error(f"❌ 检索发生未知错误: {e}")
                 break
                 
         return citations_dict

@@ -65,6 +65,44 @@ def main():
     # =========================
     try:
         result = agent.run("请帮我识别并分析一下这批数据中关于 AI Agent 的前沿技术。")
+        # ========== ✨ 新增：转存 Agent 的完整思维链路 (Memory) [排版优化版] ==========
+        memory_log_path = os.path.join(run_dir, "agent_thought_process.md")
+        with open(memory_log_path, "w", encoding="utf-8") as f:
+            f.write("# 🧠 Agent 思维链路深度解析\n\n")
+            
+            for i, step in enumerate(agent.memory.steps):
+                f.write(f"## 🟢 [Step {i}]\n\n")
+                
+                # 1. 打印耗时 (如果有)
+                if hasattr(step, 'duration') and step.duration:
+                    f.write(f"**⏱️ 本轮耗时:** `{step.duration:.2f} 秒`\n\n")
+                
+                # 2. 提取大模型的真实输出（包含它的“内心独白”和它写的 Python 代码）
+                if hasattr(step, 'model_output_message') and step.model_output_message:
+                    content = step.model_output_message.content
+                    # smolagents 的 content 可能是列表，需要拼接
+                    if isinstance(content, list):
+                        content = "\n".join([str(c.get('text', c)) for c in content if isinstance(c, dict)])
+                    
+                    f.write("### 💭 Agent 思考与动作 (Thought & Action)\n")
+                    f.write(f"{content}\n\n")
+                
+                # 3. 提取沙盒执行的返回结果
+                if hasattr(step, 'observations') and step.observations:
+                    f.write("### 👁️ 沙盒执行结果 (Observation)\n")
+                    # 限制过长的控制台输出，防止刷屏 (取前2000个字符)
+                    obs_text = str(step.observations)
+                    if len(obs_text) > 2000:
+                        obs_text = obs_text[:2000] + "\n... [输出过长，已截断]"
+                    f.write(f"```text\n{obs_text}\n```\n\n")
+                
+                # 4. 提取代码报错信息 (如果有)
+                if hasattr(step, 'error') and step.error:
+                    f.write("### ❌ 报错信息 (Error)\n")
+                    f.write(f"```python\n{step.error}\n```\n\n")
+                
+                f.write("---\n\n")
+        # =================================================================
         smol_logger.info("✅ 任务圆满完成。")
         print("\n================ 最终研报 ================\n")
         print(result)
