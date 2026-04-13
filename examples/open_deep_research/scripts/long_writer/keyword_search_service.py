@@ -7,12 +7,16 @@ import urllib.parse
 import datetime
 import time
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
 import concurrent.futures
 
 from smolagents.monitoring import LogLevel
 from smolagents.models import ChatMessage, MessageRole
+# 🔥 彻底去除了 execute_tool_call 的导入，只保留安全的 JSON 解析
 from utils.common_utils import safe_json_parse
+
+if TYPE_CHECKING:
+    from scripts.multi_agent.agent_context import PipelineContext
 
 try:
     from ..citation_validator import add_citations
@@ -27,7 +31,7 @@ class KeywordSearchPlanningService:
     """基于双引擎 (ArXiv / OpenAlex) 学术检索的五步关键词扩展大纲构建服务"""
 
     @staticmethod
-    def _extract_time_constraint(agent, task: str) -> tuple[int, int]:
+    def _extract_time_constraint(context: "PipelineContext", task: str) -> tuple[int, int]:
         """利用大模型从原始任务中提取显性或隐性的年份限制"""
         current_year = datetime.datetime.now().year
         
@@ -46,11 +50,11 @@ class KeywordSearchPlanningService:
         """
         try:
             messages = [ChatMessage(role=MessageRole.USER, content=[{"type": "text", "text": prompt}])]
-            response = agent.model(messages).content
+            response = context.model(messages).content
             parsed = safe_json_parse(str(response))
             return int(parsed.get("year_start", 0)), int(parsed.get("year_end", 9999))
         except Exception as e:
-            agent.logger.log(f"⚠️ 年份提取失败，默认不限制时间: {e}", level=LogLevel.INFO)
+            context.logger.log(f"⚠️ 年份提取失败，默认不限制时间: {e}", level=LogLevel.INFO)
             return 0, 9999
 
     @staticmethod
@@ -74,21 +78,19 @@ class KeywordSearchPlanningService:
     # ================= 以下为五步核心工作流 =================
 
     @staticmethod
-    def extract_initial_concepts(agent, task: str) -> List[Dict[str, Any]]:
+    def extract_initial_concepts(context: "PipelineContext", task: str) -> List[Dict[str, Any]]:
         """第1步：从任务中抽取第一轮检索概念，直接调用大模型确保按领域+技术方向拆分"""
         try:
-            engine_name = agent.state.get('search_engine', 'arxiv').upper()
-            agent.logger.log(f"📍 [第1步] 初始概念拆解与时间约束分析 ({engine_name} 模式)...", level=LogLevel.INFO)
+            engine_name = context.state.get('search_engine', 'arxiv').upper()
+            context.logger.log(f"📍 [第1步] 初始概念拆解与时间约束分析 ({engine_name} 模式)...", level=LogLevel.INFO)
             
             # 提取时间限制并存入状态
-            y_start, y_end = KeywordSearchPlanningService._extract_time_constraint(agent, task)
-            agent.state["arxiv_year_start"] = y_start
-            agent.state["arxiv_year_end"] = y_end
+            y_start, y_end = KeywordSearchPlanningService._extract_time_constraint(context, task)
+            context.state["arxiv_year_start"] = y_start
+            context.state["arxiv_year_end"] = y_end
             if y_start > 0:
-                agent.logger.log(f"⏱️ 提取到时间限制: {y_start} - {y_end}年", level=LogLevel.INFO)
+                context.logger.log(f"⏱️ 提取到时间限制: {y_start} - {y_end}年", level=LogLevel.INFO)
 
-            # 【核心优化】：直接书写 Prompt，强制限定“领域名”和“技术方向”
-            # 【核心优化】：极其严苛的虚词过滤与自动联想 Prompt
             prompt = f"""
             请分析用户的研究主题，提取用于 {engine_name} 学术数据库的精确检索概念。
             用户研究主题："{task}"
@@ -115,32 +117,30 @@ class KeywordSearchPlanningService:
             """
             
             messages = [ChatMessage(role=MessageRole.USER, content=[{"type": "text", "text": prompt}])]
-            response = agent.model(messages).content
+            response = context.model(messages).content
             concepts = safe_json_parse(str(response))
 
             if not isinstance(concepts, list) or len(concepts) == 0:
                 raise ValueError("概念拆解结果无效：非列表或为空")
 
-            agent.logger.log(f"✅ 成功拆解为 {len(concepts)} 个概念组", level=LogLevel.INFO)
+            context.logger.log(f"✅ 成功拆解为 {len(concepts)} 个概念组", level=LogLevel.INFO)
             for i, concept in enumerate(concepts, 1):
                 name = concept.get("concept_name", "")
                 kws = concept.get("keywords", [])
-                agent.logger.log(f"  {i}. {name}: {', '.join(kws[:3])}...", level=LogLevel.INFO)
+                context.logger.log(f"  {i}. {name}: {', '.join(kws[:3])}...", level=LogLevel.INFO)
             return concepts
         except Exception as e:
-            agent.logger.log(f"⚠️ 概念拆解失败: {e}", level=LogLevel.ERROR)
+            context.logger.log(f"⚠️ 概念拆解失败: {e}", level=LogLevel.ERROR)
             raise
 
     @staticmethod
-    def first_shot_retrieval(agent, concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def first_shot_retrieval(context: "PipelineContext", concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """第2步：利用初始概念执行 First-Shot 检索，接入双引擎底座"""
         try:
-            engine = agent.state.get('search_engine', 'arxiv').lower()
-            agent.logger.log(f"🔍 [第2步] First-Shot {engine.upper()} 初探检索...", level=LogLevel.INFO)
+            engine = context.state.get('search_engine', 'arxiv').lower()
+            context.logger.log(f"🔍 [第2步] First-Shot {engine.upper()} 初探检索...", level=LogLevel.INFO)
 
-            # 【核心修复】：根据不同引擎使用不同的检索构建策略
             if engine == "openalex":
-                # OpenAlex 极简策略：每组只取首个（最核心的）词，用空格组合
                 kws = []
                 for c in concepts:
                     if c.get("keywords"):
@@ -150,13 +150,12 @@ class KeywordSearchPlanningService:
                         kws.append(kw)
                 search_query = " ".join(kws)
             else:
-                # ArXiv 策略：原汁原味的括号 + AND/OR
                 search_query = KeywordSearchPlanningService._build_arxiv_query(concepts)
 
-            agent.logger.log(f"📝 生成精确检索式: {search_query}", level=LogLevel.DEBUG)
+            context.logger.log(f"📝 生成精确检索式: {search_query}", level=LogLevel.DEBUG)
 
-            y_start = agent.state.get("arxiv_year_start", 0)
-            y_end = agent.state.get("arxiv_year_end", 9999)
+            y_start = context.state.get("arxiv_year_start", 0)
+            y_end = context.state.get("arxiv_year_end", 9999)
 
             try:
                 from .academic_search_service import AcademicSearchService
@@ -164,7 +163,7 @@ class KeywordSearchPlanningService:
                 from examples.open_deep_research.scripts.long_writer.academic_search_service import AcademicSearchService
 
             citations_dict = AcademicSearchService.search_academic_papers(
-                agent=agent,
+                context=context, # 🔥 已修改为 context
                 search_query=search_query,
                 year_start=str(y_start) if y_start > 0 else "",
                 year_end=str(y_end) if y_end > 0 else "",
@@ -174,15 +173,14 @@ class KeywordSearchPlanningService:
 
             papers = [{title: info} for title, info in citations_dict.items()]
 
-            agent.logger.log(f"✅ First-Shot 从 {engine.upper()} 检索到 {len(papers)} 篇真实文献", level=LogLevel.INFO)
+            context.logger.log(f"✅ First-Shot 从 {engine.upper()} 检索到 {len(papers)} 篇真实文献", level=LogLevel.INFO)
             return papers
         except Exception as e:
-            agent.logger.log(f"⚠️ First-Shot 检索失败: {e}", level=LogLevel.ERROR)
+            context.logger.log(f"⚠️ First-Shot 检索失败: {e}", level=LogLevel.ERROR)
             raise
 
-
     @staticmethod
-    def _extract_single_paper_keywords(agent, title: str, abstract: str) -> List[str]:
+    def _extract_single_paper_keywords(context: "PipelineContext", title: str, abstract: str) -> List[str]:
         """直接调用底层大模型进行单篇文献的关键词提取"""
         prompt = f"""
         你是一位严谨的学术信息抽取专家。请从以下论文标题和摘要中提取 3-5 个核心学术关键词（统一为标准缩写，例如LLM）。
@@ -193,22 +191,21 @@ class KeywordSearchPlanningService:
         """
         try:
             messages = [ChatMessage(role=MessageRole.USER, content=[{"type": "text", "text": prompt}])]
-            response = agent.model(messages, temperature=0.1).content
+            response = context.model(messages, temperature=0.1).content
             parsed = safe_json_parse(str(response))
             return parsed if isinstance(parsed, list) else []
         except Exception as e:
-            agent.logger.log(f"⚠️ 单篇提取失败: {e}", level=LogLevel.INFO)
+            context.logger.log(f"⚠️ 单篇提取失败: {e}", level=LogLevel.INFO)
             return []
 
     @staticmethod
-    def extract_and_filter_keywords(agent, papers: List[Dict[str, Any]], initial_concepts: List[Dict[str, Any]]) -> List[str]:
+    def extract_and_filter_keywords(context: "PipelineContext", papers: List[Dict[str, Any]], initial_concepts: List[Dict[str, Any]]) -> List[str]:
         """第3步：并行从摘要中提取学术关键词"""
         try:
-            agent.logger.log("📊 [第3步] 术语提取与频次统计 (并行提取中)...", level=LogLevel.INFO)
+            context.logger.log("📊 [第3步] 术语提取与频次统计 (并行提取中)...", level=LogLevel.INFO)
             if not papers:
                 return []
 
-            # 1. 组装提取任务
             tasks = []
             for paper_dict in papers:
                 for title, info in paper_dict.items():
@@ -218,11 +215,10 @@ class KeywordSearchPlanningService:
 
             all_keywords = []
             
-            # 2. 使用线程池并发调用大模型 (最多10个并发)
             max_workers = min(10, len(tasks)) if tasks else 1
             with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_title = {
-                    executor.submit(KeywordSearchPlanningService._extract_single_paper_keywords, agent, t, a): t 
+                    executor.submit(KeywordSearchPlanningService._extract_single_paper_keywords, context, t, a): t 
                     for t, a in tasks
                 }
                 
@@ -235,31 +231,30 @@ class KeywordSearchPlanningService:
                         if title in paper_dict:
                             paper_dict[title]["key_words"] = kws
 
-            # 3. 统计频次与去重
             existing_keywords = {str(kw).strip() for concept in initial_concepts for kw in concept.get("keywords", []) if str(kw).strip()}
             
             term_counter = Counter(all_keywords)
             candidate_words = [term for term, count in term_counter.items() 
                             if count >= 2 and term not in existing_keywords]
 
-            agent.logger.log(f"🔍 挖掘出 {len(candidate_words)} 个高频新候选词: {candidate_words}", level=LogLevel.INFO)
+            context.logger.log(f"🔍 挖掘出 {len(candidate_words)} 个高频新候选词: {candidate_words}", level=LogLevel.INFO)
             return candidate_words
             
         except Exception as e:
-            agent.logger.log(f"⚠️ 术语提取失败: {e}", level=LogLevel.ERROR)
+            context.logger.log(f"⚠️ 术语提取失败: {e}", level=LogLevel.ERROR)
             raise
 
     @staticmethod
     def upgrade_concepts_with_keywords(
-        agent,
+        context: "PipelineContext",
         initial_concepts: List[Dict[str, Any]],
         candidate_words: List[str],
     ) -> List[Dict[str, Any]]:
         """第4步：将新术语融合进初始概念"""
         try:
-            agent.logger.log("🔗 [第4步] 语义甄别与概念升级...", level=LogLevel.INFO)
+            context.logger.log("🔗 [第4步] 语义甄别与概念升级...", level=LogLevel.INFO)
             if not candidate_words:
-                agent.logger.log("⚠️ 无候选关键词可用，跳过概念升级", level=LogLevel.INFO)
+                context.logger.log("⚠️ 无候选关键词可用，跳过概念升级", level=LogLevel.INFO)
                 return initial_concepts
 
             concepts_lines = []
@@ -277,26 +272,26 @@ class KeywordSearchPlanningService:
                 + candidate_hint
             )
 
-            response = agent.execute_tool_call("concept_decompose", {"input": skill_input})
+            # 🔥 极简的网关调用，消灭了冗余参数
+            response = context.execute_tool_call("concept_decompose", {"input": skill_input})
             upgraded_concepts = safe_json_parse(str(response))
 
             if not isinstance(upgraded_concepts, list) or len(upgraded_concepts) == 0:
                 raise ValueError("概念升级失败：结果无效")
             
-            agent.logger.log(f"✅ 概念升级完毕", level=LogLevel.INFO)
+            context.logger.log(f"✅ 概念升级完毕", level=LogLevel.INFO)
             return upgraded_concepts
         except Exception as e:
-            agent.logger.log(f"⚠️ 概念升级失败: {e}", level=LogLevel.ERROR)
+            context.logger.log(f"⚠️ 概念升级失败: {e}", level=LogLevel.ERROR)
             raise
 
     @staticmethod
-    def second_shot_retrieval(agent, upgraded_concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def second_shot_retrieval(context: "PipelineContext", upgraded_concepts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """第5步：使用升级后的概念组执行精确检索，接入双引擎底座"""
         try:
-            engine = agent.state.get('search_engine', 'arxiv').lower()
-            agent.logger.log(f"🎯 [第5步] Second-Shot {engine.upper()} 精准检索...", level=LogLevel.INFO)
+            engine = context.state.get('search_engine', 'arxiv').lower()
+            context.logger.log(f"🎯 [第5步] Second-Shot {engine.upper()} 精准检索...", level=LogLevel.INFO)
             
-            # 【核心修复】：同上，适配 OpenAlex
             if engine == "openalex":
                 kws = []
                 for c in upgraded_concepts:
@@ -309,10 +304,10 @@ class KeywordSearchPlanningService:
             else:
                 search_query = KeywordSearchPlanningService._build_arxiv_query(upgraded_concepts)
 
-            agent.logger.log(f"📝 升级后的检索式: {search_query}", level=LogLevel.DEBUG)
+            context.logger.log(f"📝 升级后的检索式: {search_query}", level=LogLevel.DEBUG)
 
-            y_start = agent.state.get("arxiv_year_start", 0)
-            y_end = agent.state.get("arxiv_year_end", 9999)
+            y_start = context.state.get("arxiv_year_start", 0)
+            y_end = context.state.get("arxiv_year_end", 9999)
 
             try:
                 from .academic_search_service import AcademicSearchService
@@ -320,7 +315,7 @@ class KeywordSearchPlanningService:
                 from examples.open_deep_research.scripts.long_writer.academic_search_service import AcademicSearchService
 
             citations_dict = AcademicSearchService.search_academic_papers(
-                agent=agent,
+                context=context, # 🔥 已修改为 context
                 search_query=search_query,
                 year_start=str(y_start) if y_start > 0 else "",
                 year_end=str(y_end) if y_end > 0 else "",
@@ -330,15 +325,16 @@ class KeywordSearchPlanningService:
 
             papers = [{title: info} for title, info in citations_dict.items()]
 
-            agent.logger.log(f"✅ Second-Shot 从 {engine.upper()} 精准检索到 {len(papers)} 篇最终文献", level=LogLevel.INFO)
+            context.logger.log(f"✅ Second-Shot 从 {engine.upper()} 精准检索到 {len(papers)} 篇最终文献", level=LogLevel.INFO)
             
             if papers:
                 flat_citations = {k: v for d in papers for k, v in d.items()}
-                add_citations(agent, flat_citations, "规划阶段/Second-Shot")
+                # 这一步依赖 citation_validator.add_citations，只要那里的签名也适配了就行
+                add_citations(context, flat_citations, "规划阶段/Second-Shot")
                 
             return papers
         except Exception as e:
-            agent.logger.log(f"⚠️ Second-Shot 检索失败: {e}", level=LogLevel.ERROR)
+            context.logger.log(f"⚠️ Second-Shot 检索失败: {e}", level=LogLevel.ERROR)
             raise
 
 
@@ -349,11 +345,11 @@ def main() -> int:
 
     if args.list_methods:
         print("KeywordSearchPlanningService static methods:")
-        print("- extract_initial_concepts(agent, task)")
-        print("- first_shot_retrieval(agent, concepts)")
-        print("- extract_and_filter_keywords(agent, papers, initial_concepts)")
-        print("- upgrade_concepts_with_keywords(agent, initial_concepts, candidate_words)")
-        print("- second_shot_retrieval(agent, upgraded_concepts)")
+        print("- extract_initial_concepts(context, task)")
+        print("- first_shot_retrieval(context, concepts)")
+        print("- extract_and_filter_keywords(context, papers, initial_concepts)")
+        print("- upgrade_concepts_with_keywords(context, initial_concepts, candidate_words)")
+        print("- second_shot_retrieval(context, upgraded_concepts)")
         return 0
 
     print("这是 service 文件，请运行组件文件进行测试。")

@@ -4,10 +4,8 @@ import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    try:
-        from ..long_writer_agent_v3 import LongWriterAgent
-    except Exception:
-        from long_writer_agent_v3 import LongWriterAgent
+    # 引入我们新的上下文对象进行类型提示
+    from scripts.multi_agent.agent_context import PipelineContext
 
 try:
     from .base_component import JsonWorkflowComponent
@@ -23,10 +21,7 @@ class KeywordSearchExpansionComponent(JsonWorkflowComponent):
 
     name = "keyword_search_expansion"
     description = "关键词搜索及扩展搜索组件：从任务输入产出升级概念与两轮合并的检索文献。"
-    input_format = {
-        "task": "str, 清洗后的写作任务",
-    }
-    # 【修改输出格式】：适配 long_writer_agent_v3 要求的 available_citations 字段
+    input_format = {"task": "str, 清洗后的写作任务"}
     output_format = {
         "task": "str",
         "initial_concepts": "List[Dict]",
@@ -35,36 +30,17 @@ class KeywordSearchExpansionComponent(JsonWorkflowComponent):
         "available_citations": "Dict[str, Dict]" 
     }
 
-    @staticmethod
-    def _extract_initial_concepts(agent: "LongWriterAgent", task: str):
-        return agent._keyword_search_service.extract_initial_concepts(agent, task)
-
-    @staticmethod
-    def _first_shot_retrieval(agent: "LongWriterAgent", concepts):
-        return agent._keyword_search_service.first_shot_retrieval(agent, concepts)
-
-    @staticmethod
-    def _extract_and_filter_keywords(agent: "LongWriterAgent", papers, initial_concepts):
-        return agent._keyword_search_service.extract_and_filter_keywords(agent, papers, initial_concepts)
-
-    @staticmethod
-    def _upgrade_concepts_with_keywords(agent: "LongWriterAgent", initial_concepts, candidate_words):
-        return agent._keyword_search_service.upgrade_concepts_with_keywords(agent, initial_concepts, candidate_words)
-
-    @staticmethod
-    def _second_shot_retrieval(agent: "LongWriterAgent", upgraded_concepts):
-        return agent._keyword_search_service.second_shot_retrieval(agent, upgraded_concepts)
-
-    def run(self, agent: "LongWriterAgent", payload: dict) -> dict:
+    # 🔥 核心解耦：签名改为 context，并直接调用底层 Service，删除了冗余的 staticmethod
+    def run(self, context: "PipelineContext", payload: dict) -> dict:
         task = str(payload.get("task", "")).strip()
         
-        initial_concepts = self._extract_initial_concepts(agent, task)
-        first_shot_papers = self._first_shot_retrieval(agent, initial_concepts)
-        candidate_keywords = self._extract_and_filter_keywords(agent, first_shot_papers, initial_concepts)
-        upgraded_concepts = self._upgrade_concepts_with_keywords(agent, initial_concepts, candidate_keywords)
-        second_shot_papers = self._second_shot_retrieval(agent, upgraded_concepts)
+        # 将 context 作为运行环境传递给底层 Service
+        initial_concepts = KeywordSearchPlanningService.extract_initial_concepts(context, task)
+        first_shot_papers = KeywordSearchPlanningService.first_shot_retrieval(context, initial_concepts)
+        candidate_keywords = KeywordSearchPlanningService.extract_and_filter_keywords(context, first_shot_papers, initial_concepts)
+        upgraded_concepts = KeywordSearchPlanningService.upgrade_concepts_with_keywords(context, initial_concepts, candidate_keywords)
+        second_shot_papers = KeywordSearchPlanningService.second_shot_retrieval(context, upgraded_concepts)
 
-        # 【核心新增】：将第一轮和第二轮搜索到的论文列表合并到一个统一的大字典中
         combined_citations = {}
         for paper_dict in first_shot_papers:
             combined_citations.update(paper_dict)
@@ -76,8 +52,8 @@ class KeywordSearchExpansionComponent(JsonWorkflowComponent):
             "initial_concepts": initial_concepts,
             "candidate_keywords": candidate_keywords,
             "upgraded_concepts": upgraded_concepts,
-            "available_citations": combined_citations,  # 将合并后的文献字典作为核心输出
-            "combined_citations_count":len(combined_citations)
+            "available_citations": combined_citations,
+            "combined_citations_count": len(combined_citations)
         }
 
 def main() -> int:

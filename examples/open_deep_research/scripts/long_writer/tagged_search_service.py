@@ -15,6 +15,7 @@ import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from smolagents.monitoring import LogLevel
+from utils.common_utils import execute_tool_call
 
 if TYPE_CHECKING:
     pass  # avoid circular imports; agent type is duck-typed
@@ -130,7 +131,13 @@ JSON schema:
 }}
 """
 
-        raw_result = agent.execute_tool_call(agent.text_webbrowser_agent_name, {"task": task_prompt})
+        available_tools = {**getattr(agent, "tools", {}), **getattr(agent, "managed_agents", {})}
+        raw_result = execute_tool_call(
+            agent.text_webbrowser_agent_name,
+            {"task": task_prompt},
+            available_tools=available_tools,
+            logger=getattr(agent, "logger", None),
+        )
         agent.logger.log(
             "✅raw_result:\n"+raw_result,
             level=LogLevel.INFO,

@@ -3,7 +3,8 @@ import sys
 from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
-    from ..long_writer_agent_v3 import LongWriterAgent
+    # 引入我们新的上下文对象进行类型提示
+    from scripts.multi_agent.agent_context import PipelineContext
 
 from .base_component import JsonWorkflowComponent
 from .cli_debugger import run_component_cli
@@ -25,8 +26,8 @@ class ConclusionWritingComponent(JsonWorkflowComponent):
         "section_ref": "str",
     }
 
-    def run(self, agent: "LongWriterAgent", payload: Dict[str, Any]) -> Dict[str, Any]:
-        final = SectionWritingService.write_conclusion(agent, payload)
+    def run(self, context: "PipelineContext", payload: Dict[str, Any]) -> Dict[str, Any]:
+        final = SectionWritingService.write_conclusion(context, payload)
         section = payload.get("section", {}) if isinstance(payload, dict) else {}
         section_ref = section.get("title", "结论") if isinstance(section, dict) else "结论"
         
@@ -35,8 +36,8 @@ class ConclusionWritingComponent(JsonWorkflowComponent):
             raise ValueError("available_citations 必须是 Dict[\"title\", citation_info]，不再接受 list")
         available_citations = raw_citations if isinstance(raw_citations, dict) else {}
 
-        if hasattr(agent, "_run_inline_citation_validation_for_section"):
-            final = agent._run_inline_citation_validation_for_section(
+        if hasattr(context, "_run_inline_citation_validation_for_section"):
+            final = context._run_inline_citation_validation_for_section(
                 section_type="conclusion",
                 section_ref=str(section_ref),
                 section_content=str(final),

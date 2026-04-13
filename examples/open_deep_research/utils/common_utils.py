@@ -3,6 +3,10 @@
 import json
 import re
 from typing import Any, Dict, List, Union
+import time
+import logging
+import sys
+from smolagents.monitoring import LogLevel
 
 def safe_json_parse(text: str, fallback_type: type = dict) -> Union[Dict, List, Any]:
     """
@@ -80,3 +84,102 @@ class ModelProvider:
     @classmethod
     def clear_cache(cls):
         cls._instances = {}
+
+def execute_tool_call(tool_name: str, arguments: Dict[str, Any], available_tools: dict, logger=None) -> Any:
+    """
+    统一的纯函数工具调用器，不再依赖具体的 Agent 实例。
+    
+    :param tool_name: 工具名称
+    :param arguments: 传递给工具的参数字典
+    :param available_tools: 可用工具的字典映射，例如 {"web_search": WebSearchTool()}
+    :param logger: 可选的日志记录器
+    """
+    if tool_name not in available_tools:
+        error_msg = f"未找到名为 '{tool_name}' 的工具。"
+        if logger:
+            logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    tool = available_tools[tool_name]
+    start_time = time.perf_counter()
+    
+    try:
+        if logger:
+            logger.info(f"🛠️ [Tool执行] 开始调用: {tool_name}")
+            
+        # smolagents 的 Tool 类通常通过 __call__ 或 forward 执行
+        # 如果你的自定义 tool 是普通的 Python 函，直接 tool(**arguments) 即可
+        if hasattr(tool, "forward"):
+            result = tool.forward(**arguments)
+        else:
+            result = tool(**arguments)
+            
+        cost_ms = int((time.perf_counter() - start_time) * 1000)
+        if logger:
+            logger.info(f"✅ [Tool成功] {tool_name} 耗时 {cost_ms}ms")
+            
+        return result
+        
+    except Exception as e:
+        cost_ms = int((time.perf_counter() - start_time) * 1000)
+        if logger:
+            logger.error(f"❌ [Tool失败] {tool_name} 耗时 {cost_ms}ms，错误: {e}")
+        raise
+
+class PipelineLogger:
+    """
+    专为多智能体并发框架设计的标准 Logger。
+    完美兼容 smolagents 底层的 agent.logger.log() 调用。
+    """
+    def __init__(self, agent_name: str, log_file: str = None):
+        self.logger = logging.getLogger(agent_name)
+        
+        # 避免重复添加 Handler 导致日志打印多次
+        if not self.logger.handlers:
+            self.logger.setLevel(logging.INFO)
+            
+            # 定义高可读性的日志格式（加上了线程/Agent名字区分并发上下文）
+            formatter = logging.Formatter(
+                '%(asctime)s | %(name)-15s | %(levelname)-7s | %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            
+            # 1. 输出到控制台
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+            self.logger.addHandler(console_handler)
+            
+            # 2. (可选) 输出到文件，用于赛后复盘
+            if log_file:
+                file_handler = logging.FileHandler(log_file, encoding='utf-8')
+                file_handler.setFormatter(formatter)
+                self.logger.addHandler(file_handler)
+
+    # ==========================================
+    # 兼容 smolagents 专属接口
+    # ==========================================
+    def log(self, msg: str, level=None):
+        """兼容底层 smolagents.monitoring.LogLevel 的调用"""
+        if level == LogLevel.ERROR:
+            self.logger.error(msg)
+        elif level == LogLevel.DEBUG:
+            self.logger.debug(msg)
+        elif level == LogLevel.WARNING:
+            self.logger.warning(msg)
+        else:
+            self.logger.info(msg)
+
+    # ==========================================
+    # 兼容标准 Python Logging 接口
+    # ==========================================
+    def info(self, msg, *args, **kwargs):
+        self.logger.info(msg, *args, **kwargs)
+
+    def error(self, msg, *args, **kwargs):
+        self.logger.error(msg, *args, **kwargs)
+
+    def warning(self, msg, *args, **kwargs):
+        self.logger.warning(msg, *args, **kwargs)
+
+    def debug(self, msg, *args, **kwargs):
+        self.logger.debug(msg, *args, **kwargs)

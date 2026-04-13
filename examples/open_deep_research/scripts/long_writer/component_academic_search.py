@@ -1,6 +1,10 @@
 from __future__ import annotations
 import sys
+from typing import TYPE_CHECKING
 from smolagents.monitoring import LogLevel
+if TYPE_CHECKING:
+    # 引入我们新的上下文对象进行类型提示
+    from scripts.multi_agent.agent_context import PipelineContext
 
 # ===== 修复导入路径 =====
 try:
@@ -28,14 +32,14 @@ class AcademicSearchComponent(JsonWorkflowComponent):
         "available_citations": "Dict[str, Dict]"  
     }
 
-    def run(self, agent, payload: dict) -> dict:
+    def run(self, context: "PipelineContext", payload: dict) -> dict:
         task = str(payload.get("task", "")).strip()
         
         # 顺手把外层的日志也搞成双引擎动态显示
-        engine = agent.state.get('search_engine', 'arxiv').upper()
+        engine = context.state.get('search_engine', 'arxiv').upper()
 
         # 1. 意图解析 (提取查询词和年份) -> 此时调用的就是真正导入的服务类了！
-        intent = AcademicSearchService.parse_search_intent(agent.model,task)
+        intent = AcademicSearchService.parse_search_intent(context.model,task)
         
         search_query = intent.get("search_query", task)
         year_start = intent.get("year_start", 0)
@@ -44,7 +48,7 @@ class AcademicSearchComponent(JsonWorkflowComponent):
         # 2. 调用 API 获取真实论文 (修复了传参方式)
         # 💡 注意：如果你在服务类里把这个方法改名成了 search_academic_papers，这里要跟着改！
         papers_dict = AcademicSearchService.search_academic_papers(
-            agent=agent,
+            context=context,
             search_query=search_query,
             year_start=str(year_start) if year_start else "",
             year_end=str(year_end) if year_end else "",

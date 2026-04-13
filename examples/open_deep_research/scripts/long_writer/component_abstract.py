@@ -3,7 +3,8 @@ import sys
 from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
-    from ..long_writer_agent_v3 import LongWriterAgent
+    # 引入我们新的上下文对象进行类型提示
+    from scripts.multi_agent.agent_context import PipelineContext
 
 from .base_component import JsonWorkflowComponent
 from .cli_debugger import run_component_cli
@@ -24,8 +25,8 @@ class AbstractWritingComponent(JsonWorkflowComponent):
         "content": "str",
     }
 
-    def run(self, agent: "LongWriterAgent", payload: Dict[str, Any]) -> Dict[str, Any]:
-        final = SectionWritingService.write_abstract(agent, payload)
+    def run(self, context: "PipelineContext", payload: Dict[str, Any]) -> Dict[str, Any]:
+        final = SectionWritingService.write_abstract(context, payload)
         return {"content": str(final)}
 
 if __name__ == "__main__":

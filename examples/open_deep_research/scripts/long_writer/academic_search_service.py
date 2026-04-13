@@ -7,10 +7,14 @@ import datetime
 import time
 import socket
 import xml.etree.ElementTree as ET
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
 from smolagents.monitoring import LogLevel
 from smolagents import ChatMessage, MessageRole
 from utils.common_utils import safe_json_parse
+
+if TYPE_CHECKING:
+    from scripts.multi_agent.agent_context import PipelineContext
+
 logger = logging.getLogger(__name__)
 
 class AcademicSearchService:
@@ -67,10 +71,11 @@ class AcademicSearchService:
         return " ".join([w[1] for w in words])
 
     @staticmethod
-    def search_academic_papers(agent, search_query: str, year_start: str = "", year_end: str = "", max_fetch: int = 20, target_count: int = 10) -> Dict[str, Dict[str, Any]]:
-        # 【核心配置读取】：从 agent.state 中读取用户的引擎和排序偏好
-        engine = agent.state.get("search_engine", "arxiv").lower() # 默认: "arxiv" 或 "openalex"
-        sort_by = agent.state.get("search_sort", "date").lower()   # 默认: "date" (时间) 或 "citation" (引用，仅对 OpenAlex 有效)
+    # 🔥 核心修改：将 agent 改为 context
+    def search_academic_papers(context: "PipelineContext", search_query: str, year_start: str = "", year_end: str = "", max_fetch: int = 20, target_count: int = 10) -> Dict[str, Dict[str, Any]]:
+        # 🔥 从 context.state 中读取用户的引擎和排序偏好
+        engine = context.state.get("search_engine", "arxiv").lower() # 默认: "arxiv" 或 "openalex"
+        sort_by = context.state.get("search_sort", "date").lower()   # 默认: "date" (时间) 或 "citation" (引用，仅对 OpenAlex 有效)
         
         citations_dict: Dict[str, Dict[str, Any]] = {}
         if not search_query: return citations_dict

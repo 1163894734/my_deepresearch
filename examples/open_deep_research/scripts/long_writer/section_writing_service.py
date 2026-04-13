@@ -1,15 +1,11 @@
-from __future__ import annotations
-
 import argparse
 import json
 import re
-from typing import TYPE_CHECKING, Any, Dict
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    try:
-        from ..long_writer_agent_v3 import LongWriterAgent
-    except Exception:
-        from long_writer_agent_v3 import LongWriterAgent
+    # 引入上下文对象进行类型提示，避免循环导入
+    from scripts.multi_agent.agent_context import PipelineContext
 
 class SectionWritingService:
 
@@ -89,40 +85,70 @@ class SectionWritingService:
         return {}
 
     @staticmethod
-    def write_intro(agent: "LongWriterAgent", payload: dict) -> str:
-        """[原子服务] 仅负责调用引言撰写技能并返回文本"""
-        return str(agent.execute_tool_call("introduction_write", {"input": SectionWritingService._json_dumps(payload)}))
+    def _trim_text(text: str, max_chars: int) -> str:
+        """独立出来的文本截断纯函数"""
+        if not text: 
+            return ""
+        return text if len(text) <= max_chars else text[:max_chars] + "\n...(已截断)"
 
     @staticmethod
-    def write_conclusion(agent: "LongWriterAgent", payload: dict) -> str:
+    def write_intro(context: "PipelineContext", payload: dict) -> str:
+        """[原子服务] 仅负责调用引言撰写技能并返回文本"""
+        return str(context.execute_tool_call(
+            "introduction_write",
+            {"input": SectionWritingService._json_dumps(payload)}
+        ))
+
+    @staticmethod
+    def write_conclusion(context: "PipelineContext", payload: dict) -> str:
         """[原子服务] 仅负责调用结论撰写技能并返回文本"""
         if "main_text" not in payload and "full_text" in payload:
             payload["main_text"] = payload["full_text"]
             
-        return str(agent.execute_tool_call("conclusion_write", {"input": SectionWritingService._json_dumps(payload)}))
+        return str(context.execute_tool_call(
+            "conclusion_write",
+            {"input": SectionWritingService._json_dumps(payload)}
+        ))
 
     @staticmethod
-    def write_abstract(agent: "LongWriterAgent", payload: dict) -> str:
+    def write_abstract(context: "PipelineContext", payload: dict) -> str:
         """[原子服务] 仅负责调用摘要撰写技能并返回文本"""
         if "conclusion_text" not in payload:
             payload["conclusion_text"] = payload.get("conclusion_text") or payload.get("full_text") or payload.get("main_text") or ""
             
-        return str(agent.execute_tool_call("abstract_write", {"input": SectionWritingService._json_dumps(payload)}))
+        return str(context.execute_tool_call(
+            "abstract_write",
+            {"input": SectionWritingService._json_dumps(payload)}
+        ))
 
     @staticmethod
-    def plan_body_skeleton(agent: "LongWriterAgent", payload: dict) -> str:
+    def plan_body_skeleton(context: "PipelineContext", payload: dict) -> str:
         """[原子服务] 仅负责调用正文骨架规划技能并返回骨架"""
-        return str(agent.execute_tool_call("section_skeleton_planning", {"input": SectionWritingService._json_dumps(payload)}))
+        return str(context.execute_tool_call(
+            "section_skeleton_planning",
+            {"input": SectionWritingService._json_dumps(payload)}
+        ))
 
     @staticmethod
-    def compose_body_content(agent: "LongWriterAgent", payload: dict) -> str:
+    def compose_body_content(context: "PipelineContext", payload: dict) -> str:
         """[原子服务] 仅负责基于骨架调用文本组装技能并返回正文"""
-        return str(agent.execute_tool_call("section_composition_styling", {"input": SectionWritingService._json_dumps(payload)}))
+        return str(context.execute_tool_call(
+            "section_composition_styling",
+            {"input": SectionWritingService._json_dumps(payload)}
+        ))
 
     @staticmethod
-    def run_fine_rag_web_search(agent: "LongWriterAgent", section_title: str, search_query: str) -> str:
+    def run_fine_rag_web_search(
+        context: "PipelineContext",
+        search_query: str, 
+        search_tool_name: str = "web_search",
+        max_chars: int = 1600
+    ) -> str:
         """[原子服务] 仅负责执行细粒度网页检索解析并返回摘要"""
-        result = agent.execute_tool_call(agent.search_tool_name, {"query": search_query})
+        result = context.execute_tool_call(
+            search_tool_name,
+            {"query": search_query}
+        )
         if isinstance(result, str) and result.strip():
             raw_result = result.strip()
             markers = [
@@ -149,7 +175,7 @@ class SectionWritingService:
             else:
                 result = raw_result
 
-            return agent._trim_text(result, agent.max_fine_rag_chars)
+            return SectionWritingService._trim_text(result, max_chars)
         return ""
 
 
@@ -160,9 +186,13 @@ def main() -> int:
 
     if args.list_methods:
         print("SectionWritingService is now a pure atomic tool caller without side-effects.")
+        print("\nAvailable public methods:")
+        methods = [func for func in dir(SectionWritingService) if callable(getattr(SectionWritingService, func)) and not func.startswith("_")]
+        for m in methods:
+            print(f" - {m}")
         return 0
 
-    print("这是 service 文件，不直接执行。")
+    print("这是 service 文件，不直接执行。请在外部主控逻辑（如 Agent 或脚本）中，通过传入 context 对象来调用其静态方法。")
     return 0
 
 

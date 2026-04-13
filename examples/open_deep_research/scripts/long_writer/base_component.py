@@ -1,9 +1,11 @@
 from __future__ import annotations
 import json
 from typing import Any, Dict, TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from ..long_writer_agent_v3 import LongWriterAgent
+    from scripts.multi_agent.agent_context import PipelineContext
+
+# 🔥 核心解耦 1：彻底删除对 long_writer_agent_v3 的导入，换成我们的新 Context
+
 
 class JsonWorkflowComponent:
     """工作流组件基类：纯粹契约层。组件通过 Python dict 通信，JSON 序列化由本类静态方法统一处理。"""
@@ -32,7 +34,8 @@ class JsonWorkflowComponent:
         """将结构化结果编码为 JSON 文本"""
         return json.dumps(data, ensure_ascii=False)
 
-    def run(self, agent: "LongWriterAgent", payload: Dict[str, Any]) -> Dict[str, Any]:
+    # 🔥 核心解耦 2：签名从 agent 变为 context
+    def run(self, context: "PipelineContext", payload: Dict[str, Any]) -> Dict[str, Any]:
         """执行组件的核心业务逻辑"""
         raise NotImplementedError
 

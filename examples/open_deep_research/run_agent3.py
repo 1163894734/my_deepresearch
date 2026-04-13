@@ -6,6 +6,7 @@ import logging
 from dotenv import load_dotenv
 
 # 引入 smolagents 核心组件
+from smolagents.agents import CustomAgent
 from smolagents.default_tools import DuckDuckGoSearchTool
 from utils import common_utils
 from smolagents import CodeAgent
@@ -14,7 +15,34 @@ from smolagents.models import OpenAIModel
 # 引入通用的技能加载器
 from scripts.skill_loader import load_skills_from_directory
 
+from scripts.text_web_browser import (
+    ArchiveSearchTool,
+    FinderTool,
+    FindNextTool,
+    PageDownTool,
+    PageUpTool,
+    SimpleTextBrowser,
+    VisitTool,
+)
+
 load_dotenv(override=True)
+
+
+# ========== ✨ 新增：浏览器相关的配置 ==========
+user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Edg/119.0.0.0"
+
+BROWSER_CONFIG = {
+    "viewport_size": 1024 * 5,
+    "downloads_folder": "downloads_folder",
+    "request_kwargs": {
+        "headers": {"User-Agent": user_agent},
+        "timeout": 300,
+    },
+    "serpapi_key": os.getenv("SERPAPI_API_KEY"),
+}
+os.makedirs(f"./{BROWSER_CONFIG['downloads_folder']}", exist_ok=True)
+# ==============================================
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -58,11 +86,30 @@ def main():
     你是一个高度自主的 AI 助手。你可以编写并在沙盒中运行 Python 代码来处理数据和调用各类工具。
     当你遇到复杂的垂直业务请求（如“技术名词解读”）时，请先检查工具列表中是否有对应的 SOP 或指南工具，并优先调用它们来了解你应该按什么标准流程执行。
     """
+
+    # ==========================================
+    # 1. 组建“基层调研团队” (专门对付网页)
+    # ==========================================
     web_search_tool = DuckDuckGoSearchTool()
     web_search_tool.name = "web_search"
+    browser = SimpleTextBrowser(**BROWSER_CONFIG)
+    
+    WEB_TOOLS = [web_search_tool, VisitTool(browser), PageDownTool(browser), FinderTool(browser)]
+
+    search_agent = CustomAgent(
+        model=model,
+        tools=WEB_TOOLS,
+        name="web_researcher",
+        description="专门负责深度的网络搜索和长网页阅读。当你需要详细了解某个技术原理时，把任务交给他，他会自己搜索、阅读原文，并把总结好的事实返回给你。"
+    )
+
+
+    # web_search_tool = DuckDuckGoSearchTool()
+    # web_search_tool.name = "web_search"
     # 实例化基于代码的 Agent
     agent = CodeAgent(
-        tools=skills+[web_search_tool],
+        tools=skills+WEB_TOOLS,
+        managed_agents=[search_agent],
         model=model,
         instructions=GENERIC_INSTRUCTIONS,
         additional_authorized_imports=["json", "time", "os", "re", "concurrent.futures"]

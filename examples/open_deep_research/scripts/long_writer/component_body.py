@@ -6,7 +6,8 @@ from .cli_debugger import run_component_cli
 from .section_writing_service import SectionWritingService
 
 if TYPE_CHECKING:
-    from ..long_writer_agent_v3 import LongWriterAgent
+    # 引入我们新的上下文对象进行类型提示
+    from scripts.multi_agent.agent_context import PipelineContext
 
 class BodyWritingComponent(JsonWorkflowComponent):
     """普通段落撰写组件：实现从骨架到终稿的完整生成流。"""
@@ -25,27 +26,27 @@ class BodyWritingComponent(JsonWorkflowComponent):
         "section_ref": "str"
     }
 
-    def run(self, agent: "LongWriterAgent", payload: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, context: "PipelineContext", payload: Dict[str, Any]) -> Dict[str, Any]:
         # 1. 骨架规划
-        skeleton = SectionWritingService.plan_body_skeleton(agent, payload)
+        skeleton = SectionWritingService.plan_body_skeleton(context, payload)
         payload["skeleton"] = skeleton
         
         # 2. 文本组装
-        content = SectionWritingService.compose_body_content(agent, payload)
+        content = SectionWritingService.compose_body_content(context, payload)
         
         # 3. 引用校验
         section = payload.get("section", {})
         available_citations = payload.get("available_citations", {})
-        if hasattr(agent, "_citation_validator"):
-            available_citations, content = agent._citation_validator.run_five_step_validation(
-                available_citations, content, agent.workspace.citations_validation_log, section.get("title", "正文")
+        if hasattr(context, "_citation_validator"):
+            available_citations, content = context._citation_validator.run_five_step_validation(
+                available_citations, content, context.workspace.citations_validation_log, section.get("title", "正文")
             )
         
         # 4. 反思修订
-        if hasattr(agent, "_section_reflection_loop"):
-            content = agent._section_reflection_loop(content, section, available_citations)
+        if hasattr(context, "_section_reflection_loop"):
+            content = context._section_reflection_loop(content, section, available_citations)
         
-        section_ref = agent._get_section_ref(section) if hasattr(agent, "_get_section_ref") else section.get("title", "正文")
+        section_ref = context._get_section_ref(section) if hasattr(context, "_get_section_ref") else section.get("title", "正文")
         return {"content": str(content), "section_ref": str(section_ref)}
 
 if __name__ == "__main__":

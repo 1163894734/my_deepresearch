@@ -180,6 +180,25 @@ class ReportWorkspace:
                 json.dump(existing_data, f, indent=2, ensure_ascii=False)
         except Exception as e:
             self.logger.log(f"⚠️ 写入引用验证日志失败 {e}", level=LogLevel.ERROR)
+    def append_validation_logs(self, step_logs: list) -> None:
+        if not step_logs: return
+        try:
+            import json, os
+            existing_data = {}
+            if os.path.exists(self.citations_validation_log):
+                with open(self.citations_validation_log, "r", encoding="utf-8") as f:
+                    try: existing_data = json.load(f)
+                    except: pass
+            logs = existing_data.get("five_step_logs", [])
+            if not isinstance(logs, list): logs = []
+            logs.extend(step_logs)
+            existing_data["five_step_logs"] = logs
+            with open(self.citations_validation_log, "w", encoding="utf-8") as f:
+                json.dump(existing_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            from smolagents.monitoring import LogLevel
+            self.logger.log(f"⚠️ 验证日志写入失败: {e}", level=LogLevel.ERROR)
+    # 👆 ================= 插入结束 ================= 👆
 
 class LongWriterAgent(CustomAgent):
     STATE_COARSE_RAG_CONTEXT = "coarse_rag_context"
@@ -190,6 +209,16 @@ class LongWriterAgent(CustomAgent):
     STATE_SECTIONS = "sections"
     def __init__(self, model, tools: Optional[List] = None, output_dir: Optional[str] = None, **kwargs):
         super().__init__(model=model, tools=tools or [], **kwargs)
+        # ==========================================
+        # 🔥 新增兼容性补丁：为 smolagents 原生 logger 动态绑定 info 和 error 方法
+        # 解决 common_utils.py 底层调用报错的问题
+        # ==========================================
+        if not hasattr(self.logger, 'info'):
+            self.logger.info = lambda msg, *args, **kwargs: self.logger.log(msg, level=LogLevel.INFO)
+        if not hasattr(self.logger, 'error'):
+            self.logger.error = lambda msg, *args, **kwargs: self.logger.log(msg, level=LogLevel.ERROR)
+        if not hasattr(self.logger, 'warning'):
+            self.logger.warning = lambda msg, *args, **kwargs: self.logger.log(msg, level=LogLevel.WARNING)
         
         # 如果外部没有传 output_dir，再走默认逻辑
         if not output_dir:
@@ -588,7 +617,8 @@ class LongWriterAgent(CustomAgent):
                 self.logger.log("✅ [引言撰写] 引言生成完毕", level=LogLevel.INFO)
                 
                 self.logger.log(f"🛡️ [引用校验] 开始校验 {section['title']} 的引用规范...", level=LogLevel.INFO)
-                available_citations, final = self._citation_validator.run_five_step_validation(self._citations.copy(), final, self._citations_validation_log, section.get("title", "引言"))
+                available_citations, final, step_logs = self._citation_validator.run_five_step_validation(self._citations.copy(), final, section.get("title", "引言"))
+                self.workspace.append_validation_logs(step_logs)
                 self._prev_body_or_intro_content = final
                 
             elif section_type == "conclusion":
@@ -601,7 +631,8 @@ class LongWriterAgent(CustomAgent):
                 self.logger.log("✅ [结论撰写] 结论生成完毕", level=LogLevel.INFO)
                 
                 self.logger.log(f"🛡️ [引用校验] 开始校验 {section['title']} 的引用规范...", level=LogLevel.INFO)
-                available_citations, final = self._citation_validator.run_five_step_validation(self._citations.copy(), final, self._citations_validation_log, section.get("title", "结论"))
+                available_citations, final, step_logs = self._citation_validator.run_five_step_validation(self._citations.copy(), final, section.get("title", "结论"))
+                self.workspace.append_validation_logs(step_logs)
                 self._prev_body_or_intro_content = final
                 
             else:
@@ -624,7 +655,8 @@ class LongWriterAgent(CustomAgent):
                 self.logger.log("✅ [正文撰写] 文本组装完毕", level=LogLevel.INFO)
                 
                 self.logger.log(f"🛡️ [正文撰写] 步骤 3/4 - 校验引用规范...", level=LogLevel.INFO)
-                available_citations, final = self._citation_validator.run_five_step_validation(available_citations, final, self._citations_validation_log, section.get("title", "正文"))
+                available_citations, final, step_logs = self._citation_validator.run_five_step_validation(available_citations, final, section.get("title", "正文"))
+                self.workspace.append_validation_logs(step_logs)
                 
                 self.logger.log(f"🔍 [正文撰写] 步骤 4/4 - 执行反思修订...", level=LogLevel.INFO)
                 final = self._section_reflection_loop(final, section, available_citations)
@@ -654,7 +686,7 @@ class LongWriterAgent(CustomAgent):
         elif self.fine_rag_mode == 'web_search':
             self.logger.log(f"🔎 [资料检索] 调用 web_search 检索: {search_query}", level=LogLevel.DEBUG)
             try:
-                result = self._section_writing_service.run_fine_rag_web_search(self, section_title, search_query)
+                result = self._section_writing_service.run_fine_rag_web_search(search_query, self.tools)
                 self.logger.log(f"✅ [资料检索] web_search成功 ({len(result)} 字)", level=LogLevel.DEBUG)
                 return result
             except Exception as e:
@@ -768,3 +800,10 @@ class LongWriterAgent(CustomAgent):
         ]
         
         return "\n".join(summary_lines)
+    def execute_tool_call(self, tool_name: str, arguments: dict):
+        """
+        🔥 兼容层补丁：让老 Agent 完美伪装成 PipelineContext
+        接收底层 Service 传来的调用请求，并转发给底层的公共函数
+        """
+        from utils.common_utils import execute_tool_call as base_execute
+        return base_execute(tool_name, arguments, self.tools, self.logger)
