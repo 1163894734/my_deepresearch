@@ -16,7 +16,9 @@ type: sop
    - 然后把上一步返回的数据传给 `expert_evaluation(cluster_data=..., domain=target_domain)`。
    - 如果返回值的 `approved` 为 True，将其加入 `approved_clusters`。
 4. 循环结束后，整理 `approved_clusters` 生成结构化的 Markdown 研报。
-5. 【重要】调用 `save_report(clusters_data=approved_clusters, markdown_content=你的研报字符串, run_dir=run_dir)` 将结果保存到本地。
+5. 【重要落盘】严禁使用 `open()` 或任何旧版保存工具！你必须连续调用两次 `save_file` 工具完成归档：
+   - 第一次（存数据）：将 `approved_clusters` 列表保存为 JSON。调用参数：`content=approved_clusters, out_dir=run_dir, file_name="frontier_identification_report", out_type="json"`
+   - 第二次（存研报）：将整理好的研报字符串保存为 Markdown。调用参数：`content=你的研报字符串, out_dir=run_dir, file_name="frontier_identification_report", out_type="md"`
 6. 必须通过 `final_answer(你的研报字符串)` 提交结果。
 
 注意：环境中已为你注入变量 `raw_documents`、`target_domain` 和 `run_dir`。

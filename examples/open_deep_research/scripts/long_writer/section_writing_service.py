@@ -1,22 +1,25 @@
+# 文件路径: open_deep_research/scripts/long_writer/section_writing_service.py
+
 import argparse
 import json
 import re
+import os
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
+# 🚀 深度结合你的 common_utils
+from utils.common_utils import ModelProvider, execute_tool_call
+
 if TYPE_CHECKING:
-    # 引入上下文对象进行类型提示，避免循环导入
     from scripts.multi_agent.agent_context import PipelineContext
 
 class SectionWritingService:
 
     @staticmethod
     def _json_dumps(data: Any) -> str:
-        """Serialize payloads for tool calls while preserving non-ASCII characters."""
         return json.dumps(data, ensure_ascii=False)
 
     @staticmethod
     def _build_canonical_citation_key(authors: str, year: str, fallback_title: str = "") -> str:
-        """构造章节写作服务使用的 canonical_key。"""
         authors_text = str(authors or "").strip()
         year_text = str(year or "").strip()
         if authors_text and year_text:
@@ -24,72 +27,85 @@ class SectionWritingService:
         return str(fallback_title or "").strip()
 
     @staticmethod
-    def _unwrap_payload(payload: dict) -> Dict[str, Any]:
-        """兼容组件输入的包装结构。"""
-        if not isinstance(payload, dict):
-            return {}
-        inner = payload.get("input")
-        if isinstance(inner, dict):
-            return inner
-        return payload
-
-    @staticmethod
-    def _normalize_section(section: Any, default_title: str = "") -> Dict[str, Any]:
-        """规范化章节字段并补齐默认值。"""
-        section_dict = section if isinstance(section, dict) else {}
-        normalized = dict(section_dict)
-        if default_title and not str(normalized.get("title", "")).strip():
-            normalized["title"] = default_title
-        if "word_count_target" in normalized:
-            try:
-                normalized["word_count_target"] = int(normalized.get("word_count_target") or 0)
-            except Exception:
-                normalized["word_count_target"] = 0
-        else:
-            normalized["word_count_target"] = 0
-        return normalized
-
-    @staticmethod
-    def _normalize_available_citations(raw: Any) -> Dict[str, Dict[str, str]]:
-        """规范化组件输入中的引用字典。"""
-        if isinstance(raw, dict):
-            normalized: Dict[str, Dict[str, str]] = {}
-            for k, v in raw.items():
-                info = dict(v) if isinstance(v, dict) else {"title": str(v)}
-                key = str(k or "").strip()
-                title = str(info.get("title") or key).strip()
-                if not title:
-                    continue
-                info["title"] = title
-                authors = str(info.get("authors", "")).strip()
-                year = str(info.get("year", "")).strip()
-                info.setdefault("canonical_key", SectionWritingService._build_canonical_citation_key(authors, year, title))
-                normalized[title] = info
-            return normalized
-
-        if isinstance(raw, list):
-            normalized = {}
-            for item in raw:
-                if not isinstance(item, dict):
-                    continue
-                authors = str(item.get("authors", "")).strip()
-                year = str(item.get("year", "")).strip()
-
-                title = str(item.get("title", "")).strip() or "Unknown Citation"
-                info = dict(item)
-                info["title"] = title
-                info.setdefault("canonical_key", SectionWritingService._build_canonical_citation_key(authors, year, title))
-                normalized[title] = info
-            return normalized
-
-        return {}
-
-    @staticmethod
     def _trim_text(text: str, max_chars: int) -> str:
-        """独立出来的文本截断纯函数"""
         if not text: 
             return ""
         return text if len(text) <= max_chars else text[:max_chars] + "\n...(已截断)"
+
+    # =========================================================================
+    # 🚀 新增：基于 RAG 和本地大模型的终极章节撰写器
+    # =========================================================================
+    @staticmethod
+    def generate_section_with_rag(
+        chapter_node: dict, 
+        available_tools: dict, 
+        sop_path: str = "skills/long_writer_section_sop/SKILL.md",
+        logger=None
+    ) -> str:
+        """
+        深度结合 RAG 工具和本地大模型，按图施工撰写单个章节。
+        """
+        # 1. 解析大纲节点信息
+        title = chapter_node.get("chapter_title") or chapter_node.get("section_title") or chapter_node.get("subsection_title", "未知标题")
+        argument = chapter_node.get("core_argument", "")
+        papers = chapter_node.get("supporting_papers", [])
+        
+        # 区分本地成功文献和仅在线文献
+        local_papers = [{"id": p["id"], "local_path": p["local_path"]} for p in papers if p.get("status") == "local_success" and p.get("local_path")]
+        online_urls = [p["url"] for p in papers if p.get("status") == "online_only"]
+        
+        # 2. 调度 fine_rag 提取高浓度语料
+        rag_context = ""
+        if local_papers:
+            if logger: logger.info(f"[{title}] 启动 RAG 检索，扫描 {len(local_papers)} 篇本地文献...")
+            try:
+                # 完美调用你的 execute_tool_call
+                rag_context = execute_tool_call(
+                    tool_name="fine_rag", 
+                    arguments={"query": argument, "papers": local_papers, "top_k": 6}, 
+                    available_tools=available_tools, 
+                    logger=logger
+                )
+            except Exception as e:
+                if logger: logger.error(f"[{title}] RAG 检索失败: {e}")
+                rag_context = f"RAG 提取失败: {str(e)}"
+        else:
+            rag_context = "无本地可用的 PDF 语料，请依据内部学术知识及提供的在线URL进行学术推演。"
+            
+        # 3. 读取严格的 SOP 提示词
+        try:
+            with open(sop_path, "r", encoding="utf-8") as f:
+                sys_prompt = f.read()
+        except Exception:
+            sys_prompt = "你是一个顶尖的学术专家，请严格基于给定的 RAG 语料撰写高学术密度的段落，并在句末使用 [id] 进行引用。"
+            
+        # 4. 构建 Prompt
+        user_prompt = (
+            f"【待撰写章节】: {title}\n"
+            f"【核心论点】: {argument}\n\n"
+            f"【RAG 精准提取语料】:\n{rag_context}\n\n"
+            f"【在线扩展链接】:\n{online_urls}\n\n"
+            f"请直接输出正文，不要输出章节标题。"
+        )
+        
+        if logger: logger.info(f"[{title}] 语料组装完毕，正在调用 ModelProvider 大模型...")
+        
+        # 5. 调用你的统一大模型接口
+        model = ModelProvider.get_model("main")
+        messages = [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        try:
+            response = model(messages)
+            # 兼容 smolagents Message 的返回结构
+            content = getattr(response, 'content', str(response)) 
+            if logger: logger.info(f"[{title}] ✅ 章节撰写完成！")
+            return content
+        except Exception as e:
+            if logger: logger.error(f"[{title}] ❌ 大模型生成失败: {e}")
+            return f"> 撰写失败: {str(e)}"
 
     @staticmethod
     def write_intro(context: "PipelineContext", payload: dict) -> str:

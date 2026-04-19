@@ -2,57 +2,273 @@
 
 import json
 import re
-from typing import Any, Dict, List, Union
-import time
-import logging
-import sys
-from smolagents.monitoring import LogLevel
+import ast
+from typing import Union, Dict, List, Any, Optional
+
+import re
+import json
+import ast
+from typing import Union, Dict, List, Any
 
 def safe_json_parse(text: str, fallback_type: type = dict) -> Union[Dict, List, Any]:
     """
-    终极 JSON 解析工具：处理 Markdown、前后废话以及复杂的嵌套结构。
+    终极 JSON 解析工具：处理大模型输出的各种奇葩格式。
+    
+    能处理的场景：
+    - 前后有废话文字
+    - Markdown 代码块包裹
+    - 单引号/双引号混用
+    - 嵌套 JSON 结构
+    - Python 字面量格式（True/False/None）
+    - 注释干扰
+    - 不完整的 JSON（尝试修复）
+    
+    Args:
+        text: 包含 JSON 的原始字符串
+        fallback_type: 解析失败时返回的空对象类型（dict 或 list）
+    
+    Returns:
+        解析后的 Python 对象（dict 或 list）
     """
     if not text or not isinstance(text, str):
-        return fallback_type()
-        
+        return fallback_type() if callable(fallback_type) else fallback_type
+    
+    original_text = text
     text = text.strip()
     
-    # 尝试 1：直接解析（最快乐的路径）
+    # ========== 预处理：清理 LLM 输出的常见干扰 ==========
+    
+    # 1. 移除 Markdown 代码块标记
+    text = re.sub(r'```(?:json|python|py|javascript|js)?\s*', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'```\s*$', '', text)
+    text = re.sub(r'^```\s*', '', text)
+    
+    # 2. 移除行内注释（// 和 # 开头的行）
+    lines = []
+    for line in text.split('\n'):
+        # 移除行尾的 // 注释（但要小心 URL 中的 //）
+        if '//' in line and '://' not in line:
+            line = line.split('//')[0]
+        # 移除 # 注释（除非在引号内，这里做简化处理）
+        if '#' in line and '"' not in line and "'" not in line:
+            line = line.split('#')[0]
+        lines.append(line)
+    text = '\n'.join(lines)
+    
+    # 3. 标准化布尔值和空值（Python 格式 → JSON 格式）
+    # 但要小心不要替换字符串内的内容，这里先用简单规则
+    text = re.sub(r'\bTrue\b(?!["\'])', 'true', text)
+    text = re.sub(r'\bFalse\b(?!["\'])', 'false', text)
+    text = re.sub(r'\bNone\b(?!["\'])', 'null', text)
+    
+    # ========== 确定解析模式：根据第一个有效字符 ==========
+    
+    # 找到第一个 { 或 [ 的位置
+    first_brace = text.find('{')
+    first_bracket = text.find('[')
+    
+    # 情况1：先遇到 [，优先解析为列表
+    if first_bracket != -1 and (first_brace == -1 or first_bracket < first_brace):
+        return _parse_as_list(text, fallback_type)
+    
+    # 情况2：先遇到 {，优先解析为字典
+    elif first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
+        return _parse_as_dict(text, fallback_type)
+    
+    # 情况3：都没有找到，返回保底类型
+    return fallback_type() if callable(fallback_type) else fallback_type
+
+
+def _parse_as_list(text: str, fallback_type: type) -> Union[List, Any]:
+    """优先解析为列表"""
+    # 策略 1：直接 JSON 解析
     try:
-        return json.loads(text)
+        result = json.loads(text)
+        if isinstance(result, list):
+            return result
     except json.JSONDecodeError:
         pass
-        
-    # 尝试 2：剥离 Markdown 代码块干扰
-    clean_text = text.replace("```json", "").replace("```", "").strip()
+    
+    # 策略 2：ast.literal_eval
     try:
-        return json.loads(clean_text)
+        result = ast.literal_eval(text)
+        if isinstance(result, list):
+            return result
+    except (ValueError, SyntaxError, MemoryError):
+        pass
+    
+    # 策略 3：提取列表内容（从第一个 [ 到匹配的 ]）
+    extracted = _extract_bracketed_content(text, '[', ']')
+    if extracted is not None:
+        try:
+            result = json.loads(extracted)
+            if isinstance(result, list):
+                return result
+        except json.JSONDecodeError:
+            pass
+        try:
+            result = ast.literal_eval(extracted)
+            if isinstance(result, list):
+                return result
+        except (ValueError, SyntaxError):
+            pass
+    
+    # 策略 4：尝试补全不完整的列表
+    extracted = _repair_incomplete_brackets(text, '[', ']')
+    if extracted is not None:
+        try:
+            result = json.loads(extracted)
+            if isinstance(result, list):
+                return result
+        except json.JSONDecodeError:
+            pass
+        try:
+            result = ast.literal_eval(extracted)
+            if isinstance(result, list):
+                return result
+        except (ValueError, SyntaxError):
+            pass
+    
+    # 失败返回保底列表
+    return fallback_type() if callable(fallback_type) else fallback_type
+
+
+def _parse_as_dict(text: str, fallback_type: type) -> Union[Dict, Any]:
+    """优先解析为字典"""
+    # 策略 1：直接 JSON 解析
+    try:
+        result = json.loads(text)
+        if isinstance(result, dict):
+            return result
     except json.JSONDecodeError:
         pass
-        
-    # 尝试 3：首尾括号定位法（完美解决嵌套 JSON 与后续废话的问题）
-    # 寻找第一个 { 或 [ 
-    start_obj = clean_text.find('{')
-    start_arr = clean_text.find('[')
     
-    # 确定究竟是解析字典还是列表
-    is_obj = start_obj != -1 and (start_arr == -1 or start_obj < start_arr)
-    start_idx = start_obj if is_obj else start_arr
+    # 策略 2：ast.literal_eval
+    try:
+        result = ast.literal_eval(text)
+        if isinstance(result, dict):
+            return result
+    except (ValueError, SyntaxError, MemoryError):
+        pass
     
-    if start_idx != -1:
-        end_char = '}' if is_obj else ']'
-        # 从后往前找最后一个对应的闭合括号
-        end_idx = clean_text.rfind(end_char) 
-        
-        if end_idx != -1 and end_idx > start_idx:
-            candidate = clean_text[start_idx:end_idx + 1]
-            try:
-                return json.loads(candidate)
-            except json.JSONDecodeError:
-                pass
-                
-    # 全都失败，返回保底类型
-    return fallback_type()
+    # 策略 3：提取字典内容（从第一个 { 到匹配的 }）
+    extracted = _extract_bracketed_content(text, '{', '}')
+    if extracted is not None:
+        try:
+            result = json.loads(extracted)
+            if isinstance(result, dict):
+                return result
+        except json.JSONDecodeError:
+            pass
+        try:
+            result = ast.literal_eval(extracted)
+            if isinstance(result, dict):
+                return result
+        except (ValueError, SyntaxError):
+            pass
+    
+    # 策略 4：尝试补全不完整的字典
+    extracted = _repair_incomplete_brackets(text, '{', '}')
+    if extracted is not None:
+        try:
+            result = json.loads(extracted)
+            if isinstance(result, dict):
+                return result
+        except json.JSONDecodeError:
+            pass
+        try:
+            result = ast.literal_eval(extracted)
+            if isinstance(result, dict):
+                return result
+        except (ValueError, SyntaxError):
+            pass
+    
+    # 失败返回保底字典
+    return fallback_type() if callable(fallback_type) else fallback_type
+
+
+def _extract_bracketed_content(text: str, open_char: str, close_char: str) -> Union[str, None]:
+    """提取从第一个 open_char 到匹配的 close_char 之间的内容"""
+    start_idx = text.find(open_char)
+    if start_idx == -1:
+        return None
+    
+    stack = []
+    for i, ch in enumerate(text[start_idx:], start_idx):
+        if ch == open_char:
+            stack.append(ch)
+        elif ch == close_char:
+            stack.pop()
+            if not stack:
+                return text[start_idx:i+1]
+    return None
+
+
+def _repair_incomplete_brackets(text: str, open_char: str, close_char: str) -> Union[str, None]:
+    """尝试补全不完整的括号结构"""
+    start_idx = text.find(open_char)
+    if start_idx == -1:
+        return None
+    
+    # 计算缺少的闭合括号数量
+    open_count = text[start_idx:].count(open_char)
+    close_count = text[start_idx:].count(close_char)
+    missing_count = open_count - close_count
+    
+    if missing_count > 0 and missing_count < 100:  # 限制补全数量
+        return text + close_char * missing_count
+    
+    return None
+
+
+def _extract_and_repair_json(text: str) -> Union[Dict, List, None]:
+    """（保留原有逻辑的占位函数）智能提取 + 递归修复"""
+    # 这里可以保留原有的复杂修复逻辑
+    # 为了完整性，简单调用正则提取
+    return _regex_extract_json(text)
+
+
+def _scan_and_complete_braces(text: str) -> Union[Dict, List, None]:
+    """（保留原有逻辑的占位函数）逐行扫描 + 括号补全"""
+    # 这里可以保留原有的复杂修复逻辑
+    return None
+
+
+def _regex_extract_json(text: str) -> Union[Dict, List, None]:
+    """使用正则暴力提取最外层的 JSON 结构"""
+    # 尝试提取对象
+    match = re.search(r'(\{.*\})', text, re.DOTALL)
+    if match:
+        try:
+            result = json.loads(match.group(1))
+            if isinstance(result, (dict, list)):
+                return result
+        except json.JSONDecodeError:
+            pass
+        try:
+            result = ast.literal_eval(match.group(1))
+            if isinstance(result, (dict, list)):
+                return result
+        except (ValueError, SyntaxError):
+            pass
+    
+    # 尝试提取数组
+    match = re.search(r'(\[.*\])', text, re.DOTALL)
+    if match:
+        try:
+            result = json.loads(match.group(1))
+            if isinstance(result, (dict, list)):
+                return result
+        except json.JSONDecodeError:
+            pass
+        try:
+            result = ast.literal_eval(match.group(1))
+            if isinstance(result, (dict, list)):
+                return result
+        except (ValueError, SyntaxError):
+            pass
+    
+    return None
 import os
 from smolagents import OpenAIModel
 

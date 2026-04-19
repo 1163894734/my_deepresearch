@@ -17,7 +17,8 @@ type: sop
 注意：1. 代码执行环境中已为你注入了全局变量 `run_dir`，请直接使用它，严禁自行定义或赋值。
 2. 当你使用 web_search 工具获取到搜索结果列表后，绝对不能仅仅基于搜索结果的简短 Snippet（摘要）就开始写解读报告！
 你必须挑选出至少 2-3 个最相关的 URL，使用 `visit_page` 工具进去读取原文的详细技术原理。只有在阅读了全文后，才能提炼客观事实。
-3. 将查到的资料用`print`打印出来,然后调用 `save_raw_materials_tool` 将完整的版本（不要总结， `web_search` 要将 `visited_page` 后的完整内容全部保存）保存在`run_dir`目录下的一个txt文件里，文件名可以是`{target_term}_raw_materials.txt`。
+3. 将查到的资料用`print`打印出来,调用全局保存工具，将生肉语料原封不动地保存下来：
+   `save_file(content=raw_materials, out_dir=run_dir, file_name=f"{target_term}_raw_materials", out_type="txt")`
 
 ### 第二步：提炼事实与大纲 (Fact & Outline)
 调用 `extract_fact_and_outline_tool` 工具，传入 `target_term` 和 `raw_materials`。

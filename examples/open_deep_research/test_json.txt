@@ -1,0 +1,1080 @@
+[{'chapter_title': '1. 先进制造与增材技术融合', 'core_argument': '多材料3D打印与AI优化推动制造革新，但精度、效率与标准化仍存矛盾。', 'sections': [{'section_title': '1.1 
+核心技术突破与当前主流范式', 'core_argument': '多领域实现关键材料与工艺突破，推动先进制造、可持续能源与智能系统发展。', 'subsections': [{'subsection_title': '1.1.1 
+：多材料、多尺度、多功能3D/4D打印技术快速发展', 'core_argument': '：多材料、多尺度、多功能3D/4D打印技术快速发展', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.1.2 ：纳米材料与增材制造结合，提升材料性能并实现复杂结构成型', 'core_argument': '：纳米材料与增材制造结合，提升材料性能并实现复杂结构成型', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.1.3 ：柔性机构实现软组织手术器械的高精度、免润滑一体化设计', 'core_argument': '：柔性机构实现软组织手术器械的高精度、免润滑一体化设计', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.1.4 ：电动推进催生全新飞机设计', 'core_argument': '：电动推进催生全新飞机设计', 'supporting_papers': [{'id': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 
+'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 'local_success'}, {'id': 
+'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.1.5 ：AI优化复合材料加工参数，提升精度与效率', 'core_argument': '：AI优化复合材料加工参数，提升精度与效率', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.1.6 ：高熵陶瓷实现介电、离子导电等新性能', 'core_argument': '：高熵陶瓷实现介电、离子导电等新性能', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.1.7 ：MAX相兼具金属与陶瓷特性，耐高温、抗氧化、可自修复', 'core_argument': '：MAX相兼具金属与陶瓷特性，耐高温、抗氧化、可自修复', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}]}, 
+{'section_title': '1.2 技术局限性与实施瓶颈', 'core_argument': '尽管取得进展，但效率、成本、可靠性与规模化之间存在显著矛盾。', 'subsections': [{'subsection_title': '1.2.1 
+：打印精度与速度、规模化间存在权衡。', 'core_argument': '：打印精度与速度、规模化间存在权衡。', 'supporting_papers': [{'id': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 'local_success'}, {'id': 
+'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.2.2 ：仍存效率与工艺挑战需突破。', 'core_argument': '：仍存效率与工艺挑战需突破。', 'supporting_papers': [{'id': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813',
+'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 'local_success'}, {'id': 
+'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.2.3 ：材料、制造与驱动技术仍待突破。', 'core_argument': '：材料、制造与驱动技术仍待突破。', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.2.4 ：需突破设计、技术、基建与认证瓶颈。', 'core_argument': '：需突破设计、技术、基建与认证瓶颈。', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.2.5 ：异质各向异性导致刀具磨损、表面质量差与环保问题。', 'core_argument': '：异质各向异性导致刀具磨损、表面质量差与环保问题。', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.2.6 ：制备、表征与性能预测存挑战。', 'core_argument': '：制备、表征与性能预测存挑战。', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '1.2.7 ：材料体系复杂、高纯粉末难获、核能航空领域认证周期长。', 'core_argument': '：材料体系复杂、高纯粉末难获、核能航空领域认证周期长。', 'supporting_papers': [{'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'url': 'https://doi.org/10.11113/jurnalteknologi.v88.23923', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_99b5300f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40145-021-0477-y.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_99b5300f.pdf', 'status': 
+'local_success'}, {'id': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'url': 'https://research.rug.nl/en/publications/d24748b0-fc69-49be-a235-db2831ca685f', 'local_path': 
+None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.mser.2020.100596', 'url': 'https://doi.org/10.1016/j.mser.2020.100596', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'url': 'https://ceramics.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/jace.17544', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'url': 'https://www.mdpi.com/2226-4310/7/4/44/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_32259f4f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40964-023-00514-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_32259f4f.pdf', 'status': 
+'local_success'}, {'id': 'paper_601b4cc8', 'url': 'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'url': 'https://www.sciencedirect.com/science/article/pii/S0007850616301913', 'local_path': None, 'status': 'online_only'}]}]}, 
+{'section_title': '1.3 前沿融合方向与未来破局点', 'core_argument': '跨学科融合AI建模、数字孪生与新型功能材料，寻求系统级优化路径。', 'subsections': [{'subsection_title': '1.3.1 
+AI驱动的多尺度建模与智能制造协同', 'core_argument': '结合机器学习与物理仿真，加速高熵合金、复合材料等新材料研发周期。', 'supporting_papers': [{'id': 'paper_601b4cc8', 'url': 
+'https://dr.ntu.edu.sg/bitstream/10356/143407/2/Machine%20learning%20in%20additive%20manufacturing%20State-of-the-art%20and%20perspectives.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_601b4cc8.pdf', 'status': 'local_success'}]}]}]}, {'chapter_title': '2. 复合材料设计与可持续结构', 
+'core_argument': '高性能复合材料广泛应用于航空与能源领域，但性能-成本-环保三角制约普及。', 'sections': [{'section_title': '2.1 核心技术突破与当前主流范式', 'core_argument': 
+'多领域实现关键材料与工艺突破，推动先进制造、可持续能源与智能系统发展。', 'subsections': [{'subsection_title': '2.1.1 ：氢燃料在航空领域实现零碳排放，无人机应用取得进展', 'core_argument': 
+'：氢燃料在航空领域实现零碳排放，无人机应用取得进展', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status':
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.2 ：氢燃料用于风电运维，提升可持续性', 
+'core_argument': '：氢燃料用于风电运维，提升可持续性', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status':
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.3 
+：优化结构健康监测各阶段，提升运维效率与发电可用性', 'core_argument': '：优化结构健康监测各阶段，提升运维效率与发电可用性', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.4 
+：系统揭示FRC材料在机械、热、化学耦合下的失效机制', 'core_argument': '：系统揭示FRC材料在机械、热、化学耦合下的失效机制', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.5 ：新型复合材料显著提升航空器性能与寿命',
+'core_argument': '：新型复合材料显著提升航空器性能与寿命', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status':
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.6 
+：AlMMCs具轻量、高刚性，满足严苛性能需求', 'core_argument': '：AlMMCs具轻量、高刚性，满足严苛性能需求', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.7 
+：纳米改性聚合物复合材料显著提升性能并广泛应用于交通、医疗、国防与航空', 'core_argument': '：纳米改性聚合物复合材料显著提升性能并广泛应用于交通、医疗、国防与航空', 'supporting_papers': [{'id': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.8 
+：新型铝导体结合合金化与纳米工艺，提升强度与导电性', 'core_argument': '：新型铝导体结合合金化与纳米工艺，提升强度与导电性', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.9 
+：聚合物基复合材料因性能优越和可持续性，正快速替代金属陶瓷', 'core_argument': '：聚合物基复合材料因性能优越和可持续性，正快速替代金属陶瓷', 'supporting_papers': [{'id': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.10 ：天然纤维与填料复合提升性能', 
+'core_argument': '：天然纤维与填料复合提升性能', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.11 
+：综述风电复合材料，涵盖天然、混合及纳米复合材料', 'core_argument': '：综述风电复合材料，涵盖天然、混合及纳米复合材料', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.1.12 
+：纤维增强复合材料具高强轻质、耐腐蚀等优异性能，广泛应用于多领域', 'core_argument': '：纤维增强复合材料具高强轻质、耐腐蚀等优异性能，广泛应用于多领域', 'supporting_papers': [{'id': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}]}, {'section_title': '2.2 技术局限性与实施瓶颈', 'core_argument': 
+'尽管取得进展，但效率、成本、可靠性与规模化之间存在显著矛盾。', 'subsections': [{'subsection_title': '2.2.1 ：加氢站缺乏、成本高、市场占比低，制约商业化。', 'core_argument': 
+'：加氢站缺乏、成本高、市场占比低，制约商业化。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status':
+'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.2 ：储运难、成本与技术可行性待解。', 
+'core_argument': '：储运难、成本与技术可行性待解。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status':
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.3 
+：需降低巡检成本与LCOE，避免过度维护及设计缺陷。', 'core_argument': '：需降低巡检成本与LCOE，避免过度维护及设计缺陷。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.4 
+：复杂环境耦合作用下耐久性预测难，多因素协同损伤研究不足。', 'core_argument': '：复杂环境耦合作用下耐久性预测难，多因素协同损伤研究不足。', 'supporting_papers': [{'id': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.5 ：仍存机械性能不足、腐蚀磨损等问题。', 
+'core_argument': '：仍存机械性能不足、腐蚀磨损等问题。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status':
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.6 ：多目标冲突致设计难，制约市场普及。', 
+'core_argument': '：多目标冲突致设计难，制约市场普及。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status':
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.7 ：需优化工艺以降本减废。', 
+'core_argument': '：需优化工艺以降本减废。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.8 
+：强度与导电性难以兼顾，需解决热稳定性与成本问题。', 'core_argument': '：强度与导电性难以兼顾，需解决热稳定性与成本问题。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.9 
+：早期认知不足限制应用，部分性能仍需优化。', 'core_argument': '：早期认知不足限制应用，部分性能仍需优化。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.10 
+：机械热性能弱于合成纤维，依赖化石燃料。', 'core_argument': '：机械热性能弱于合成纤维，依赖化石燃料。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.11 ：传统材料性能与制造成本仍存挑战。', 
+'core_argument': '：传统材料性能与制造成本仍存挑战。', 'supporting_papers': [{'id': 'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status':
+'online_only'}, {'id': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url':
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}, {'subsection_title': '2.2.12 
+：性能依赖组分与工艺，需优化纤维与制造技术以匹配应用需求。', 'core_argument': '：性能依赖组分与工艺，需优化纤维与制造技术以匹配应用需求。', 'supporting_papers': [{'id': 
+'https://doi.org/10.1016/j.rser.2016.05.085', 'url': 'https://doi.org/10.1016/j.rser.2016.05.085', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'url': 'https://journaljenrr.com/index.php/JENRR/article/download/320/631', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'url': 'https://doi.org/10.1016/j.ijhydene.2023.02.086', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_68cf852e', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s10853-024-09890-0.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_68cf852e.pdf', 'status': 
+'local_success'}, {'id': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'url': 'https://www.mdpi.com/2073-4360/14/22/5007/pdf?version=1669005879', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'url': 'https://www.mdpi.com/2073-4360/17/16/2187/pdf?version=1754736715', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'url': 'https://doi.org/10.3144/expresspolymlett.2019.15', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'url': 'https://downloads.hindawi.com/journals/ijps/2020/8834518.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'url': 'https://www.mdpi.com/2073-4360/11/10/1667/pdf?version=1570880282', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'url': 'https://www.mdpi.com/1996-1944/10/11/1285/pdf?version=1510228064', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_e5744d69', 'url': 'https://www.intechopen.com/citation-pdf-url/67052', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e5744d69.pdf', 
+'status': 'local_success'}, {'id': 'paper_aeb2b3cb', 'url': 'https://link.springer.com/content/pdf/10.1007/s42114-024-01192-y.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_aeb2b3cb.pdf', 'status': 'local_success'}]}]}]}, {'chapter_title': '3. 极端环境材料与防护体系', 'core_argument': 
+'高温、腐蚀与高应力环境下材料稳定性成关键瓶颈，涂层与新材研发并进。', 'sections': [{'section_title': '3.1 核心技术突破与当前主流范式', 'core_argument': 
+'多领域实现关键材料与工艺突破，推动先进制造、可持续能源与智能系统发展。', 'subsections': [{'subsection_title': '3.1.1 ：研发耐极端环境的超音速飞行器材料', 'core_argument': 
+'：研发耐极端环境的超音速飞行器材料', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'}, {'id': 'paper_6557c4d1', 'url': 
+'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.1.2 ：提出2000K以上涡轮叶片冷却技术六大发展方向', 'core_argument': '：提出2000K以上涡轮叶片冷却技术六大发展方向', 'supporting_papers': [{'id': 
+'paper_7e48fe24', 'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 
+'status': 'local_success'}, {'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.1.3 ：高温材料进步提升燃气轮机效率与功率', 'core_argument': '：高温材料进步提升燃气轮机效率与功率', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url':
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.1.4 ：综述航空发动机高温防护涂层（TBCs、EBCs、隐身、防腐）材料与技术进展', 'core_argument': 
+'：综述航空发动机高温防护涂层（TBCs、EBCs、隐身、防腐）材料与技术进展', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'}, {'id': 'paper_6557c4d1', 'url': 
+'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.1.5 ：陶瓷基复合材料与高温涂层提升燃气轮机效率', 'core_argument': '：陶瓷基复合材料与高温涂层提升燃气轮机效率', 'supporting_papers': [{'id': 
+'paper_7e48fe24', 'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 
+'status': 'local_success'}, {'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.1.6 ：Mg-Li-Al合金具优异耐蚀性与力学性能', 'core_argument': '：Mg-Li-Al合金具优异耐蚀性与力学性能', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url':
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.1.7 ：腐蚀防护对可持续能源系统至关重要', 'core_argument': '：腐蚀防护对可持续能源系统至关重要', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.1.8 ：低温等离子体技术支撑现代科技发展', 'core_argument': '：低温等离子体技术支撑现代科技发展', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.1.9 ：热喷涂涂层领域具研发潜力', 'core_argument': '：热喷涂涂层领域具研发潜力', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}]}, {'section_title': '3.2 技术局限性与实施瓶颈', 'core_argument': '尽管取得进展，但效率、成本、可靠性与规模化之间存在显著矛盾。', 'subsections': [{'subsection_title': '3.2.1 
+：气动热环境严苛，材料难量产。', 'core_argument': '：气动热环境严苛，材料难量产。', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'}, {'id': 'paper_6557c4d1', 'url': 
+'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.2.2 ：高温下叶片冷却效能不足，传统技术难满足未来需求。', 'core_argument': '：高温下叶片冷却效能不足，传统技术难满足未来需求。', 'supporting_papers': 
+[{'id': 'paper_7e48fe24', 'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'}, {'id': 'paper_6557c4d1', 'url': 
+'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.2.3 ：需更高耐温、轻质材料，陶瓷等新型材料仍处研发阶段。', 'core_argument': '：需更高耐温、轻质材料，陶瓷等新型材料仍处研发阶段。', 'supporting_papers': 
+[{'id': 'paper_7e48fe24', 'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'}, {'id': 'paper_6557c4d1', 'url': 
+'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.2.4 ：CMAS侵蚀等导致涂层过早失效。', 'core_argument': '：CMAS侵蚀等导致涂层过早失效。', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.2.5 ：蒸汽腐蚀与CMAS沉积导致涂层退化失效。', 'core_argument': '：蒸汽腐蚀与CMAS沉积导致涂层退化失效。', 'supporting_papers': [{'id': 'paper_7e48fe24', 
+'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 
+'local_success'}, {'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.2.6 ：第一性原理研究尚不充分。', 'core_argument': '：第一性原理研究尚不充分。', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.2.7 ：材料长期腐蚀行为研究不足，公众与政策关注欠缺。', 'core_argument': '：材料长期腐蚀行为研究不足，公众与政策关注欠缺。', 'supporting_papers': [{'id': 
+'paper_7e48fe24', 'url': 'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 
+'status': 'local_success'}, {'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.2.8 ：学科交叉复杂，统筹挑战难度大。', 'core_argument': '：学科交叉复杂，统筹挑战难度大。', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}, {'subsection_title': '3.2.9 ：未来十年面临挑战。', 'core_argument': '：未来十年面临挑战。', 'supporting_papers': [{'id': 'paper_7e48fe24', 'url': 
+'https://www.nature.com/articles/s41529-019-0075-4.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_7e48fe24.pdf', 'status': 'local_success'},
+{'id': 'paper_6557c4d1', 'url': 'https://cdn.techscience.press/files/cmc/2024/TSP_CMC-81-2/TSP_CMC_54691/TSP_CMC_54691.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_6557c4d1.pdf', 'status': 'local_success'}, {'id': 'paper_72009ba6', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s44251-023-00005-6.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_72009ba6.pdf', 'status': 
+'local_success'}, {'id': 'paper_f1f90899', 'url': 'https://link.springer.com/content/pdf/10.1007/s11666-019-00857-1.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f1f90899.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'url': 'https://www.mdpi.com/1996-1073/16/2/668/pdf?version=1673513161', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.intechopen.com/chapters/22905', 'url': 'https://www.intechopen.com/chapters/22905', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-6463/aa76f5/pdf', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/maco.202213140', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_4d25edf2', 'url': 'https://www.nature.com/articles/s41467-024-46753-3.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_4d25edf2.pdf', 
+'status': 'local_success'}]}]}]}, {'chapter_title': '4. 数字孪生与智能监测系统', 'core_argument': '数字孪生与先进传感器实现全生命周期监控，但跨域集成与可靠性待突破。', 'sections': [{'section_title': '4.1 
+核心技术突破与当前主流范式', 'core_argument': '多领域实现关键材料与工艺突破，推动先进制造、可持续能源与智能系统发展。', 'subsections': [{'subsection_title': '4.1.1 
+：数字孪生实现物理与虚拟机器间双向数据集成', 'core_argument': '：数字孪生实现物理与虚拟机器间双向数据集成', 'supporting_papers': [{'id': 'paper_f4abf9c8', 'url': 
+'https://wes.copernicus.org/articles/1/1/2016/wes-1-1-2016.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f4abf9c8.pdf', 'status': 
+'local_success'}, {'id': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'url': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 
+'online_only'}]}, {'subsection_title': '4.1.2 ：数字孪生融合高精度仿真与全生命周期数据，实现飞行器安全可靠性跃升', 'core_argument': '：数字孪生融合高精度仿真与全生命周期数据，实现飞行器安全可靠性跃升', 
+'supporting_papers': [{'id': 'paper_f4abf9c8', 'url': 'https://wes.copernicus.org/articles/1/1/2016/wes-1-1-2016.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f4abf9c8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'url': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '4.1.3 ：综述光纤、激光、声学等先进传感器在无损检测与结构健康监测中的应用', 'core_argument': '：综述光纤、激光、声学等先进传感器在无损检测与结构健康监测中的应用', 'supporting_papers': 
+[{'id': 'paper_f4abf9c8', 'url': 'https://wes.copernicus.org/articles/1/1/2016/wes-1-1-2016.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f4abf9c8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'url': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '4.1.4 ：提出风能领域11个方向的长期基础研究愿景', 'core_argument': '：提出风能领域11个方向的长期基础研究愿景', 'supporting_papers': [{'id': 'paper_f4abf9c8', 'url': 
+'https://wes.copernicus.org/articles/1/1/2016/wes-1-1-2016.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f4abf9c8.pdf', 'status': 
+'local_success'}, {'id': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'url': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 
+'online_only'}]}]}, {'section_title': '4.2 技术局限性与实施瓶颈', 'core_argument': '尽管取得进展，但效率、成本、可靠性与规模化之间存在显著矛盾。', 'subsections': [{'subsection_title': '4.2.1 
+：面临技术融合与跨领域应用挑战。', 'core_argument': '：面临技术融合与跨领域应用挑战。', 'supporting_papers': [{'id': 'paper_f4abf9c8', 'url': 'https://wes.copernicus.org/articles/1/1/2016/wes-1-1-2016.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f4abf9c8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'url': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '4.2.2 ：传统认证与维护方法难以应对极端工况与长效服役需求。', 'core_argument': '：传统认证与维护方法难以应对极端工况与长效服役需求。', 'supporting_papers': [{'id': 'paper_f4abf9c8', 
+'url': 'https://wes.copernicus.org/articles/1/1/2016/wes-1-1-2016.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f4abf9c8.pdf', 'status': 
+'local_success'}, {'id': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'url': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 
+'online_only'}]}, {'subsection_title': '4.2.3 ：各类技术在可靠性、成本与数据解析方面仍存挑战。', 'core_argument': '：各类技术在可靠性、成本与数据解析方面仍存挑战。', 'supporting_papers': [{'id': 
+'paper_f4abf9c8', 'url': 'https://wes.copernicus.org/articles/1/1/2016/wes-1-1-2016.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f4abf9c8.pdf', 'status': 'local_success'}, {'id': 
+'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'url': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'local_path': None, 'status': 'online_only'}, {'id': 
+'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '4.2.4 ：非完备性，仅为eawe专家视角，需全球进一步探讨。', 'core_argument': '：非完备性，仅为eawe专家视角，需全球进一步探讨。', 'supporting_papers': [{'id': 'paper_f4abf9c8', 'url': 
+'https://wes.copernicus.org/articles/1/1/2016/wes-1-1-2016.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f4abf9c8.pdf', 'status': 
+'local_success'}, {'id': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'url': 'https://www.sciencedirect.com/science/article/pii/S0141029621003813', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'url': 'https://www.mdpi.com/1424-8220/23/4/2204/pdf?version=1677141796', 'local_path': None, 'status': 
+'online_only'}, {'id': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 
+'status': 'online_only'}, {'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 
+'online_only'}]}]}, {'section_title': '4.3 前沿融合方向与未来破局点', 'core_argument': '跨学科融合AI建模、数字孪生与新型功能材料，寻求系统级优化路径。', 'subsections': [{'subsection_title': '4.3.2 
+数字孪生赋能全生命周期管理', 'core_argument': '集成传感器与虚拟模型，提升极端环境服役可靠性与预测维护能力。', 'supporting_papers': [{'id': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 
+'url': 'https://ieeexplore.ieee.org/ielx7/6287639/8948470/09103025.pdf', 'local_path': None, 'status': 'online_only'}, {'id': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 
+'url': 'https://ntrs.nasa.gov/api/citations/20120008178/downloads/20120008178.pdf', 'local_path': None, 'status': 'online_only'}]}]}]}, {'chapter_title': '5. 净零排放与可持续能源系统', 'core_argument': 
+'技术可行路径已现，但跨行业协同、成本与公正转型构成核心实施障碍。', 'sections': [{'section_title': '5.1 核心技术突破与当前主流范式', 'core_argument': 
+'多领域实现关键材料与工艺突破，推动先进制造、可持续能源与智能系统发展。', 'subsections': [{'subsection_title': '5.1.1 ：现有技术可实现难减排领域净零排放', 'core_argument': 
+'：现有技术可实现难减排领域净零排放', 'supporting_papers': [{'id': 'https://www.sciencedirect.com/science/article/pii/S0360128520301118', 'url': 
+'https://www.sciencedirect.com/science/article/pii/S0360128520301118', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.apenergy.2020.114848', 'url': 
+'https://doi.org/10.1016/j.apenergy.2020.114848', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_09e222b5', 'url': 'https://link.springer.com/content/pdf/10.1007%2F978-3-319-39095-6.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_09e222b5.pdf', 'status': 'local_success'}, {'id': 'paper_e6b100d9', 'url': 
+'https://www.nature.com/articles/s41586-019-1702-5.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e6b100d9.pdf', 'status': 'local_success'},
+{'id': 'https://openalex.org/W2980558678', 'url': 'https://openalex.org/W2980558678', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_37bfa1d2', 'url': 
+'https://www.osti.gov/servlets/purl/1460617', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_37bfa1d2.pdf', 'status': 'local_success'}, {'id': 
+'paper_e972c10a', 'url': 'https://strathprints.strath.ac.uk/70621/1/Zhai_etal_APSS_2019_Investigations_on_the_oxidation_phenomenon_of_SiC_SiC_fabricated.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e972c10a.pdf', 'status': 'local_success'}]}, {'subsection_title': '5.1.2 ：供需协同可实现工业净零排放', 
+'core_argument': '：供需协同可实现工业净零排放', 'supporting_papers': [{'id': 'https://www.sciencedirect.com/science/article/pii/S0360128520301118', 'url': 
+'https://www.sciencedirect.com/science/article/pii/S0360128520301118', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.apenergy.2020.114848', 'url': 
+'https://doi.org/10.1016/j.apenergy.2020.114848', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_09e222b5', 'url': 'https://link.springer.com/content/pdf/10.1007%2F978-3-319-39095-6.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_09e222b5.pdf', 'status': 'local_success'}, {'id': 'paper_e6b100d9', 'url': 
+'https://www.nature.com/articles/s41586-019-1702-5.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e6b100d9.pdf', 'status': 'local_success'},
+{'id': 'https://openalex.org/W2980558678', 'url': 'https://openalex.org/W2980558678', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_37bfa1d2', 'url': 
+'https://www.osti.gov/servlets/purl/1460617', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_37bfa1d2.pdf', 'status': 'local_success'}, {'id': 
+'paper_e972c10a', 'url': 'https://strathprints.strath.ac.uk/70621/1/Zhai_etal_APSS_2019_Investigations_on_the_oxidation_phenomenon_of_SiC_SiC_fabricated.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e972c10a.pdf', 'status': 'local_success'}]}]}, {'section_title': '5.2 技术局限性与实施瓶颈', 'core_argument': 
+'尽管取得进展，但效率、成本、可靠性与规模化之间存在显著矛盾。', 'subsections': [{'subsection_title': '5.2.1 ：依赖成本降低、跨行业协同与长期技术部署。', 'core_argument': 
+'：依赖成本降低、跨行业协同与长期技术部署。', 'supporting_papers': [{'id': 'https://www.sciencedirect.com/science/article/pii/S0360128520301118', 'url': 
+'https://www.sciencedirect.com/science/article/pii/S0360128520301118', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.apenergy.2020.114848', 'url': 
+'https://doi.org/10.1016/j.apenergy.2020.114848', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_09e222b5', 'url': 'https://link.springer.com/content/pdf/10.1007%2F978-3-319-39095-6.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_09e222b5.pdf', 'status': 'local_success'}, {'id': 'paper_e6b100d9', 'url': 
+'https://www.nature.com/articles/s41586-019-1702-5.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e6b100d9.pdf', 'status': 'local_success'},
+{'id': 'https://openalex.org/W2980558678', 'url': 'https://openalex.org/W2980558678', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_37bfa1d2', 'url': 
+'https://www.osti.gov/servlets/purl/1460617', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_37bfa1d2.pdf', 'status': 'local_success'}, {'id': 
+'paper_e972c10a', 'url': 'https://strathprints.strath.ac.uk/70621/1/Zhai_etal_APSS_2019_Investigations_on_the_oxidation_phenomenon_of_SiC_SiC_fabricated.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e972c10a.pdf', 'status': 'local_success'}]}, {'subsection_title': '5.2.2 ：需兼顾公正转型与低收入国家发展。', 
+'core_argument': '：需兼顾公正转型与低收入国家发展。', 'supporting_papers': [{'id': 'https://www.sciencedirect.com/science/article/pii/S0360128520301118', 'url': 
+'https://www.sciencedirect.com/science/article/pii/S0360128520301118', 'local_path': None, 'status': 'online_only'}, {'id': 'https://doi.org/10.1016/j.apenergy.2020.114848', 'url': 
+'https://doi.org/10.1016/j.apenergy.2020.114848', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_09e222b5', 'url': 'https://link.springer.com/content/pdf/10.1007%2F978-3-319-39095-6.pdf', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_09e222b5.pdf', 'status': 'local_success'}, {'id': 'paper_e6b100d9', 'url': 
+'https://www.nature.com/articles/s41586-019-1702-5.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e6b100d9.pdf', 'status': 'local_success'},
+{'id': 'https://openalex.org/W2980558678', 'url': 'https://openalex.org/W2980558678', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_37bfa1d2', 'url': 
+'https://www.osti.gov/servlets/purl/1460617', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_37bfa1d2.pdf', 'status': 'local_success'}, {'id': 
+'paper_e972c10a', 'url': 'https://strathprints.strath.ac.uk/70621/1/Zhai_etal_APSS_2019_Investigations_on_the_oxidation_phenomenon_of_SiC_SiC_fabricated.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_e972c10a.pdf', 'status': 'local_success'}]}]}]}, {'chapter_title': '6. 航空航天系统智能化与电气化', 
+'core_argument': '电动推进与智能算法重塑飞行器设计，基础设施与认证体系滞后于技术创新。', 'sections': [{'section_title': '6.1 核心技术突破与当前主流范式', 'core_argument': 
+'多领域实现关键材料与工艺突破，推动先进制造、可持续能源与智能系统发展。', 'subsections': [{'subsection_title': '6.1.1 ：提出联合优化算法，实现多用户MIMO系统中计算卸载的能效最优', 'core_argument': 
+'：提出联合优化算法，实现多用户MIMO系统中计算卸载的能效最优', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.1.2 ：新型材料提升航空电机功率密度与效率', 
+'core_argument': '：新型材料提升航空电机功率密度与效率', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.1.3 
+：热塑性复合材料+折叠翼尖+增材制造可显著减重增效，“终极”齿轮传动风扇+多电架构平衡性能与风险', 'core_argument': '：热塑性复合材料+折叠翼尖+增材制造可显著减重增效，“终极”齿轮传动风扇+多电架构平衡性能与风险', 
+'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.1.4 
+：汇集全球130余专家，推动绿色航空知识共享', 'core_argument': '：汇集全球130余专家，推动绿色航空知识共享', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.1.5 ：外部审计揭示AI系统社会风险', 
+'core_argument': '：外部审计揭示AI系统社会风险', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.1.6 
+：QUTAC提出24个高价值用例，推动量子计算产业化', 'core_argument': '：QUTAC提出24个高价值用例，推动量子计算产业化', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}]}, {'section_title': '6.2 技术局限性与实施瓶颈', 'core_argument': 
+'尽管取得进展，但效率、成本、可靠性与规模化之间存在显著矛盾。', 'subsections': [{'subsection_title': '6.2.1 ：问题非凸，仅能收敛至局部最优。', 'core_argument': '：问题非凸，仅能收敛至局部最优。', 
+'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.2.2 ：依赖稀土、散热难、环保与回收挑战。', 
+'core_argument': '：依赖稀土、散热难、环保与回收挑战。', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.2.3 
+：开式转子可行性低，技术存在性能瓶颈与集成挑战。', 'core_argument': '：开式转子可行性低，技术存在性能瓶颈与集成挑战。', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 
+'https://arxiv.org/pdf/1412.8416', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.2.4 ：仅90余篇摘要投稿，覆盖面有限。', 
+'core_argument': '：仅90余篇摘要投稿，覆盖面有限。', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.2.5 ：部署前难预判危害，事后溯源困难。', 
+'core_argument': '：部署前难预判危害，事后溯源困难。', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}, {'subsection_title': '6.2.6 
+：生态尚处初期，依赖应用验证与技术成熟。', 'core_argument': '：生态尚处初期，依赖应用验证与技术成熟。', 'supporting_papers': [{'id': 'paper_752b0e22', 'url': 'https://arxiv.org/pdf/1412.8416', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_752b0e22.pdf', 'status': 'local_success'}, {'id': 
+'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'url': 'https://www.mdpi.com/2673-4591/80/1/51/pdf?version=1761531550', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_b80762d0',
+'url': 'https://epjquantumtechnology.springeropen.com/track/pdf/10.1140/epjqt/s40507-021-00114-x', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_b80762d0.pdf', 'status': 'local_success'}, {'id': 'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'url': 
+'https://dl.acm.org/doi/pdf/10.1145/3351095.3372873', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_3193a8ad', 'url': 'https://drpress.org/ojs/index.php/HSET/article/download/27865/27382', 
+'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_3193a8ad.pdf', 'status': 'local_success'}, {'id': 'paper_8e590d85', 'url': 
+'https://upcommons.upc.edu/bitstreams/cfa90842-1b41-4a2b-b760-c10a104361ed/download', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_8e590d85.pdf', 'status': 'local_success'}]}]}]}, {'chapter_title': '7. 新型功能材料的开发与建模', 
+'core_argument': '高熵合金、二维材料等前沿突破性能边界，但可控制备与多尺度模拟仍受限。', 'sections': [{'section_title': '7.1 核心技术突破与当前主流范式', 'core_argument': 
+'多领域实现关键材料与工艺突破，推动先进制造、可持续能源与智能系统发展。', 'subsections': [{'subsection_title': '7.1.1 ：机器学习实现高熵合金成分精准预测', 'core_argument': 
+'：机器学习实现高熵合金成分精准预测', 'supporting_papers': [{'id': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_ac92764f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 
+'local_success'}, {'id': 'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.1.2 ：硼烯具高载流子迁移率、可调带隙与优异热导', 'core_argument': '：硼烯具高载流子迁移率、可调带隙与优异热导', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.1.3 ：卫星通信迎来技术革新与应用拓展', 'core_argument': '：卫星通信迎来技术革新与应用拓展', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.1.4 ：系统综述扩频技术理论与应用，覆盖抗干扰、同步及多址等关键技术', 'core_argument': '：系统综述扩频技术理论与应用，覆盖抗干扰、同步及多址等关键技术', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.1.5 ：模拟成为连接材料科学与工程设计的桥梁，推动多尺度定量预测', 'core_argument': '：模拟成为连接材料科学与工程设计的桥梁，推动多尺度定量预测', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.1.6 ：柔性可穿戴设备实现实时生理监测与闭环诊疗', 'core_argument': '：柔性可穿戴设备实现实时生理监测与闭环诊疗', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.1.7 ：磁材合金应用缓解稀土供需失衡，回收稀土可转用于铝镁合金', 'core_argument': '：磁材合金应用缓解稀土供需失衡，回收稀土可转用于铝镁合金', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}]}, 
+{'section_title': '7.2 技术局限性与实施瓶颈', 'core_argument': '尽管取得进展，但效率、成本、可靠性与规模化之间存在显著矛盾。', 'subsections': [{'subsection_title': '7.2.1 ：传统试错法效率低、耗时长。', 
+'core_argument': '：传统试错法效率低、耗时长。', 'supporting_papers': [{'id': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_ac92764f', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 
+'local_success'}, {'id': 'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.2.2 ：合成依赖金属衬底，可控生长仍受限。', 'core_argument': '：合成依赖金属衬底，可控生长仍受限。', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.2.3 ：系统、接口、组网等多领域存在研究挑战。', 'core_argument': '：系统、接口、组网等多领域存在研究挑战。', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.2.4 ：未提及具体技术瓶颈或实际部署挑战。', 'core_argument': '：未提及具体技术瓶颈或实际部署挑战。', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.2.5 ：跨学科多尺度建模仍存挑战，需提升方法可重复性与计算生态协同。', 'core_argument': '：跨学科多尺度建模仍存挑战，需提升方法可重复性与计算生态协同。', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.2.6 ：面临数据安全、能源管理及临床整合挑战。', 'core_argument': '：面临数据安全、能源管理及临床整合挑战。', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}, 
+{'subsection_title': '7.2.7 ：铕、铽、钇等回收稀土需求下降，短期过剩难消。', 'core_argument': '：铕、铽、钇等回收稀土需求下降，短期过剩难消。', 'supporting_papers': [{'id': 
+'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'url': 'https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/adma.201706910', 'local_path': None, 'status': 'online_only'}, {'id': 
+'paper_ac92764f', 'url': 'https://link.springer.com/content/pdf/10.1007/s40831-018-0162-8.pdf', 'local_path': 
+'/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_ac92764f.pdf', 'status': 'local_success'}, {'id': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'url': 
+'https://www.accessengineeringlibrary.com/binary/mheaeworks/33b8b38eff7e10f3/c0617801124a9d7ff360e72a95b112b9b295a6aae46732f958f8173eb1941716/book-summary.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://openalex.org/W4396809383', 'url': 'https://openalex.org/W4396809383', 'local_path': None, 'status': 'online_only'}, {'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}, {'id': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'url': 'https://ieeexplore.ieee.org/ielx7/9739/9361471/09210567.pdf', 'local_path': None, 'status': 'online_only'}, 
+{'id': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'url': 'https://iopscience.iop.org/article/10.1088/1361-651X/ab7150/pdf', 'local_path': None, 'status': 'online_only'}]}]}, 
+{'section_title': '7.3 前沿融合方向与未来破局点', 'core_argument': '跨学科融合AI建模、数字孪生与新型功能材料，寻求系统级优化路径。', 'subsections': [{'subsection_title': '7.3.1 
+AI驱动的多尺度建模与智能制造协同', 'core_argument': '结合机器学习与物理仿真，加速高熵合金、复合材料等新材料研发周期。', 'supporting_papers': [{'id': 'paper_f269d1d2', 'url': 
+'https://link.springer.com/content/pdf/10.1007/s42247-021-00249-8.pdf', 'local_path': '/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260415_173034/paper_f269d1d2.pdf', 'status': 
+'local_success'}]}]}]}]
