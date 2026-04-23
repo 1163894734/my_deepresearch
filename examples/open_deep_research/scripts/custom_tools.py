@@ -1,45 +1,39 @@
 import os
 import json
+import re
+import ast
+import copy
+import time
+import ssl
+import hashlib
 import urllib.request
 import urllib.parse
+import urllib.error
 import xml.etree.ElementTree as ET
-import time
-import re
-import copy
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from smolagents import Tool
-# ... existing code ...
-import ast
-# 引入你的统一模型提供者
-import utils.common_utils as common_utils
-import fitz  # PyMuPDF，极速且能精准拿页码
+
 import numpy as np
+import fitz  # PyMuPDF
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from smolagents import Tool
 
+# 引入你的统一模型提供者
+import utils.common_utils as common_utils
 # 全局单例加载模型，利用 Mac M 系列芯片的 MPS 加速（或 CPU）
 # 推荐使用 BAAI 针对学术优化的轻量级模型
 EMBEDDER = SentenceTransformer('BAAI/bge-small-zh-v1.5', device='cpu') 
 RERANKER = CrossEncoder('BAAI/bge-reranker-base', device='cpu')
 
 
-import os
-import urllib.request
-import numpy as np
-from rank_bm25 import BM25Okapi
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-import fitz  # PyMuPDF
-import re
-
 # 建议在类外部定义缓存，避免重复加载
 PDF_CACHE = {}
 WEB_CACHE = {}
 
-# 【新增】全局文献元数据字典，用于最后生成标准的参考文献表
-GLOBAL_META = {} 
-
+# 物理层面上的全局共享内存
+GLOBAL_MEMORY = {}
 class UniversalRAGTool(Tool):
     name = "tool_universal_rag"
     description = "全能RAG工具。能同时解析本地PDF和在线网页URL，提取与核心论点最相关的干货片段。"
@@ -52,31 +46,45 @@ class UniversalRAGTool(Tool):
     output_type = "string"
 
     def forward(self, query: str, local_papers: list, online_urls: list, top_k: int = 5) -> str:
+        import ssl
+        import json
+        import urllib.request
+        import re
+        import numpy as np
+        
         all_chunks = []
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1200,      # 扩大到1200字，足以包含一个完整的复杂学术段落
-            chunk_overlap=250,    # 增加重叠度，防止关键的“上下文承接”被切断
-            separators=["\n\n", "。", "\n", ".", "；"] # 优先按双换行和句号切
+            chunk_size=1200,      
+            chunk_overlap=250,    
+            separators=["\n\n", "。", "\n", ".", "；"] 
         )
-        print(f"[RAG] 启动混合检索 | Query: {query[:15]}... | PDF: {len(local_papers)}篇 | Web: {len(online_urls)}个")
+        
+        # 1. Query 净化：剥离大模型强加的写作用指令词，提取纯净的学术语义用于检索
+        clean_query = query
+        stop_words = ["具体方法", "实验数据", "提升指标", "性能对比", "百分比", "具体数值", "详细阐述"]
+        for word in stop_words:
+            clean_query = clean_query.replace(word, "")
+        clean_query = re.sub(r'[^\w\u4e00-\u9fa5a-zA-Z0-9]+', ' ', clean_query).strip()
 
-        # 1. 解析本地 PDF 并汇入总池
+        print(f"[RAG] 启动混合检索 | 净化Query: {clean_query[:25]}... | PDF: {len(local_papers)}篇 | Web: {len(online_urls)}个")
+
+        # 2. 解析本地 PDF 并汇入总池
         for paper in local_papers:
             pid, path = paper.get('id'), paper.get('local_path')
             if path and os.path.exists(path):
-                # 【新增】提取 PDF 元数据存入 GLOBAL_META
-                if pid not in GLOBAL_META:
+                if pid not in GLOBAL_MEMORY.get("PAPER_DB", {}):
+                    GLOBAL_MEMORY.setdefault("PAPER_DB", {})
                     try:
                         with fitz.open(path) as pdf:
                             meta = pdf.metadata
-                            GLOBAL_META[pid] = {
+                            GLOBAL_MEMORY["PAPER_DB"][pid] = {
                                 "type": "paper",
                                 "title": meta.get("title") or os.path.basename(path),
                                 "author": meta.get("author") or "Unknown Author",
                                 "year": meta.get("creationDate", "    ")[2:6] if meta.get("creationDate") else "N/A"
                             }
-                    except Exception as e:
-                        GLOBAL_META[pid] = {"type": "paper", "title": os.path.basename(path), "author": "Unknown", "year": "N/A"}
+                    except Exception:
+                        GLOBAL_MEMORY["PAPER_DB"][pid] = {"type": "paper", "title": os.path.basename(path), "author": "Unknown", "year": "N/A"}
 
                 if path not in PDF_CACHE:
                     chunks = []
@@ -92,41 +100,98 @@ class UniversalRAGTool(Tool):
                         print(f"  ⚠️ PDF解析失败 {path}: {e}")
                 all_chunks.extend(PDF_CACHE.get(path, []))
 
-        # 2. 解析在线网页 (Jina Reader) 并汇入总池
+        # 3. 解析在线网页并汇入总池 (包含 OpenAlex API 拦截和 SSL 绕过)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        
+        memory_lookup = {}
+        for p in GLOBAL_MEMORY.get("retrieved_papers", []):
+            if p.get("id"): memory_lookup[p["id"]] = p
+
         for url in online_urls:
-            # 【新增】先用 URL 占位，防止提取失败没有数据
-            if url not in GLOBAL_META:
-                GLOBAL_META[url] = {"type": "web", "title": url, "url": url}
+            if url not in GLOBAL_MEMORY.get("PAPER_DB", {}):
+                GLOBAL_MEMORY.setdefault("PAPER_DB", {})
+                GLOBAL_MEMORY["PAPER_DB"][url] = {"type": "web", "title": url, "url": url}
 
             if url not in WEB_CACHE:
                 chunks = []
-                try:
-                    req = urllib.request.Request(f"https://r.jina.ai/{url}", headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req, timeout=15) as response:
-                        content = response.read().decode('utf-8')
+                is_processed = False
+                
+                oa_match = re.search(r'(W\d{8,})', url)
+                if oa_match:
+                    work_id = oa_match.group(1)
+                    matched_paper = memory_lookup.get(work_id)
+                    
+                    if matched_paper and matched_paper.get("abstract") and matched_paper.get("abstract") != "No abstract available.":
+                        title = matched_paper.get("title", url)
+                        GLOBAL_MEMORY["PAPER_DB"][url].update({
+                            "title": title,
+                            "author": matched_paper.get("author", "未知学者"),
+                            "year": str(matched_paper.get("year", "N/A"))
+                        })
+                        text_content = f"【论文标题】: {title}\n【完整摘要】: {matched_paper['abstract']}"
+                        for c in splitter.split_text(text_content):
+                            chunks.append({"source_id": url, "page": "文献摘要(内存)", "text": c})
+                        is_processed = True
                         
-                        # 【新增】从 Jina 的 Markdown 返回中截取网页标题
-                        for line in content.split('\n')[:15]:
-                            if line.startswith("Title: "):
-                                GLOBAL_META[url]["title"] = line.replace("Title: ", "").strip()
-                                break
+                    if not is_processed:
+                        try:
+                            req = urllib.request.Request(f"https://api.openalex.org/works/{work_id}", headers={'User-Agent': 'Mozilla/5.0'})
+                            with urllib.request.urlopen(req, timeout=10) as response:
+                                data = json.loads(response.read().decode('utf-8'))
+                                
+                                inv_idx = data.get('abstract_inverted_index')
+                                abstract = "未提供摘要内容。"
+                                if inv_idx:
+                                    max_idx = max(max(positions) for positions in inv_idx.values())
+                                    words = [""] * (max_idx + 1)
+                                    for word, positions in inv_idx.items():
+                                        for pos in positions: words[pos] = word
+                                    abstract = " ".join(words).strip()
+                                
+                                title = data.get('title', url)
+                                authorships = data.get('authorships', [])
+                                author = authorships[0].get('author', {}).get('display_name', '未知学者') if authorships else '未知学者'
+                                year = str(data.get('publication_year', 'N/A'))
+                                
+                                GLOBAL_MEMORY["PAPER_DB"][url].update({"title": title, "author": author, "year": year})
+                                
+                                text_content = f"【论文标题】: {title}\n【完整摘要】: {abstract}"
+                                for c in splitter.split_text(text_content):
+                                    chunks.append({"source_id": url, "page": "官方摘要(API直连)", "text": c})
+                                is_processed = True
+                        except Exception as e:
+                            pass
 
-                        for c in splitter.split_text(content):
-                            chunks.append({"source_id": url, "page": "网页正文", "text": c})
-                    WEB_CACHE[url] = chunks
-                except Exception as e:
-                    print(f"  ⚠️ 网页提取失败 {url}: {e}")
+                if not is_processed:
+                    try:
+                        req = urllib.request.Request(f"https://r.jina.ai/{url}", headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req, context=ctx, timeout=15) as response:
+                            content = response.read().decode('utf-8')
+                            for line in content.split('\n')[:15]:
+                                if line.startswith("Title: "):
+                                    GLOBAL_MEMORY["PAPER_DB"][url]["title"] = line.replace("Title: ", "").strip()
+                                    break
+                            for c in splitter.split_text(content):
+                                chunks.append({"source_id": url, "page": "网页正文", "text": c})
+                    except Exception as e:
+                        pass
+                        
+                WEB_CACHE[url] = chunks
+            
             all_chunks.extend(WEB_CACHE.get(url, []))
 
         if not all_chunks: 
             return "未提取到可用文本，请直接基于常识撰写。"
 
-        # 3. 混合池双路检索与重排 (逻辑完全保持你原本的设计)
-        tokenized = [list(c["text"]) for c in all_chunks]
-        bm25_scores = BM25Okapi(tokenized).get_scores(list(query))
+        # 4. 混合池双路检索与重排
+        tokenized_corpus = [list(c["text"]) for c in all_chunks]
+        tokenized_query = list(clean_query.replace(" ", ""))
+        bm25_scores = BM25Okapi(tokenized_corpus).get_scores(tokenized_query)
         
         c_emb = EMBEDDER.encode([c["text"] for c in all_chunks], normalize_embeddings=True)
-        q_emb = EMBEDDER.encode(query, normalize_embeddings=True)
+        q_emb = EMBEDDER.encode(clean_query, normalize_embeddings=True)
         vec_scores = np.dot(c_emb, q_emb)
         
         bn = (bm25_scores - np.min(bm25_scores)) / (np.max(bm25_scores) - np.min(bm25_scores) + 1e-9)
@@ -136,23 +201,42 @@ class UniversalRAGTool(Tool):
         top_n_candidates = min(30, len(all_chunks))
         candidates = [all_chunks[i] for i in np.argsort(hybrid)[::-1][:top_n_candidates]]
         
-        cross_inp = [[query, c["text"]] for c in candidates]
+        cross_inp = [[clean_query, c["text"]] for c in candidates]
         rerank_scores = RERANKER.predict(cross_inp)
         
-        final_k = min(top_k, len(candidates))
-        final_chunks = [candidates[i] for i in np.argsort(rerank_scores)[::-1][:final_k]]
+        # 🚀 5. 核心打散机制：强制同源去重
+        sorted_indices = np.argsort(rerank_scores)[::-1]
+        final_chunks = []
+        source_counts = {}
+        skipped_chunks = []
         
-        # 4. 组装语料
-        res = f"【检索查询】: {query}\n\n"
-        for i, c in enumerate(final_chunks):
-            # 【核心修改】强制给来源加上 `REF:` 前缀，这是为了防止大模型将它和普通的数字混淆
-            res += f"--- 论据 {i+1} ---\n📑 来源标号: [REF:{c['source_id']}]\n📄 定位: {c['page']}\n📝 原文: {c['text']}\n\n"
-        # 5. 组装语料，精准透出出处和【作者信息】
-        res = f"【检索查询】: {query}\n\n"
+        # 强控参数：同一篇论文最多只能抽取 2 个片段
+        max_chunks_per_source = 2 
+        
+        for idx in sorted_indices:
+            c = candidates[idx]
+            sid = c["source_id"]
+            
+            if source_counts.get(sid, 0) < max_chunks_per_source:
+                final_chunks.append(c)
+                source_counts[sid] = source_counts.get(sid, 0) + 1
+            else:
+                skipped_chunks.append(c)
+                
+            if len(final_chunks) >= top_k:
+                break
+                
+        # 兜底机制：如果检索到的不同文献总数太少（导致没凑齐 top_k）
+        # 则从刚刚被跳过的高分片段中补齐，保证大模型有足够的文字量
+        if len(final_chunks) < top_k:
+            needed = top_k - len(final_chunks)
+            final_chunks.extend(skipped_chunks[:needed])
+        
+        # 6. 组装最终喂给大模型的语料
+        res = f"【检索查询】: {query}\n\n" 
         for i, c in enumerate(final_chunks):
             ref_id = c['source_id']
-            meta = GLOBAL_META.get(ref_id, {})
-            # 尝试提取作者和年份
+            meta = GLOBAL_MEMORY.get("PAPER_DB", {}).get(ref_id, {})
             author = meta.get("author", "某研究团队")
             year = meta.get("year", "近年")
             
@@ -161,6 +245,9 @@ class UniversalRAGTool(Tool):
             res += f"📑 来源标号: [REF:{ref_id}]\n"
             res += f"📄 定位: {c['page']}\n"
             res += f"📝 原文: {c['text']}\n\n"
+            
+        # 打印打散后的来源统计，方便你在控制台监控
+        print(f"  [+] ♻️ 打散完成，共选取 {len(final_chunks)} 个片段，来自 {len(source_counts)} 篇不同文献。")
             
         return res
 
@@ -272,7 +359,7 @@ class AcademicRAGTool(Tool):
 # =====================================================================
 class AcademicSearchTool(Tool):
     name = "tool_academic_search"
-    description = "用于在 ArXiv 或 OpenAlex 上检索学术论文。输入英文关键词，返回论文基础信息的 JSON 列表。"
+    description = "用于在 ArXiv 或 OpenAlex 上检索学术论文。输入英文关键词，返回论文基础信息的 JSON 列表。会自动将检索结果双向同步到全局内存 `retrieved_papers` (列表) 和 `PAPER_DB` (字典字典) 中。"
     inputs = {
         "search_queries": {
             "type": "array",
@@ -291,7 +378,7 @@ class AcademicSearchTool(Tool):
         },
         "max_results_per_query": {
             "type": "integer", 
-            "description": "每个检索词的最大返回文献数，默认 10", # <=== 补上这行
+            "description": "每个检索词的最大返回文献数，默认 10", 
             "nullable": True
         }
     }
@@ -330,7 +417,6 @@ class AcademicSearchTool(Tool):
                             if not title or title in all_papers: continue
 
                             # 获取会议/期刊信息
-                            # 或者从 primary_location 获取
                             primary_location = paper.get('primary_location') or {}
                             source = primary_location.get('source') or {}
                             venue_name = source.get('display_name', '')
@@ -341,6 +427,17 @@ class AcademicSearchTool(Tool):
                             authors = [a.get('author', {}).get('display_name', '') for a in authorships]
                             authors = [a for a in authors if a]
                             author_str = ", ".join(authors) if authors else "Unknown Author"
+
+                            # 前三个作者，后面的用 et al.
+                            author_display = ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else "") if authors else "Unknown Author"
+                            
+                            year = str(paper.get('publication_year', 'Unknown'))
+                            oa_id = paper.get('id', '')
+                            
+                            # 组装 IEEE 风格引用
+                            std_cite = f'{author_display}. "{title}."'
+                            if venue_name: std_cite += f' *{venue_name}*,'
+                            std_cite += f' {year}. 取自: {oa_id}'
                             
                             oa_data = paper.get('open_access', {})
                             raw_pdf_url = oa_data.get('oa_url', '') if oa_data.get('is_oa') else ""
@@ -354,12 +451,13 @@ class AcademicSearchTool(Tool):
                                 "id": paper.get('id', ''),
                                 "title": title,
                                 "year": str(paper.get('publication_year', 'Unknown')),
-                                "author": author_str,  # <=== 存入作者信息
+                                "author": author_str,
                                 "abstract": self._reconstruct_openalex_abstract(paper.get('abstract_inverted_index')),
                                 "pdf_url": pdf_url, 
                                 "source_query": query,
-                                "venue": venue_name,      # 新增：会议/期刊名称
-                                "venue_type": venue_type, # 新增：journal 或 conference
+                                "venue": venue_name,
+                                "venue_type": venue_type,
+                                "standard_citation": std_cite,
                             }
                 else: 
                     encoded_query = urllib.parse.quote(f'all:{query.strip()}')
@@ -372,29 +470,62 @@ class AcademicSearchTool(Tool):
                             title = entry.find('atom:title', ns).text.strip().replace('\n', ' ')
                             if not title or title in all_papers: continue
                             
-                            # 获取 ArXiv 作者信息
+                            # 🚀 提取作者并拼装 standard_citation
                             author_elements = entry.findall('atom:author/atom:name', ns)
                             authors = [a.text.strip() for a in author_elements if a.text]
-                            author_str = ", ".join(authors) if authors else "Unknown Author"
+                            author_display = ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else "") if authors else "Unknown Author"
                             
+                            year = entry.find('atom:published', ns).text.split('-')[0]
                             paper_id = entry.find('atom:id', ns).text.strip()
                             pdf_url = paper_id.replace('/abs/', '/pdf/') + ".pdf" 
                             abstract = entry.find('atom:summary', ns).text.strip().replace('\n', ' ')
                             
+                            # 组装 IEEE 风格引用
+                            std_cite = f'{author_display}. "{title}." *arXiv preprint*, {year}. 取自: {paper_id}'
+                            
                             all_papers[title] = {
                                 "id": paper_id,
                                 "title": title,
-                                "year": entry.find('atom:published', ns).text.split('-')[0],
-                                "author": author_str,  # <=== 存入作者信息
+                                "year": year,
+                                "author": author_display,
                                 "abstract": abstract,
                                 "pdf_url": pdf_url,
-                                "source_query": query
+                                "source_query": query,
+                                "standard_citation": std_cite # <=== 新增入库标准格式
                             }
             except Exception as e:
                 print(f"[AcademicSearchTool] 检索词 '{query}' 发生异常: {e}")
+
+        # ====================================================================
+        # 🚀 核心架构升级：双路数据入库
+        # ====================================================================
+        
+        # 1. 存入/更新 PAPER_DB (全局主键文献库 - 供下载器、RAG和参考文献生成使用)
+        if "PAPER_DB" not in GLOBAL_MEMORY:
+            GLOBAL_MEMORY["PAPER_DB"] = {}
+            
+        for paper_data in all_papers.values():
+            paper_id = paper_data.get("id")
+            if paper_id:
+                # 存入字典，以 O(1) 极速查询
+                GLOBAL_MEMORY["PAPER_DB"][paper_id] = paper_data
+
+        # 2. 追加至 retrieved_papers (流水线列表 - 供提纯智能体做并发摘要使用)
+        # 2. 追加至 retrieved_papers 并严格去重
         if "retrieved_papers" not in GLOBAL_MEMORY:
             GLOBAL_MEMORY["retrieved_papers"] = []
-        GLOBAL_MEMORY["retrieved_papers"].extend(list(all_papers.values()))
+            
+        # 提取当前列表中已有的文献 ID，转为集合(Set)实现 O(1) 极速去重查询
+        existing_ids = {p.get("id") for p in GLOBAL_MEMORY["retrieved_papers"] if p.get("id")}
+        
+        # 只把没出现过的新文献加进去
+        for paper in all_papers.values():
+            pid = paper.get("id")
+            if pid and pid not in existing_ids:
+                GLOBAL_MEMORY["retrieved_papers"].append(paper)
+        
+        print(f"[AcademicSearchTool] 入库完毕！当前 retrieved_papers 累积总数: {len(GLOBAL_MEMORY['retrieved_papers'])} | PAPER_DB 词条数: {len(GLOBAL_MEMORY['PAPER_DB'])}")
+        
         return list(all_papers.values())
 
 
@@ -408,7 +539,8 @@ class InsightExtractorTool(Tool):
         "raw_papers": {
             "type": "array",
             "items": {"type": "object"},
-            "description": "包含 id, title, abstract 的字典列表"
+            "description": "包含 id, title, abstract 的字典列表",
+            "nullable": True  # 允许直接从全局内存读取数据
         }
     }
     output_type = "any"
@@ -443,7 +575,10 @@ class InsightExtractorTool(Tool):
             "source_query": paper.get('source_query')
         }
 
-    def forward(self, raw_papers: list) -> list:
+    def forward(self, raw_papers: list = None) -> list:
+        if raw_papers is None:
+            # 直接从共享内存“白嫖”数据
+            raw_papers = GLOBAL_MEMORY.get("retrieved_papers", [])
         # 从全局 common_utils 获取模型实例
         model = common_utils.ModelProvider.get_model()
         compressed_papers = []
@@ -529,122 +664,96 @@ class SemanticClusterTool(Tool):
 # =====================================================================
 # 工具 4：大纲基建下载器 (The Downloader Tool)
 # =====================================================================
-import os
-import urllib.request
-import urllib.error
-import ssl
-import time
-import hashlib
-from smolagents import Tool  # 请根据你的框架调整
+
 
 class PaperDownloaderTool(Tool):
     name = "tool_paper_downloader"
-    description = "批量下载PDF文献。支持传入任意复杂的嵌套大纲字典或列表，工具会自动递归提取其中所有的 PDF URL 并进行下载。"
+    description = "批量下载PDF文献并静默更新全局文献库。传入大纲数据，自动提取其中的文献ID并执行下载。"
     inputs = {
-        "papers": {
+        "outline_data": {
             "type": "any",
-            "description": "包含文献URL的任意数据结构（可以是提取好的列表，也可以是整个嵌套的大纲字典）。"
+            "description": "包含文献ID的任意大纲数据结构"
         },
         "save_dir": {
             "type": "string",
             "description": "保存PDF的本地目录路径。"
         }
     }
-    output_type = "any"
+    output_type = "string"
 
-    def forward(self, papers, save_dir: str) -> dict:
-        os.makedirs(save_dir, exist_ok=True)
-        results = {}
+    def forward(self, outline_data, save_dir: str) -> str:
+        os.makedirs(os.path.join(save_dir, "pdfs"), exist_ok=True)
+        paper_db = GLOBAL_MEMORY.get("PAPER_DB", {})
         
-        # --- 🚀 核心修复：递归提取任意结构中的合法 URL 🚀 ---
-        urls_to_download = set()
-        def extract_urls(node):
+        # 1. 递归提取大纲中所有的文献 ID
+        ids_to_download = set()
+        def extract_ids(node):
             if isinstance(node, dict):
-                # 检查字典本身是否包含 url 字段
-                for key in ["pdf_url", "url", "link"]:
-                    val = node.get(key)
-                    if isinstance(val, str) and val.startswith("http"):
-                        urls_to_download.add(val.strip())
-                # 继续深层遍历
-                for k, v in node.items():
-                    if k == "supporting_papers" and isinstance(v, list):
-                        for item in v:
-                            if isinstance(item, str) and item.startswith("http"):
-                                urls_to_download.add(item.strip())
-                            elif isinstance(item, dict):
-                                extract_urls(item)
-                    else:
-                        extract_urls(v)
+                if "supporting_papers" in node and isinstance(node["supporting_papers"], list):
+                    for pid in node["supporting_papers"]:
+                        if isinstance(pid, str) and pid.strip():
+                            ids_to_download.add(pid.strip())
+                for v in node.values():
+                    extract_ids(v)
             elif isinstance(node, list):
                 for item in node:
-                    if isinstance(item, str) and item.startswith("http"):
-                        urls_to_download.add(item.strip())
-                    else:
-                        extract_urls(item)
+                    extract_ids(item)
 
-        extract_urls(papers)
-        url_list = list(urls_to_download)
-        
-        print(f"[PaperDownloaderTool] 智能扫描完成，共发现 {len(url_list)} 篇待下载文献...")
+        extract_ids(outline_data)
+        print(f"[Downloader] 扫描大纲发现 {len(ids_to_download)} 篇需引用的文献，开始静默下载...")
 
-        # 绕过严格的 SSL 证书校验
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-        # 浏览器伪装
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/pdf,application/octet-stream,*/*',
-        }
-
-        for url in url_list:
-            # 过滤明显不是 PDF 的假链接（图片等）
-            if url.lower().endswith(('.jpg', '.png', '.jpeg', '.gif')):
-                print(f"  [-] 跳过非PDF链接: {url}")
+        success_count = 0
+        for pid in ids_to_download:
+            paper_info = paper_db.get(pid)
+            if not paper_info: 
+                continue
+            
+            url = paper_info.get("pdf_url")
+            if not url or not str(url).startswith("http") or url.lower().endswith(('.jpg', '.png', '.gif')):
+                paper_db[pid]["status"] = "online_only"
                 continue
 
-            # 使用 URL 的哈希值或截取生成安全的 ID
-            paper_id = "paper_" + hashlib.md5(url.encode()).hexdigest()[:8]
-            safe_filename = paper_id + ".pdf"
-            local_path = os.path.join(save_dir,"pdfs", safe_filename)
+            safe_filename = "paper_" + hashlib.md5(url.encode()).hexdigest()[:8] + ".pdf"
+            local_path = os.path.join(save_dir, "pdfs", safe_filename)
+
+            # 缓存命中：如果本地已有，直接更新 DB
+            if os.path.exists(local_path):
+                paper_db[pid]["local_path"] = local_path
+                paper_db[pid]["status"] = "local_success"
+                success_count += 1
+                continue
 
             success = False
             for attempt in range(2):
                 try:
                     req = urllib.request.Request(url, headers=headers)
                     with urllib.request.urlopen(req, context=ctx, timeout=15) as response:
-                        content_type = response.headers.get('Content-Type', '').lower()
-                        # 放宽校验：只要不是网页(text/html)就尝试保存
-                        if 'text/html' in content_type:
-                            print(f"  [-] 下载失败: 目标是网页防爬拦截 (Content-Type: {content_type})")
-                            break
+                        if 'text/html' in response.headers.get('Content-Type', '').lower():
+                            break # 被反爬拦截，放弃
                             
                         with open(local_path, 'wb') as f:
                             f.write(response.read())
-                            
-                        print(f"  [+] 成功下载: {url}")
-                        results[paper_id] = {
-                            "status": "success", 
-                            "local_path": local_path,
-                            "pdf_url": url,
-                            "id": paper_id
-                        }
                         success = True
                         break 
-                        
-                except urllib.error.HTTPError as e:
-                    print(f"  [-] 下载失败 HTTP {e.code}: {url}")
-                    if e.code in [403, 404]: break 
-                    time.sleep(2)
                 except Exception as e:
-                    print(f"  [-] 下载异常 {str(e)[:30]}: {url}")
-                    time.sleep(2)
+                    time.sleep(1)
             
-            if not success:
-                results[paper_id] = {"status": "failed", "pdf_url": url}
+            # 2. 核心：无论成败，只更新全局字典，大纲本身不作任何修改
+            if success:
+                print(f"  [+] 成功下载并映射: {pid}")
+                paper_db[pid]["local_path"] = local_path
+                paper_db[pid]["status"] = "local_success"
+                success_count += 1
+            else:
+                print(f"  [-] 仅保留在线引用: {pid}")
+                paper_db[pid]["status"] = "online_only"
 
-        return results
+        return f"✅ 文献库静默更新完毕。共处理 {len(ids_to_download)} 个ID，成功落盘 {success_count} 篇PDF。"
 class SaveFileTool(Tool):
     name = "save_file"
     description = "安全保存文件工具。支持穿透沙盒写文件，可选择覆盖写入或追加写入。"
@@ -663,8 +772,6 @@ class SaveFileTool(Tool):
     output_type = "string"
 
     def forward(self, content, out_dir: str, file_name: str, out_type: str, append: bool = False) -> str:
-        import os
-        import json
         
         os.makedirs(out_dir, exist_ok=True)
         path = os.path.join(out_dir, f"{file_name}.{out_type.lower()}")
@@ -717,97 +824,43 @@ class SaveFileTool(Tool):
         except Exception as e:
             return f"❌ 保存失败: {str(e)}"
 
-import copy
-from smolagents import Tool  # 请根据你的实际框架修改导入路径
 
-class BindCitationsTool(Tool):
-    name = "tool_bind_citations"
-    description = "将下载好的本地 PDF 路径精准挂载到大纲的对应章节中。输入原始大纲和下载结果，返回挂载了本地路径的最终大纲。若下载失败，将保留原始URL。"
+class LoadFileTool(Tool):
+    name = "load_file"
+    description = "从本地读取文件内容。支持读取为纯文本字符串，或自动解析并返回为 JSON 字典/列表。"
     inputs = {
-        "outline_data": {
-            "type": "object",
-            "description": "由 Outliner 生成的原始大纲字典，其中应包含 supporting_papers 列表。"
+        "file_path": {
+            "type": "string",
+            "description": "要读取的本地文件绝对或相对路径（例如：'./data/outline.json'）。"
         },
-        "download_results": {
-            "type": "any",
-            "description": "由 tool_paper_downloader 返回的字典或列表，包含每个文献的下载状态和 local_path。"
+        "as_json": {
+            "type": "boolean",
+            "description": "是否将文件内容解析为 JSON (字典/列表)。如果为 true，返回字典/列表；如果为 false，返回纯文本字符串。默认为 false。",
+            "nullable": True
         }
     }
-    output_type = "any"
+    output_type = "any" # 因为可能返回 str，也可能返回 dict/list
 
-    def forward(self, outline_data: dict, download_results) -> dict:
-        # 深拷贝以防污染原始数据
-        enriched_outline = copy.deepcopy(outline_data)
+    def forward(self, file_path: str, as_json: bool = False):
+        if not os.path.exists(file_path):
+            return f"❌ Error: 文件不存在 - {file_path}"
         
-        # 1. 兼容 download_results 可能是列表或字典的情况
-        download_dict = {}
-        if isinstance(download_results, dict):
-            download_dict = download_results
-        elif isinstance(download_results, list):
-            for i, item in enumerate(download_results):
-                if isinstance(item, dict):
-                    # 提取 id，若无则使用索引兜底
-                    did = str(item.get("id", i))
-                    download_dict[did] = item
-
-        # 2. 定义递归函数，自动寻找树状结构中的所有 supporting_papers
-        def traverse_and_bind(node):
-            if isinstance(node, dict):
-                # 优先递归子节点（避开 supporting_papers 内部的字符串）
-                for key, value in node.items():
-                    if key != "supporting_papers":
-                        traverse_and_bind(value)
-
-                # 处理当前节点的 supporting_papers
-                if "supporting_papers" in node and isinstance(node["supporting_papers"], list):
-                    bound_papers = []
-                    for paper_ref in node["supporting_papers"]:
-                        # 兼容处理：防重复挂载时 paper_ref 已经是字典的情况
-                        if isinstance(paper_ref, dict):
-                            paper_id = str(paper_ref.get("url", paper_ref.get("id", "")))
-                        else:
-                            paper_id = str(paper_ref).strip()
-                            
-                        if not paper_id: 
-                            continue
-                        
-                        # 在下载结果中匹配对应的 PDF 路径
-                        match = None
-                        for pid, info in download_dict.items():
-                            if paper_id == str(pid) or paper_id == str(info.get("pdf_url", "")):
-                                match = info
-                                break
-                        
-                        # 🚀 核心修复区：无论成败，都不允许丢弃文献 🚀
-                        if match and match.get("status") == "success":
-                            # 下载成功：挂载本地路径
-                            bound_papers.append({
-                                "id": match.get("id", paper_id),
-                                "url": match.get("pdf_url", paper_id),
-                                "local_path": match.get("local_path", ""),
-                                "status": "local_success"
-                            })
-                        else:
-                            # 下载失败或未找到：保留原汁原味的在线 URL，明确标记无本地文件
-                            bound_papers.append({
-                                "id": paper_id,
-                                "url": paper_id,
-                                "local_path": None,
-                                "status": "online_only"
-                            })
-                            
-                    # 替换原本的列表为精细化的字典列表
-                    node["supporting_papers"] = bound_papers
-
-            elif isinstance(node, list):
-                for item in node:
-                    traverse_and_bind(item)
-
-        print("[BindCitationsTool] 正在执行大纲文献的精准递归挂载...")
-        traverse_and_bind(enriched_outline)
-        return enriched_outline
-
-
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                
+            # 如果大模型指定需要 JSON 解析
+            if as_json:
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError as e:
+                    return f"❌ Error: JSON 解析失败，文件可能不是标准 JSON 格式 - {str(e)}"
+            
+            # 否则原样返回纯文本字符串
+            return content
+            
+        except Exception as e:
+            return f"❌ Error: 读取文件时发生未知异常 - {str(e)}"
 
 # =====================================================================
 # 工具 1：结构化容错解析器 (Parser Tool)
@@ -842,95 +895,13 @@ class ParseJsonTool(Tool):
         return {"error": "未发现有效的数据结构", "raw": text}
 
 
-
-class MatchCitationsTool(Tool):
-    name = "tool_match_citations"
-    description = "将大纲中 supporting_papers 里的文献引用（标题、ID或简写URL）精准映射为 paper_pool 中的合法 pdf_url。这能防止模型产生幻觉链接。"
-    inputs = {
-        "outline_tree": {
-            "type": "any",
-            "description": "JSON格式的大纲字典或列表，包含 supporting_papers 字段。"
-        },
-        "paper_pool": {
-            "type": "array",
-            "description": "原始检索返回的文献列表，包含 title, id, pdf_url 等字段。"
-        }
-    }
-    output_type = "any"
-
-    def forward(self, outline_tree, paper_pool):
-        # 1. 防御性解析
-        if isinstance(outline_tree, str):
-            try:
-                clean_str = outline_tree.strip().strip('`').replace('json\n', '')
-                outline_tree = ast.literal_eval(clean_str) if '[' in clean_str or '{' in clean_str else json.loads(clean_str)
-            except Exception:
-                print("[MatchCitationsTool] 大纲解析失败，原样返回。")
-                return outline_tree
-
-        if isinstance(paper_pool, str):
-            try:
-                paper_pool = ast.literal_eval(paper_pool)
-            except Exception:
-                pass
-
-        if not isinstance(paper_pool, list):
-            return outline_tree
-
-        # 2. 构建多维度文献映射池
-        paper_map = {}
-        for paper in paper_pool:
-            if not isinstance(paper, dict): continue
-            pdf_url = paper.get("pdf_url")
-            if not pdf_url: continue  # 没有下载链接的直接忽略
-            
-            # 以 URL, title, id 为键建立反向索引（全部转小写去空）
-            paper_map[str(pdf_url).strip()] = pdf_url
-            if paper.get("title"): paper_map[str(paper["title"]).strip().lower()] = pdf_url
-            if paper.get("id"): paper_map[str(paper["id"]).strip().lower()] = pdf_url
-
-        # 3. 递归遍历大纲，执行精准/模糊替换
-        def traverse_and_match(node):
-            if isinstance(node, dict):
-                if "supporting_papers" in node and isinstance(node["supporting_papers"], list):
-                    new_papers = []
-                    for ref in node["supporting_papers"]:
-                        ref_lower = str(ref).strip().lower()
-                        
-                        # 尝试精确匹配
-                        if ref_lower in paper_map:
-                            new_papers.append(paper_map[ref_lower])
-                        else:
-                            # 尝试模糊包含匹配 (防止大模型截断了链接或标题)
-                            matched = False
-                            for key, real_url in paper_map.items():
-                                if len(key) > 10 and (key in ref_lower or ref_lower in key):
-                                    new_papers.append(real_url)
-                                    matched = True
-                                    break
-                            # 如果实在匹配不到，但本身是合法URL格式，则予以保留
-                            if not matched and str(ref).startswith("http"):
-                                new_papers.append(str(ref).strip())
-                                
-                    node["supporting_papers"] = list(set(new_papers)) # 去重
-                
-                # 继续遍历其他节点
-                for k, v in node.items():
-                    if k != "supporting_papers":
-                        traverse_and_match(v)
-            elif isinstance(node, list):
-                for item in node:
-                    traverse_and_match(item)
-
-        traverse_and_match(outline_tree)
-        return outline_tree
 class FlattenOutlineTool(Tool):
     name = "tool_flatten_outline"
-    description = "将复杂的树状大纲展平为线性的写作任务列表，提取每个小节的标题、核心论点和待检索的文献。"
+    description = "将只包含文献ID的树状大纲，结合全局文献库，展平为带有物理路径的写作任务列表。"
     inputs = {
         "outline_data": {
             "type": "any",
-            "description": "解析后的大纲JSON对象（支持列表或字典格式）"
+            "description": "解析后的大纲JSON对象"
         }
     }
     output_type = "any"
@@ -938,8 +909,8 @@ class FlattenOutlineTool(Tool):
     def forward(self, outline_data) -> dict:
         tasks = []
         main_title = "深度研究学术报告"
+        paper_db = GLOBAL_MEMORY.get("PAPER_DB", {})
         
-        # 兼容字典或列表格式
         if isinstance(outline_data, dict):
             main_title = outline_data.get("level_1_title", outline_data.get("chapter_title", "深度研究学术报告"))
             nodes = outline_data.get("chapters", outline_data.get("sub_chapters", outline_data.get("level_1", [outline_data])))
@@ -953,12 +924,23 @@ class FlattenOutlineTool(Tool):
             
             title = node.get("chapter_title") or node.get("section_title") or node.get("subsection_title") or ""
             
-            # 如果是叶子节点（有 supporting_papers）
-            if "supporting_papers" in node:
-                papers = node.get("supporting_papers", [])
-                local_papers = [{"id": p["id"], "local_path": p["local_path"]} for p in papers if isinstance(p, dict) and p.get("status") == "local_success"]
-                online_urls = [p.get("url") for p in papers if isinstance(p, dict) and p.get("status") == "online_only"]
+            # 如果是叶子节点，开始“查表”组装
+            if "supporting_papers" in node and isinstance(node["supporting_papers"], list):
+                local_papers = []
+                online_urls = []
                 
+                for pid in node["supporting_papers"]:
+                    if not isinstance(pid, str): continue
+                    
+                    # 🚀 核心：通过 ID 从全局数据库反查状态和路径
+                    meta = paper_db.get(pid, {})
+                    if meta.get("status") == "local_success" and meta.get("local_path"):
+                        local_papers.append({"id": pid, "local_path": meta["local_path"]})
+                    else:
+                        # 如果没有成功下载，退化为在线 URL（或者保留原始 ID 兜底）
+                        fallback_url = meta.get("pdf_url") or meta.get("url") or pid
+                        online_urls.append(fallback_url)
+                        
                 tasks.append({
                     "type": "section",
                     "depth": depth,
@@ -968,7 +950,7 @@ class FlattenOutlineTool(Tool):
                     "online_urls": online_urls
                 })
             else:
-                # 纯标题/导语节点
+                # 纯标题节点
                 if title or node.get("core_argument"):
                     tasks.append({
                         "type": "heading", 
@@ -977,7 +959,6 @@ class FlattenOutlineTool(Tool):
                         "core_argument": node.get("core_argument", "")
                     })
                 
-                # 递归向下
                 for k in ["chapters", "sections", "sub_chapters", "subsections", "level_2"]:
                     if k in node and isinstance(node[k], list):
                         for child in node[k]:
@@ -1036,18 +1017,32 @@ class ReportAssemblerTool(Tool):
                     rag_context = "无"
 
                 # 2. 呼叫写作大模型生成初稿
-                print(f"  [{idx}/{len(tasks)}] ✍️ 正在撰写初稿...")
+                print(f"  [{idx}/{len(tasks)}] ✍️ 正在基于SOP框架撰写深度分析初稿...")
                 
-                prompt = (
-                    f"【待撰写章节】: {title}\n"
-                    f"【核心论点】: {core_arg}\n"
-                    f"【RAG 精准提取语料】:\n{rag_context}\n"
-                    f"【写作强制红线】:\n"
-                    f"1. 必须使用提供的 [REF:xxx] 格式进行引用（例如 [REF:paper_123] 或 [REF:https://...]）。\n"
-                    f"2. 绝对禁止抄袭语料原文中自带的数字标号（如 [63]、[120]等）和生成参考文献表！\n"
-                    f"3. 核心指令：拒绝空洞论述！你必须像写顶会论文的 Related Work 一样，精确提取语料中的数据进行论证。行文必须包含：【学者/机构名】、【提出的具体方法/模型名称】、【具体的实验参数或对比指标】、【提升的准确数值或百分比】。\n"
-                    f"4. 绝不要凭空捏造数据，如果没有数据，宁可深挖方法的原理细节。"
-                )
+                # 🚀 这里是核心修改区：通过 SOP 强迫模型输出时间线、横向对比和深度总结
+                prompt = f"""你是一名顶会论文的资深学术主笔。请基于以下RAG语料，论证给定的核心论点。
+
+【待撰写章节】: {title}
+【本节核心论点】: {core_arg}
+
+【RAG 精准提取语料】:
+{rag_context}
+
+【学术写作 SOP (标准作业程序)】
+请严格按照以下“四段式”逻辑进行结构化撰写。不要再加小标题了，不过可以在保证写作流畅度的前提下分段落撰写，但必须包含这四个维度的深刻论述：
+
+1. 核心论述 (Core Argument)：开门见山地阐述本节的核心观点与研究背景。
+2. 时间演进与趋势分析 (Chronological Trend)：提取语料中的【年份】信息，梳理该技术/问题是如何随时间演变的（例如：“早期研究主要集中于...但近年来逐渐转向...”）。
+3. 核心方法横向对比 (Comparative Analysis)：精准提取语料中不同【学者/机构】提出的【具体方法】或【模型】，进行优劣势或【实验数据/指标】的横向对比（例如：“A方法提升了X指标，而B框架则在Y场景下表现更佳”）。
+4. 深度总结与洞察 (Synthesis & Insight)：结合上述对比，用一到两句话提炼该方向当前的本质局限或未来的破局点。
+
+【写作强制红线】:
+1. 严禁重复输出章节标题：代码引擎会自动加标题，你必须**直接从正文的第一句话开始写**，绝不允许在开头输出 "{title}"。
+2. 引用规范：必须在引用数据的句子末尾严格使用提供的 [REF:xxx] 格式。
+3. 数据保真：绝不凭空捏造年份、数值或方法。如果语料中缺乏某个维度的数据（如缺乏时间跨度），宁可深挖单一原理，也绝不产生幻觉。
+4. 纯净输出：严禁抄袭语料原文自带的数字标号（如 [63]），严禁在文末自行生成参考文献表。
+5. 你收到的检索语料来自多篇不同的文章，每篇文章最多只提供了 2 个片段。请综合使用尽可能多的不同文章中的信息来回答问题，不要只依赖同一篇文章的 1–2 个片段。引用越多不同文章，回答的覆盖面就越完整。
+"""
                 
                 try:
                     res = self.writer_agent.run(prompt)
@@ -1056,20 +1051,23 @@ class ReportAssemblerTool(Tool):
                     draft_content = f"撰写失败: {str(e)}"
 
                 # 3. 呼叫大模型进行逻辑润色与引用校验
-                print(f"  [{idx}/{len(tasks)}] 🔄 正在执行逻辑衔接与引用校验...")
+                print(f"  [{idx+1}/{len(tasks)}] 🔄 正在执行逻辑衔接与引用校验...")
                 polish_prompt = f"""你是一名严谨的学术审校专家。请对下面的初稿进行润色与事实校验。
 【上下文信息】
 上一段落内容：{previous_content if previous_content else "（无）"}
 本段核心论点：{core_arg}
 
+【RAG 原始基准语料】（用于事实核对）：
+{rag_context}
+
 【待润色初稿】
 {draft_content}
 
 【必须严格执行的润色指令】
-1. 逻辑重构：平滑衔接上一段。绝不使用生硬的“机器味”过渡语。
-2. 引用纠错：确保文中只出现 [REF:xxx] 格式的引用。彻底删除大模型照抄的无关标号（如 [63]）或自行生成的参考列表。
-3. 保留硬核数据：绝对不能在润色时把初稿中提到的作者名、方法名、实验数值和百分比等关键信息删掉。必须保留学术浓度！
-4. 格式锁定：直接输出纯正文文本，保留原始的 Markdown 格式，绝不输出额外的解释说明。
+1. 剥离多余格式：直接输出正文文本！如果初稿开头带有类似 `# 1.1 xxx` 或 `## xxx` 的标题，请彻底删除它们。正文中所有的小节分隔一律改用加粗（如 **时间演进**：），绝不允许出现 `#` 号。
+2. 逻辑重构：平滑衔接上一段。绝不使用生硬的“机器味”过渡语。
+3. 引用纠错：确保文中只出现 [REF:xxx] 格式的引用。彻底删除大模型照抄的无关标号（如 [63]）或自行生成的参考列表。
+4. 保留硬核数据：绝对不能在润色时把初稿中提到的作者名、方法名、实验数值和百分比等关键信息删掉。必须保留学术浓度！
 """
                 try:
                     # 直接调用底层的 LLM 执行润色（避免启动完整 Agent 导致额外的工具规划开销）
@@ -1105,11 +1103,7 @@ class ReportAssemblerTool(Tool):
 
         GLOBAL_MEMORY["final_report"] = "".join(report_lines)
         return "".join(report_lines)
-    
-from smolagents import Tool
 
-# 物理层面上的全局共享内存
-GLOBAL_MEMORY = {}
 
 class SetVariableTool(Tool):
     name = "tool_set_var"
@@ -1136,94 +1130,116 @@ class GetVariableTool(Tool):
         if key not in GLOBAL_MEMORY:
             return f"❌ 错误：内存中不存在键名 {key}"
         return GLOBAL_MEMORY[key]
-import re
 
 class GenerateBibliographyTool(Tool):
     name = "tool_generate_bibliography"
-    description = "扫描正文中的 [paper_xx] 或 [http..] 标签，将其替换为 [1][2] 格式，并在文末生成标准的学术参考文献列表。"
+    description = "扫描正文中的 [REF:xxx] 标签，替换为 [1][2] 格式，并在文末生成标准的学术参考文献列表。"
+    
+    # 兼容 tasks_data 废弃参数
     inputs = {
         "report_content": {"type": "string", "description": "全文Markdown"},
-        "tasks_data": {"type": "array", "description": "展平后的tasks列表(需包含文献的 title/author 等元数据)"}
+        "tasks_data": {"type": "any", "description": "废弃参数", "nullable": True}
     }
     output_type = "string"
 
-    def forward(self, report_content: str, tasks_data: list) -> str:
-        # 1. 构建全局文献元数据字典 (提取作者、标题、年份)
+    def forward(self, report_content: str, tasks_data=None) -> str:
+        import re
+        
+        # 1. 构建元数据池 (核心修复区)
         meta_lookup = {}
         
-        for task in tasks_data:
-            # 兼容你的数据结构：不管是 local_papers 还是 papers_meta
-            papers = task.get("papers_meta", []) or task.get("local_papers", [])
-            for p in papers:
-                pid = p.get("id", "")
-                meta_lookup[pid] = {
-                    "type": "paper",
-                    "title": p.get("title", pid),           # 如果没有标题，退化为显示 ID
-                    "author": p.get("author", "未知作者"),
-                    "year": p.get("year", "N/A"),
-                    "url": p.get("local_path", "")
-                }
+        # 融合你之前用过的 retrieved_papers
+        for p in GLOBAL_MEMORY.get("retrieved_papers", []):
+            pid = p.get("id", "")
+            if pid: meta_lookup[pid] = p
+            pdf_url = p.get("pdf_url", "")
+            if pdf_url: meta_lookup[pdf_url] = p
             
-            # 记录在线网页的元数据
-            for url in task.get("online_urls", []):
-                meta_lookup[url] = {
-                    "type": "web",
-                    "title": url,  # 网页默认标题，如果外部有提取到可在此覆盖
-                    "url": url
-                }
-
-        # 2. 正则查找文中所有的方括号引用
+        # 🚀 核心：融合你 RAG 工具里真正存数据的 PAPER_DB
+        if "PAPER_DB" in GLOBAL_MEMORY:
+            for k, v in GLOBAL_MEMORY["PAPER_DB"].items():
+                meta_lookup[k] = v
+                if "id" in v:
+                    meta_lookup[v["id"]] = v
+                    
+        # 2. 匹配文中的所有方括号引用
         citations = re.findall(r'\[([^\]]+)\]', report_content)
-        
         unique_refs = []
-        ref_mapping = {}  # 记录 原文本(包含可能的REF:前缀) -> 序号
+        ref_mapping = {} 
 
         for cite in citations:
-            # 处理如 [paper_1, http...] 这种逗号分隔的多个引用
             sub_cites = [c.strip() for c in cite.split(",")]
             for sc in sub_cites:
-                # 过滤掉非文献引用（如 [注: 无本地文献]，保留 paper_ 和 http 开头的）
-                clean_sc = sc.replace("REF:", "") # 兼容如果前面加了REF:的情况
-                if clean_sc.startswith("paper_") or clean_sc.startswith("http"):
+                clean_sc = sc.replace("REF:", "").strip() 
+                if clean_sc.startswith("http") or clean_sc in meta_lookup or clean_sc.startswith("paper_") or "openalex" in clean_sc:
                     if clean_sc not in unique_refs:
                         unique_refs.append(clean_sc)
-                    # 将原始字符串映射到最终的数字序号
+                    ref_mapping[sc] = unique_refs.index(clean_sc) + 1
+                elif sc.startswith("REF:"): 
+                    if clean_sc not in unique_refs:
+                        unique_refs.append(clean_sc)
                     ref_mapping[sc] = unique_refs.index(clean_sc) + 1
 
-        # 3. 替换正文中的引用
+        # 3. 替换正文标记为数字序号
         def replace_func(match):
             cite_str = match.group(1)
             sub_cites = [c.strip() for c in cite_str.split(",")]
             nums = []
-            
-            # 只有当括号里的内容全是我们识别到的文献时，才做替换
             for sc in sub_cites:
                 if sc in ref_mapping:
                     nums.append(str(ref_mapping[sc]))
-            
-            # 如果成功映射，返回 [1,2]；否则原样返回保留原来的文本（例如 [1.1 核心瓶颈] 这种正常文本）
             if nums: 
                 return f"[{','.join(nums)}]"
             return match.group(0)
 
         formatted_content = re.sub(r'\[([^\]]+)\]', replace_func, report_content)
 
-        # 4. 追加标准格式的参考文献列表
-        formatted_content += "\n\n---\n\n## 参考文献\n\n"
-        for i, ref_id in enumerate(unique_refs):
-            num_label = i + 1
-            meta = meta_lookup.get(ref_id, {})
-            
-            # 判断是网页还是本地学术论文，输出不同格式
-            if ref_id.startswith("http"):
-                # 网页格式: [1] 标题. 取自: URL
-                title = meta.get("title", ref_id)
-                formatted_content += f"[{num_label}] {title}. 取自: {ref_id}\n"
-            else:
-                # 论文格式: [2] 作者. *论文标题*. 年份.
-                author = meta.get("author", "未知作者")
-                title = meta.get("title", ref_id)
-                year = meta.get("year", "N/A")
-                formatted_content += f"[{num_label}] {author}. *{title}*. {year}.\n"
+        # 4. 生成 IEEE 标准排版的参考文献表
+        if unique_refs:
+            formatted_content += "\n\n---\n\n## 参考文献\n\n"
+            for i, ref_id in enumerate(unique_refs):
+                num_label = i + 1
+                meta = meta_lookup.get(ref_id, {})
+                
+                # 提取基础字段
+                author = meta.get("author", "").strip()
+                title = meta.get("title", str(ref_id)).strip()
+                year = meta.get("year", "").strip()
+                venue = meta.get("venue", "").strip()
+                
+                # 如果你在之前的工具里保存了 standard_citation (标准格式)，直接用
+                if "standard_citation" in meta and meta["standard_citation"]:
+                    formatted_content += f"[{num_label}] {meta['standard_citation']}\n"
+                    continue
+                
+                # 否则开始执行动态 IEEE 格式组装
+                cite_parts = []
+                
+                if author and author not in ["未知作者", "Unknown Author", "Unknown"]:
+                    cite_parts.append(f"{author}.")
+                
+                if not title.startswith("http"):
+                    title = title.rstrip('.')
+                    cite_parts.append(f'"{title}."')
+                else:
+                    title = "" 
+                    
+                if venue:
+                    cite_parts.append(f"*{venue}*,")
+                    
+                if year and year not in ["N/A", "Unknown", ""]:
+                    cite_parts.append(f"{year}.")
+                    
+                # 链接处理 (彻底去掉多余的"取自:")
+                if str(ref_id).startswith("http"):
+                    cite_parts.append(str(ref_id))
+                elif meta.get("pdf_url") and meta.get("pdf_url").startswith("http"):
+                    cite_parts.append(meta.get("pdf_url"))
+
+                # 防御性合并
+                if not cite_parts:
+                    cite_parts = [str(ref_id)]
+
+                formatted_content += f"[{num_label}] {' '.join(cite_parts)}\n"
 
         return formatted_content

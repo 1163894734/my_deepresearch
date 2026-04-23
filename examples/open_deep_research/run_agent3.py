@@ -58,7 +58,7 @@ def main():
     # =========================
     # 1. 初始化运行目录与全量日志
     # =========================
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     run_timestamp = time.strftime('%Y%m%d_%H%M%S')
     run_dir = os.path.join(base_dir, "outputs", f"interpretation_{run_timestamp}")
     os.makedirs(run_dir, exist_ok=True)

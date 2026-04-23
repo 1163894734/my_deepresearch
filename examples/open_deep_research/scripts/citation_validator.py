@@ -184,7 +184,7 @@ class PaperDownloader:
 
 class CitationRAGStore:
     """使用 ChromaDB 管理文献向量，自带并发安全初始化"""
-    def __init__(self, persist_dir: str = "./outputs/chroma_db"):
+    def __init__(self, persist_dir: str = "./../outputs/chroma_db"):
         global _CHROMA_READY
         self.persist_dir = persist_dir
         os.makedirs(self.persist_dir, exist_ok=True)

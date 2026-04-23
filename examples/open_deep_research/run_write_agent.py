@@ -3,7 +3,7 @@ import json
 import logging
 from smolagents import CodeAgent, CustomAgent
 # 引入所有所需工具
-from scripts.custom_tools import AcademicRAGTool, GenerateBibliographyTool, GetVariableTool, SaveFileTool, ParseJsonTool, FlattenOutlineTool, ReportAssemblerTool, SetVariableTool, UniversalRAGTool
+from scripts.custom_tools import AcademicRAGTool, GenerateBibliographyTool, GetVariableTool, SaveFileTool, ParseJsonTool, FlattenOutlineTool, ReportAssemblerTool, SetVariableTool, UniversalRAGTool, LoadFileTool
 import utils.common_utils as common_utils
 
 # =========================
@@ -11,7 +11,7 @@ import utils.common_utils as common_utils
 # =========================
 base_dir = os.path.dirname(os.path.abspath(__file__))
 # ⚠️ 注意替换目录
-run_dir = "/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260417_150755"
+run_dir = "/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260423_101758"
 
 smol_logger = logging.getLogger("writer_agent")
 smol_logger.setLevel(logging.INFO)
@@ -68,7 +68,7 @@ def main():
     writer_director_agent = CodeAgent(
         name="writer_director_agent",
         description="最高总管。负责解析大纲并调用底层的自动组装引擎。",
-        tools=[ParseJsonTool(), FlattenOutlineTool(), assembler_tool, SaveFileTool(),SetVariableTool(),GetVariableTool(), GenerateBibliographyTool()],
+        tools=[ParseJsonTool(), FlattenOutlineTool(), assembler_tool, SaveFileTool(),SetVariableTool(),GetVariableTool(), GenerateBibliographyTool(), LoadFileTool()],
         model=model,
         additional_authorized_imports=["json"],
         instructions="""你是一个长文写作总架构师 (CodeAgent)。
@@ -76,6 +76,7 @@ def main():
 
         ```python
         # 1. 展平大纲并存入共享变量
+        使用load_file(run_dir+"/final_papers.json", as_json=True)工具读取final_papers文件内容，并将读取到的内容使用tool_set_var存入全局变量"PAPER_DB"。
         flat_data = tool_flatten_outline(outline_data=tool_parse_json(text=outline_str))
         tool_set_var(key="flat_data", value=flat_data)
         
@@ -90,6 +91,10 @@ def main():
 
         final_answer("全篇万字学术报告已完美撰写并保存！")
         ```
+        【注意】
+        环境中已经注入了变量 `outline_str`（大纲字符串）和 `run_dir`（当前运行目录），请直接使用，不要通过工具获取这两个变量的值。
+        你需要做的就是按照上面提供的代码框架，调用工具完成写作任务。
+        所有复杂的循环、RAG、调度逻辑都已经被封装在了 `tool_assemble_report` 这个自动化装配引擎中，你只需要正确传入参数即可。
         """
     )
 
