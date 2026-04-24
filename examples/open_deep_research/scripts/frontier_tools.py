@@ -15,7 +15,7 @@ import utils.common_utils as common_utils
 import requests
 import urllib.parse
 import xml.etree.ElementTree as ET
-
+import concurrent.futures
 
 class MultiSourceDataCollectorTool(Tool):
     name = "tool_multi_source_data_collector"
@@ -338,11 +338,29 @@ class FragmentedInfoAggregatorTool(Tool):
             row["记录ID"] = row.get("记录ID") or f"record_{index:04d}"
             normalized_rows.append(row)
 
-        # 2. LLM 智能补全核心空置字段
-        if enable_llm_enrichment:
-            print(f"\n[Aggregator] 🚀 开启大模型智能补全，准备深度阅读 {len(normalized_rows)} 条记录的摘要以填充空缺字段...")
-            for i, row in enumerate(normalized_rows):
-                normalized_rows[i] = self._llm_enrich_empty_fields(row, i+1, len(normalized_rows))
+        # 2. LLM 智能补全核心空置字段 (并发改造版)
+        if enable_llm_enrichment and normalized_rows:
+            print(f"\n[Aggregator] 🚀 开启大模型并发智能补全，准备深度阅读 {len(normalized_rows)} 条记录以填充空缺字段...")
+            
+            # 包装函数以便在多线程中保留原有的索引顺序
+            def process_row_wrapper(item):
+                idx, row = item
+                try:
+                    # 调用大模型提取逻辑
+                    enriched_row = self._llm_enrich_empty_fields(row, idx + 1, len(normalized_rows))
+                    return idx, enriched_row
+                except Exception as e:
+                    print(f"[Warning] 记录 {idx+1} 补全失败: {str(e)}")
+                    return idx, row
+
+            # 使用 ThreadPoolExecutor 控制并发数（建议设置为 5-10，视 API 并发限流限制而定）
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                items = list(enumerate(normalized_rows))
+                results = list(executor.map(process_row_wrapper, items))
+            
+            # 按原始顺序重新赋值
+            results.sort(key=lambda x: x[0])
+            normalized_rows = [res[1] for res in results]
 
         # 3. 格式化输出
         table_columns = ["记录ID", "数据源类型"] + self.CORE_FIELDS + self._all_extension_fields()
@@ -571,7 +589,67 @@ class FragmentedInfoAggregatorTool(Tool):
             return {}
         counts = df["数据源类型"].value_counts(dropna=False)
         return {str(k): int(v) for k, v in counts.items()}
-	
+    def _llm_enrich_empty_fields(self, row: dict, current_idx: int, total: int) -> dict:
+        """调用大模型，根据标题、摘要等上下文补充缺少的关键字段"""
+        
+        # 定义我们需要大模型重点补全的字段
+        target_fields = [
+            "关键问题/目标", 
+            "核心方法/架构/方案", 
+            "关键效果/指标/成果", 
+            "创新点", 
+            "潜在应用场景/落地价值"
+        ]
+        
+        # 筛选出当前记录中确实为空的字段
+        empty_fields = [f for f in target_fields if not row.get(f)]
+        if not empty_fields:
+            return row  # 都不为空则直接跳过
+
+        # 收集上下文信息（融合论文摘要、专利摘要、新闻正文等）
+        context_parts = []
+        if row.get("标题"): context_parts.append(f"标题: {row.get('标题')}")
+        if row.get("摘要（中英文）"): context_parts.append(f"摘要: {row.get('摘要（中英文）')}")
+        if row.get("关键观点/判断"): context_parts.append(f"核心正文: {row.get('关键观点/判断')}")
+        if row.get("权利要求核心点（创新点拆解）"): context_parts.append(f"权利要求: {row.get('权利要求核心点（创新点拆解）')}")
+        
+        context_str = "\n".join(context_parts)
+        if len(context_str.strip()) < 20:  
+            # 如果没有实质性文本可供分析，直接返回
+            return row
+
+        prompt = (
+            f"你是专业的技术情报分析专家。请仔细阅读以下资料卡片，提取并精简补全缺失的字段信息。\n"
+            f"【材料信息】:\n{context_str}\n\n"
+            f"【你需要补全的空字段为】: {', '.join(empty_fields)}\n"
+            f"要求:\n"
+            f"1. 仅输出合法的 JSON 对象，键必须是上述要求的空字段名。\n"
+            f"2. 每个字段值请用 1-2 句话概括，高度专业、精炼。\n"
+            f"3. 如果材料中完全未提及某字段的信息，该字段值请填入空字符串 \"\"。\n"
+        )
+
+        try:
+            # 引入单例大模型
+            model = common_utils.ModelProvider.get_model()
+            # 根据 smolagents API 调用模型
+            response = model([{"role": "user", "content": prompt}])
+            content = response.content if hasattr(response, "content") else str(response)
+            
+            # 使用 common_utils 中鲁棒的 JSON 解析器处理 Markdown 代码块及脏数据
+            parsed_data = common_utils.safe_json_parse(content, fallback_type=dict)
+            
+            if isinstance(parsed_data, dict):
+                for field in empty_fields:
+                    if field in parsed_data and str(parsed_data[field]).strip() and parsed_data[field] != "无":
+                        row[field] = str(parsed_data[field]).strip()
+                        
+            print(f"  └─ 成功补全记录 [{current_idx}/{total}] : {row.get('标题', '')[:15]}...")
+            
+        except Exception as e:
+            # 如果失败则吃掉异常不影响主流程，返回原记录
+            print(f"  └─ 补全记录 [{current_idx}/{total}] 时模型解析失败: {str(e)}")
+            
+        return row
 
 class KeyFrontierTechnologyMiningTool(Tool):
     name = "tool_key_frontier_technology_mining"
@@ -1341,7 +1419,17 @@ class EvolutionPathAnalysisTool(KeyFrontierTechnologyMiningTool):
 
         for rec in records:
             topics = self._split_topics(str(rec.get("技术主题", "")))
-            route_name = topics[0] if topics else str(rec.get("所属技术领域", "")).strip() or "未命名路线"
+            route_name = topics[0] if topics else str(rec.get("所属技术领域", "")).strip()
+            
+            # ---- 新增拦截逻辑：如果没名字，就从“核心方法”或“标题”里硬抓一个 ----
+            if not route_name:
+                method_str = str(rec.get("核心方法/架构/方案", "")).strip()
+                if method_str:
+                    # 简单提取英文缩写或前几个字作为临时特征名，避免变成毫无意义的“未命名路线”
+                    route_name = method_str.split("，")[0].split(",")[0][:12] + "等相关技术"
+                else:
+                    route_name = "未分类技术路线"
+
             elements.append({
                 "route": route_name,
                 "source_type": str(rec.get("数据源类型", "")).strip() or "unknown",
@@ -1684,9 +1772,12 @@ class KeyTechnologyEvolutionSensingTool(EvolutionPathAnalysisTool):
             return None
 
         prompt = (
-            "你是技术态势感知专家。请根据输入 JSON 判断技术路线的成熟度与趋势。\n"
+            "你是极其严谨的技术情报态势分析专家。请根据输入 JSON 判断技术路线的成熟度与趋势。\n"
             "仅输出合法 JSON，键包括：maturity_stage, future_trend, trend_reasoning。\n"
-            "maturity_stage 仅允许：早期探索期、规模验证期、工程化应用期。\n\n"
+            "【严格约束】:\n"
+            "1. maturity_stage 仅允许：早期探索期、规模验证期、工程化应用期。\n"
+            "2. future_trend 仅允许：持续增长、瓶颈停滞、技术迭代。\n"
+            "3. trend_reasoning (重点)：禁止使用“具备明确工艺路径”、“展现出优势”等空泛套话！你必须直接引用输入数据中的【具体技术名称、具体数值指标、或特定工艺】来作为你的推理依据。字数控制在80字以内。\n\n"
             + json.dumps(payload, ensure_ascii=False)
         )
 
@@ -1734,18 +1825,39 @@ class KeyTechnologyEvolutionSensingTool(EvolutionPathAnalysisTool):
             title = f"# 《{title_base}的弱信号技术识别与分析研判》"
 
         lines = [title, ""]
+
+        # 【核心修复 1：空数据直接熔断】
+        # 如果传入的技术列表为空，直接返回干净的结论，终止后续瞎编
+        if not tech_items:
+            lines.append(f"经系统分析，本次采集的数据集中未发现具备明显特征的{report_type}技术。")
+            lines.append("")
+            return "\n".join(lines)
+
+        # 【核心修复 2：数据隔离墙】
+        # 提取属于当前报告的合法技术名称集合，防止前沿技术“串台”到弱信号报告里
+        valid_route_names = {item.get("technology_name", "").strip() for item in tech_items}
+        
+        # 过滤 route_sensing，只保留属于当前列表的路线
+        display_sensing = []
+        for row in route_sensing:
+            r_name = row.get("route_name", "")
+            r_aliases = row.get("route_aliases", [])
+            # 只要路线的主名或别名在合法集合中，才允许上榜
+            if r_name in valid_route_names or any(a in valid_route_names for a in r_aliases):
+                display_sensing.append(row)
+
         lines.append("## 一、技术态势概览")
         lines.append(f"- 技术条目数: {len(tech_items)}")
-        lines.append(f"- 路线覆盖数: {len(route_sensing)}")
+        lines.append(f"- 路线覆盖数: {len(display_sensing)}")
         lines.append("")
 
         lines.append("## 二、成熟度阶段判断")
-        for row in route_sensing[:6]:
+        for row in display_sensing[:6]:
             lines.append(f"- {row.get('route_name', '')}: {row.get('maturity_stage', '')}")
         lines.append("")
 
         lines.append("## 三、未来发展趋势")
-        for row in route_sensing[:6]:
+        for row in display_sensing[:6]:
             lines.append(f"- {row.get('route_name', '')}: {row.get('future_trend', '')}（{row.get('trend_reasoning', '')}）")
         lines.append("")
 

@@ -25,7 +25,7 @@ type: sop
 2. 使用 `tool_get_var(key="forager_agent_result")` 获取检索词列表 `search_queries`。
 3. 调用工具 `tool_academic_search(search_queries=search_queries, max_results_per_query=8, engine="arxiv")`。（数据会自动双向追加到全局内存，无需接收其巨型返回值）。
 
-**B. 降维提纯与聚类 (Map-Reduce)**
+**B. 提纯与聚类 (Map-Reduce)**
 1. 使用 `raw_papers = tool_get_var(key="retrieved_papers")` 获取当前累积的文献库。
 2. 使用代码 `compressed_papers = tool_insight_extractor(raw_papers=raw_papers)` 接收压缩后的文献列表。
 3. 调用工具 `tool_semantic_cluster(compressed_papers=compressed_papers)` 进行语义分组，并使用 `json.dumps(..., ensure_ascii=False)` 转为字符串 `clustered_json`。
