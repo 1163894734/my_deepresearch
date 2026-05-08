@@ -15,6 +15,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import fitz  # PyMuPDF
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+os.environ["HF_HUB_OFFLINE"] = "1"
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -34,6 +36,10 @@ WEB_CACHE = {}
 
 # 物理层面上的全局共享内存
 GLOBAL_MEMORY = {}
+GLOBAL_MEMORY["PAPER_DB"] = {}  # 论文数据库，key为论文ID或URL，value为元信息字典（如标题、作者、年份等）
+GLOBAL_MEMORY["retrieved_papers"] = []  # 记录已经检索过的论文元信息，避免重复调用 OpenAlex API
+GLOBAL_MEMORY["report_list"] = []  # 存储生成报告的不同版本，便于后续分析和回溯
+GLOBAL_MEMORY["final_report"] = ""  # 存储最终定稿的报告内容，供后续工具调用（如生成参考文献列表）
 class UniversalRAGTool(Tool):
     name = "tool_universal_rag"
     description = "全能RAG工具。能同时解析本地PDF和在线网页URL，提取与核心论点最相关的干货片段。"
@@ -51,6 +57,8 @@ class UniversalRAGTool(Tool):
         import urllib.request
         import re
         import numpy as np
+        import os
+        import csv
         
         all_chunks = []
         splitter = RecursiveCharacterTextSplitter(
@@ -68,7 +76,7 @@ class UniversalRAGTool(Tool):
 
         print(f"[RAG] 启动混合检索 | 净化Query: {clean_query[:25]}... | PDF: {len(local_papers)}篇 | Web: {len(online_urls)}个")
 
-        # 2. 解析本地 PDF 并汇入总池
+        # 2. 解析本地 PDF 并汇入总池 (🚀 注入 1pdf2md 视觉解析逻辑)
         for paper in local_papers:
             pid, path = paper.get('id'), paper.get('local_path')
             if path and os.path.exists(path):
@@ -88,16 +96,50 @@ class UniversalRAGTool(Tool):
 
                 if path not in PDF_CACHE:
                     chunks = []
-                    try:
-                        with fitz.open(path) as pdf:
-                            for page_num, page in enumerate(pdf):
-                                text = page.get_text("text").strip()
-                                if len(text) > 50:
-                                    for c in splitter.split_text(text):
-                                        chunks.append({"source_id": pid, "page": f"第{page_num + 1}页", "text": c})
-                        PDF_CACHE[path] = chunks
-                    except Exception as e:
-                        print(f"  ⚠️ PDF解析失败 {path}: {e}")
+                    
+                    # 🚀 尝试读取 1pdf2md 的结构化 CSV
+                    base_dir = os.path.dirname(os.path.dirname(path))
+                    file_name = os.path.splitext(os.path.basename(path))[0]
+                    csv_path = os.path.join(base_dir, "structured_csv", file_name, f"{file_name}.csv")
+                    
+                    if os.path.exists(csv_path):
+                        try:
+                            with open(csv_path, 'r', encoding='utf-8') as f:
+                                reader = csv.DictReader(f)
+                                for row in reader:
+                                    content = row.get('内容', '').strip()
+                                    img_info = row.get('所需图片及其地址', '').strip()
+                                    if len(content) > 10:
+                                        for c in splitter.split_text(content):
+                                            chunks.append({
+                                                "source_id": pid, 
+                                                "page": f"章节: {row.get('标题', '')}", 
+                                                "text": c,
+                                                "images": img_info if img_info and img_info != '无' else None
+                                            })
+                            print(f"  [+] 命中视觉增强数据: {csv_path}")
+                        except Exception as e:
+                            print(f"  ⚠️ CSV读取异常 {csv_path}: {e}")
+
+                    # 🚀 降级方案：如果没有 CSV，走原有的 fitz 纯文本提取
+                    if not chunks:
+                        try:
+                            with fitz.open(path) as pdf:
+                                for page_num, page in enumerate(pdf):
+                                    text = page.get_text("text").strip()
+                                    if len(text) > 50:
+                                        for c in splitter.split_text(text):
+                                            chunks.append({
+                                                "source_id": pid, 
+                                                "page": f"第{page_num + 1}页", 
+                                                "text": c, 
+                                                "images": None
+                                            })
+                        except Exception as e:
+                            print(f"  ⚠️ PDF解析失败 {path}: {e}")
+                            
+                    PDF_CACHE[path] = chunks
+                    
                 all_chunks.extend(PDF_CACHE.get(path, []))
 
         # 3. 解析在线网页并汇入总池 (包含 OpenAlex API 拦截和 SSL 绕过)
@@ -204,7 +246,7 @@ class UniversalRAGTool(Tool):
         cross_inp = [[clean_query, c["text"]] for c in candidates]
         rerank_scores = RERANKER.predict(cross_inp)
         
-        # 🚀 5. 核心打散机制：强制同源去重
+        # 5. 核心打散机制：强制同源去重
         sorted_indices = np.argsort(rerank_scores)[::-1]
         final_chunks = []
         source_counts = {}
@@ -232,7 +274,7 @@ class UniversalRAGTool(Tool):
             needed = top_k - len(final_chunks)
             final_chunks.extend(skipped_chunks[:needed])
         
-        # 6. 组装最终喂给大模型的语料
+        # 6. 组装最终喂给大模型的语料 (🚀 注入图片/公式路径输出逻辑)
         res = f"【检索查询】: {query}\n\n" 
         for i, c in enumerate(final_chunks):
             ref_id = c['source_id']
@@ -244,9 +286,15 @@ class UniversalRAGTool(Tool):
             res += f"🧑‍🔬 学者/机构: {author} ({year})\n"
             res += f"📑 来源标号: [REF:{ref_id}]\n"
             res += f"📄 定位: {c['page']}\n"
-            res += f"📝 原文: {c['text']}\n\n"
+            res += f"📝 原文: {c['text']}\n"
             
-        # 打印打散后的来源统计，方便你在控制台监控
+            # 🚀 若存在视觉证据，则向大模型暴露物理路径
+            if c.get('images'):
+                res += f"🖼️ 视觉证据(配图/公式)信息:\n{c['images']}\n"
+            else:
+                res += "\n"
+            
+        # 打印打散后的来源统计
         print(f"  [+] ♻️ 打散完成，共选取 {len(final_chunks)} 个片段，来自 {len(source_counts)} 篇不同文献。")
             
         return res
@@ -668,24 +716,46 @@ class SemanticClusterTool(Tool):
 
 class PaperDownloaderTool(Tool):
     name = "tool_paper_downloader"
-    description = "批量下载PDF文献并静默更新全局文献库。传入大纲数据，自动提取其中的文献ID并执行下载。"
+    description = "批量下载PDF文献到本地。传入大纲数据，自动提取大纲中的文献ID，匹配URL并执行下载。"
     inputs = {
         "outline_data": {
             "type": "any",
-            "description": "包含文献ID的任意大纲数据结构"
+            "description": "包含文献ID的任意大纲数据结构（字典或列表）"
         },
         "save_dir": {
             "type": "string",
-            "description": "保存PDF的本地目录路径。"
+            "description": "保存PDF的本地目录路径"
+        },
+        "paper_db": {
+            "type": "any",
+            "description": "可选。包含文献元数据的字典或列表。如果不传，将自动读取共享变量 GLOBAL_MEMORY 中的 PAPER_DB",
+            "nullable": True
         }
     }
     output_type = "string"
 
-    def forward(self, outline_data, save_dir: str) -> str:
+    def forward(self, outline_data, save_dir: str, paper_db=None) -> str:
+        # 兼容原有逻辑 尝试读取全局共享变量
+        if paper_db is None:
+            try:
+                # 假设 GLOBAL_MEMORY 存在于全局命名空间中
+                paper_db = GLOBAL_MEMORY.get("PAPER_DB", {})
+            except NameError:
+                print("[Downloader] 警告 未传入 paper_db 且未找到全局变量 GLOBAL_MEMORY")
+                paper_db = {}
+
+        # 统一化 paper_db 格式 支持列表或字典
+        db_dict = {}
+        if isinstance(paper_db, list):
+            for p in paper_db:
+                if isinstance(p, dict) and "id" in p:
+                    db_dict[p["id"]] = p
+        elif isinstance(paper_db, dict):
+            db_dict = paper_db
+            
         os.makedirs(os.path.join(save_dir, "pdfs"), exist_ok=True)
-        paper_db = GLOBAL_MEMORY.get("PAPER_DB", {})
         
-        # 1. 递归提取大纲中所有的文献 ID
+        # 递归提取大纲中所有的文献 ID
         ids_to_download = set()
         def extract_ids(node):
             if isinstance(node, dict):
@@ -709,22 +779,26 @@ class PaperDownloaderTool(Tool):
 
         success_count = 0
         for pid in ids_to_download:
-            paper_info = paper_db.get(pid)
+            paper_info = db_dict.get(pid)
             if not paper_info: 
                 continue
             
-            url = paper_info.get("pdf_url")
+            # 兼容不同字段名
+            url = paper_info.get("pdf_url") or paper_info.get("url")
             if not url or not str(url).startswith("http") or url.lower().endswith(('.jpg', '.png', '.gif')):
-                paper_db[pid]["status"] = "online_only"
+                # 更新全局字典状态
+                if isinstance(paper_db, dict) and pid in paper_db:
+                    paper_db[pid]["status"] = "online_only"
                 continue
 
             safe_filename = "paper_" + hashlib.md5(url.encode()).hexdigest()[:8] + ".pdf"
             local_path = os.path.join(save_dir, "pdfs", safe_filename)
 
-            # 缓存命中：如果本地已有，直接更新 DB
+            # 缓存命中逻辑
             if os.path.exists(local_path):
-                paper_db[pid]["local_path"] = local_path
-                paper_db[pid]["status"] = "local_success"
+                if isinstance(paper_db, dict) and pid in paper_db:
+                    paper_db[pid]["local_path"] = local_path
+                    paper_db[pid]["status"] = "local_success"
                 success_count += 1
                 continue
 
@@ -734,26 +808,27 @@ class PaperDownloaderTool(Tool):
                     req = urllib.request.Request(url, headers=headers)
                     with urllib.request.urlopen(req, context=ctx, timeout=15) as response:
                         if 'text/html' in response.headers.get('Content-Type', '').lower():
-                            break # 被反爬拦截，放弃
+                            break 
                             
                         with open(local_path, 'wb') as f:
                             f.write(response.read())
                         success = True
                         break 
-                except Exception as e:
+                except Exception:
                     time.sleep(1)
             
-            # 2. 核心：无论成败，只更新全局字典，大纲本身不作任何修改
-            if success:
-                print(f"  [+] 成功下载并映射: {pid}")
-                paper_db[pid]["local_path"] = local_path
-                paper_db[pid]["status"] = "local_success"
-                success_count += 1
-            else:
-                print(f"  [-] 仅保留在线引用: {pid}")
-                paper_db[pid]["status"] = "online_only"
+            # 更新状态回共享变量
+            if isinstance(paper_db, dict) and pid in paper_db:
+                if success:
+                    print(f"  [+] 成功下载并映射 {pid}")
+                    paper_db[pid]["local_path"] = local_path
+                    paper_db[pid]["status"] = "local_success"
+                    success_count += 1
+                else:
+                    print(f"  [-] 仅保留在线引用 {pid}")
+                    paper_db[pid]["status"] = "online_only"
 
-        return f"✅ 文献库静默更新完毕。共处理 {len(ids_to_download)} 个ID，成功落盘 {success_count} 篇PDF。"
+        return f"文献库静默更新完毕。共处理 {len(ids_to_download)} 个ID，成功落盘 {success_count} 篇PDF。"
 class SaveFileTool(Tool):
     name = "save_file"
     description = "安全保存文件工具。支持穿透沙盒写文件，可选择覆盖写入或追加写入。"
@@ -1243,3 +1318,189 @@ class GenerateBibliographyTool(Tool):
                 formatted_content += f"[{num_label}] {' '.join(cite_parts)}\n"
 
         return formatted_content
+import os
+import subprocess
+# 确保文件顶部有从 smolagents (或你使用的框架) 导入 Tool 的语句
+
+class PDFVisionParserTool(Tool):
+    name = "tool_vision_parse"
+    description = "调用独立的视觉解析引擎（运行在独立的Python环境中），将PDF文献转化为图文硬绑定的CSV。该任务为计算密集型，耗时较长，请耐心等待其完成。"
+    inputs = {
+        "input_path": {
+            "type": "string",
+            "description": "需要解析的PDF文件或PDF所在文件夹的绝对路径"
+        },
+        "output_path": {
+            "type": "string",
+            "description": "解析结果(CSV和图片)保存的目标文件夹绝对路径"
+        }
+    }
+    output_type = "string"
+
+    def forward(self, input_path: str, output_path: str) -> str:
+        # ==========================================
+        # 🚀 核心一：跨环境隔离的秘密武器
+        # ==========================================
+        # 直接指定“碎纸机”专属的 Python 解释器绝对路径。
+        # 这里我根据你之前的报错日志，提取了你 Mac 上的 pdf2md 环境路径。
+        # 【注意】：未来给客户部署时，这里要改成客户服务器上那个独立环境的 python 路径
+        python_exe = "/Users/wangchao/miniconda3/envs/pdf2md/bin/python" 
+
+        # ==========================================
+        # 🚀 核心二：定位启动脚本
+        # ==========================================
+        # 假设你的 open_deep_research 和 1pdf2md 在同一个父级目录下
+        workspace_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+        parser_script = os.path.join(workspace_root, "1pdf2md", "start.py")
+
+        if not os.path.exists(python_exe):
+            return f"❌ 严重错误：找不到视觉引擎的隔离Python环境，请检查路径: {python_exe}"
+        
+        if not os.path.exists(parser_script):
+            return f"❌ 严重错误：找不到碎纸机脚本，请检查路径: {parser_script}"
+
+        os.makedirs(output_path, exist_ok=True)
+        
+        print(f"\n[Command Center] 🚀 跨环境唤醒重型碎纸机中...")
+        print(f"  [-] 使用环境: {python_exe}")
+        print(f"  [-] 处理目标: {input_path}")
+        print(f"  [!] 正在进行视觉版面分析，请耐心等待...\n")
+        
+        try:
+            # ==========================================
+            # 🚀 核心三：阻塞等待与执行
+            # ==========================================
+            # subprocess.run 默认就是阻塞的，主 Agent 会在这里挂起，直到 OCR 彻底跑完
+            vision_engine_dir = os.path.dirname(parser_script)
+            result = subprocess.run(
+                [python_exe, parser_script, "-f", input_path, "-o", output_path],
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=vision_engine_dir  # 🚀 灵魂一步：强制子进程的工作目录切换到 1pdf2md 下！
+            )
+            return f"✅ 视觉解析全面完成！结构化数据和裁剪好的图片已成功存入 {output_path}。"
+            
+        except subprocess.CalledProcessError as e:
+            # 如果 OCR 过程中报错了（比如之前遇到的缺字体、缺包），这里能精准捕获并反馈给大模型
+            error_msg = e.stderr if e.stderr else e.stdout
+            print(f"⚠️ 视觉引擎崩溃:\n{error_msg}")
+            return f"❌ 视觉引擎执行失败，部分或全部解析未完成。错误日志摘要: {error_msg[-500:]}"
+        except Exception as e:
+            return f"❌ 发生未知系统调用错误: {str(e)}"
+class GenerateAbstractTool(Tool):
+    name = "tool_generate_abstract"
+    description = "根据已撰写的报告全文和提示词生成【摘要】，并自动将其插入到全局共享内存的报告最开头。"
+    inputs = {
+        "report_content": {"type": "string", "description": "已撰写的报告全文文本"},
+        "prompt": {"type": "string", "description": "摘要的撰写提示词（如：字数限制、必须包含的核心突破等）"}
+    }
+    output_type = "string"
+
+    def forward(self, report_content: str, prompt: str) -> str:
+        # 获取大模型实例
+        model = common_utils.ModelProvider.get_model()
+        
+        # 组装 Prompt
+        full_prompt = f"""你是一名资深的学术总编。请根据以下报告全文和特定指令撰写一份高质量的摘要。
+
+【报告全文】：
+{report_content}
+
+【撰写指令】：
+{prompt}
+
+请直接输出摘要的正文内容，不需要再重复输出“摘要”作为大标题。"""
+
+        messages = [{"role": "user", "content": full_prompt}]
+        
+        try:
+            response = model(messages)
+            abstract_content = getattr(response, 'content', str(response)).strip()
+        except Exception as e:
+            abstract_content = f"摘要生成失败: {e}"
+
+        formatted_abstract = f"## 摘要\n\n{abstract_content}"
+
+        # 1. 存入 GLOBAL_MEMORY["report_list"] (插入到最开头)
+        if "report_list" not in GLOBAL_MEMORY:
+            GLOBAL_MEMORY["report_list"] = []
+            
+        GLOBAL_MEMORY["report_list"].insert(0, {
+            "idx": -1, 
+            "title": "摘要", 
+            "content": formatted_abstract, 
+            "core_arg": "全文摘要", 
+            "rag_context": "无", 
+            "local_papers": [], 
+            "online_urls": []
+        })
+
+        # 2. 存入 GLOBAL_MEMORY["final_report"] (拼接在最开头)
+        if "final_report" in GLOBAL_MEMORY:
+            # 去除原有的 "# 深度研究学术报告" 之类的主标题，可以把摘要插在主标题下，或者直接拼在前头
+            # 为了简单健壮，这里直接作为段落插在全文最前面
+            GLOBAL_MEMORY["final_report"] = formatted_abstract + "\n\n" + GLOBAL_MEMORY["final_report"]
+        else:
+            GLOBAL_MEMORY["final_report"] = formatted_abstract
+
+        print("  ✅ 摘要已成功生成并挂载到报告最开头！")
+        return formatted_abstract
+
+
+class GenerateConclusionTool(Tool):
+    name = "tool_generate_conclusion"
+    description = "根据已撰写的报告全文和提示词生成【结论】，并自动将其追加到全局共享内存的报告最末尾。"
+    inputs = {
+        "report_content": {"type": "string", "description": "已撰写的报告全文文本"},
+        "prompt": {"type": "string", "description": "结论的撰写提示词（如：要求包含未来展望、局限性等）"}
+    }
+    output_type = "string"
+
+    def forward(self, report_content: str, prompt: str) -> str:
+        # 获取大模型实例
+        model = common_utils.ModelProvider.get_model()
+        
+        # 组装 Prompt
+        full_prompt = f"""你是一名资深的学术总编。请根据以下报告全文和特定指令撰写一份深刻的结论。
+
+【报告全文】：
+{report_content}
+
+【撰写指令】：
+{prompt}
+
+请直接输出结论的正文内容，不需要再重复输出“结论”作为大标题。"""
+
+        messages = [{"role": "user", "content": full_prompt}]
+        
+        try:
+            response = model(messages)
+            conclusion_content = getattr(response, 'content', str(response)).strip()
+        except Exception as e:
+            conclusion_content = f"结论生成失败: {e}"
+
+        formatted_conclusion = f"## 结论\n\n{conclusion_content}"
+
+        # 1. 存入 GLOBAL_MEMORY["report_list"] (追加到最末尾)
+        if "report_list" not in GLOBAL_MEMORY:
+            GLOBAL_MEMORY["report_list"] = []
+            
+        GLOBAL_MEMORY["report_list"].append({
+            "idx": len(GLOBAL_MEMORY["report_list"]), 
+            "title": "结论", 
+            "content": formatted_conclusion, 
+            "core_arg": "全文结论与展望", 
+            "rag_context": "无", 
+            "local_papers": [], 
+            "online_urls": []
+        })
+
+        # 2. 存入 GLOBAL_MEMORY["final_report"] (追加在最末尾)
+        if "final_report" in GLOBAL_MEMORY:
+            GLOBAL_MEMORY["final_report"] = GLOBAL_MEMORY["final_report"].rstrip() + "\n\n" + formatted_conclusion
+        else:
+            GLOBAL_MEMORY["final_report"] = formatted_conclusion
+
+        print("  ✅ 结论已成功生成并挂载到报告末尾！")
+        return formatted_conclusion

@@ -17,7 +17,7 @@ class SkillMetadata:
     skill_dir: Path
     skill_md_path: Path | None
     skill_type: str = "prompt"
-
+    enabled: bool = True
 
 def _split_frontmatter(markdown_text: str) -> tuple[dict[str, str], str]:
     lines = markdown_text.splitlines()
@@ -60,14 +60,17 @@ def _extract_metadata(skill_dir: Path) -> SkillMetadata:
     skill_md_path = skill_dir / "SKILL.md"
     raw_name = ""
     raw_description = ""
-    skill_type = "prompt" # 默认值
+    skill_type = "sop" # 默认值
+    enabled = True
     
     if skill_md_path.exists():
         content = skill_md_path.read_text(encoding="utf-8")
         metadata, body = _split_frontmatter(content)
         raw_name = metadata.get("name", "").strip()
         raw_description = metadata.get("description", "").strip()
-        skill_type = metadata.get("type", "prompt").strip().lower() # 读取 type 字段
+        skill_type = metadata.get("type", "sop").strip().lower() # 读取 type 字段
+        raw_enabled = metadata.get("enabled", "true").strip().lower() 
+        enabled = raw_enabled != "false" 
         
         if not raw_description:
             for line in body.splitlines():
@@ -78,7 +81,7 @@ def _extract_metadata(skill_dir: Path) -> SkillMetadata:
 
     name = _sanitize_tool_name(raw_name, skill_dir.name)
     description = raw_description or f"Skill loaded from {skill_dir.name}."
-    return SkillMetadata(name=name, description=description, skill_dir=skill_dir, skill_md_path=skill_md_path, skill_type=skill_type)
+    return SkillMetadata(name=name, description=description, skill_dir=skill_dir, skill_md_path=skill_md_path, skill_type=skill_type, enabled=enabled)
 
 
 def _read_skill_prompt(skill_md_path: Path) -> str:
@@ -120,10 +123,10 @@ class PromptSkillTool(Tool):
         response = self.model(messages)
         return response.content
 
+
 class SopSkillTool(Tool):
     """
     专门用于读取并返回 SKILL.md 正文的工具。
-    不需要输入参数，Agent 调用它时，它直接吐出操作指南（SOP）。
     """
     output_type = "string"
     inputs = {}  # 零输入参数
@@ -131,17 +134,109 @@ class SopSkillTool(Tool):
     def __init__(self, metadata: SkillMetadata):
         super().__init__()
         self.name = metadata.name
-        self.description = metadata.description
         self._skill_md_path = metadata.skill_md_path
+        self._skill_dir = metadata.skill_dir  # 👈 记录技能目录，方便后续找 assets
+        
+        # 👇【新增核心逻辑 1】：自动探测 assets 目录并提取绝对路径
+        assets_dir = self._skill_dir / "assets"
+        assets_hint = ""
+        if assets_dir.exists() and assets_dir.is_dir():
+            abs_assets_path = assets_dir.resolve()
+            assets_hint = f"\n💡【系统提示】：配套写作模版已就绪，位于绝对路径 `{abs_assets_path}`，请在需要时直接使用 open() 函数前往该目录读取。\n"
+
+        self.description = (
+            f"{metadata.description}\n"
+            f"{assets_hint}"  # 👈 将绝对路径提示注入到工具的 description 中
+            f"[⚠️系统警告⚠️]：调用此工具将返回一份 SOP(操作指南) 或指令文档。"
+            f"你必须仔细阅读返回的文档，并使用其他代码/工具去一步步执行文档里的要求。"
+            f"**绝对严禁**将返回的指南内容直接作为 final_answer 输出给用户！"
+        )
 
     def forward(self) -> str:
         if not self._skill_md_path or not self._skill_md_path.exists():
             return "SOP 文件不存在。"
 
-        # 复用已有的读取函数，提取正文内容
-        return _read_skill_prompt(self._skill_md_path)
+        raw_content = _read_skill_prompt(self._skill_md_path)
+        
+        # 🌟 动态扫描该技能的 assets 目录
+        assets_text = ""
+        assets_dir = self._skill_dir / "assets"
+        if assets_dir.exists() and assets_dir.is_dir():
+            # 过滤掉隐藏文件 (如 .DS_Store)
+            assets_list = [f.name for f in assets_dir.iterdir() if f.is_file() and not f.name.startswith(".")]
+            if assets_list:
+                # 👇【新增核心逻辑 2】：在 SOP 返回正文中也把绝对路径塞进去，双重保险
+                abs_assets_path = assets_dir.resolve()
+                assets_text = "\n\n📌 【当前技能专属资产 (Assets) 清单】\n"
+                assets_text += f"本技能附带以下模板文件，所在绝对路径为：`{abs_assets_path}`\n"
+                assets_text += "你可以直接使用 Python 的 `open()` 函数拼接绝对路径进行读取，或者使用 `read_skill_asset` 工具：\n"
+                for asset in assets_list:
+                    assets_text += f"  - 文件名: {asset} (如用工具，参数为: skill_name='{self._skill_dir.name}', asset_name='{asset}')\n"
+        
+        guarded_response = f"""
+================================================================================
+【AGENT 内部执行手册 - 绝密 - 严禁输出给用户】
+以下是供你（Agent）阅读和执行的操作指南（SOP）。
+请阅读后，立即思考第一步该写什么代码或调用什么工具，去实际完成用户的任务。
+严禁使用 final_answer 直接复述本手册的内容！{assets_text}
+================================================================================
+
+{raw_content}
+
+================================================================================
+【手册结束】现在，请根据上述流程，开始你的思考(Thought)并执行实际动作(Action)！
+================================================================================
+"""
+        return guarded_response.strip()
+
+
+# 🌟 新增工具：全局资产读取器
+class ReadSkillAssetTool(Tool):
+    """
+    精确读取特定技能的 assets 目录下的文件内容。
+    """
+    name = "read_skill_asset"
+    description = "当你在 SOP 指南中看到需要参考特定的模板、规则或数据文件时，使用此工具读取其完整内容。"
+    
+    inputs = {
+        "skill_name": {
+            "type": "string",
+            "description": "当前正在执行的技能名称（即技能所在的文件夹名称）"
+        },
+        "asset_name": {
+            "type": "string",
+            "description": "要读取的模板文件名，例如 'format_rules.json'"
+        }
+    }
+    
+    output_type = "string"
+
+    def __init__(self, skills_root_dir: str):
+        super().__init__()
+        self.skills_root_dir = Path(skills_root_dir).resolve()
+
+    def forward(self, skill_name: str, asset_name: str) -> str:
+        target_path = (self.skills_root_dir / skill_name / "assets" / asset_name).resolve()
+        expected_assets_dir = (self.skills_root_dir / skill_name / "assets").resolve()
+        
+        # 安全防御：防路径穿越漏洞 (比如输入 asset_name="../../etc/passwd")
+        try:
+            target_path.relative_to(expected_assets_dir)
+        except ValueError:
+            return f"❌ 错误：非法的文件访问请求，禁止跨目录读取 ({asset_name})。"
+            
+        if not target_path.exists() or not target_path.is_file():
+            return f"❌ 错误：在技能 '{skill_name}' 的 assets 目录下未找到文件 '{asset_name}'。"
+            
+        try:
+            content = target_path.read_text(encoding='utf-8')
+            return f"✅ 成功读取模板【{skill_name}/assets/{asset_name}】，内容如下：\n\n{content}"
+        except Exception as e:
+            return f"❌ 错误：读取资产文件失败，原因：{str(e)}"
+
 
 def _adapt_function_to_tool(func: Any, metadata: SkillMetadata) -> Tool:
+    # (原有代码保持不变) ...
     sig = inspect.signature(func)
     inputs = {}
     
@@ -178,6 +273,7 @@ def _adapt_function_to_tool(func: Any, metadata: SkillMetadata) -> Tool:
 
 
 def _adapt_class_to_tool(cls: Any, metadata: SkillMetadata) -> Tool:
+    # (原有代码保持不变) ...
     instance = cls()
     execute_method = None
     for method_name in ["run", "execute", "__call__"]:
@@ -226,7 +322,6 @@ def _adapt_class_to_tool(cls: Any, metadata: SkillMetadata) -> Tool:
 def load_skills_from_directory(skills_root_dir: str, model=None) -> list[Tool]:
     """
     遍历指定目录，动态加载所有符合结构的 Skill 并实例化。
-    优化了日志展示，以树状结构清晰呈现不同类型的技能。
     """
     loaded_tools: list[Tool] = []
     root_path = Path(skills_root_dir)
@@ -237,11 +332,19 @@ def load_skills_from_directory(skills_root_dir: str, model=None) -> list[Tool]:
         print(f"⚠️ [Skill Loader] 警告: 目录 '{skills_root_dir}' 不存在。")
         return []
 
+    # 🌟 新增逻辑：将全局模板读取工具预先塞入工具列表
+    global_asset_tool = ReadSkillAssetTool(skills_root_dir=skills_root_dir)
+    loaded_tools.append(global_asset_tool)
+    print(f"  ┣━ 🗂️  [Global Tool] {global_asset_tool.name:<28} (Global Asset Reader)")
+
     for skill_dir in root_path.iterdir():
         if not skill_dir.is_dir() or skill_dir.name.startswith((".", "__")):
             continue
 
         metadata = _extract_metadata(skill_dir)
+        if not metadata.enabled:
+            print(f"  ┣━ ⏭️  [Disabled]    {metadata.name:<28} (from {skill_dir.name})")
+            continue
         scripts_dir = skill_dir / "scripts"
 
         # 1. 只要存在 SKILL.md，就先注册 SOP 或 Prompt 工具
