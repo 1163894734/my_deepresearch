@@ -1,4 +1,6 @@
 import os
+os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+os.environ["HF_HUB_OFFLINE"] = "1"
 import json
 import re
 import ast
@@ -15,8 +17,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
 import fitz  # PyMuPDF
-os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
-os.environ["HF_HUB_OFFLINE"] = "1"
+
+import pypandoc
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -26,9 +28,22 @@ from smolagents import Tool
 import utils.common_utils as common_utils
 # 全局单例加载模型，利用 Mac M 系列芯片的 MPS 加速（或 CPU）
 # 推荐使用 BAAI 针对学术优化的轻量级模型
-EMBEDDER = SentenceTransformer('BAAI/bge-small-zh-v1.5', device='cpu') 
-RERANKER = CrossEncoder('BAAI/bge-reranker-base', device='cpu')
+# 1. 动态获取当前脚本 (custom_tools.py) 的绝对路径
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
 
+# 2. 往上两级推算到 open_deep_research 的父目录，然后拼上 models 文件夹
+project_root = os.path.dirname(os.path.dirname(current_script_dir))
+models_dir = os.path.join(project_root, "models")
+
+# 3. 动态拼装模型的绝对物理路径
+embedder_path = os.path.join(models_dir, "bge-small-zh-v1.5")
+reranker_path = os.path.join(models_dir, "bge-reranker-base")
+# 4. 加载模型（如果本地路径不存在，可以留个优雅的报错提示）
+if not os.path.exists(embedder_path) or not os.path.exists(reranker_path):
+    raise FileNotFoundError(f"❌ 找不到本地模型！请确保把模型下载并解压到了: {models_dir}")
+
+EMBEDDER = SentenceTransformer(embedder_path, device='cpu') 
+RERANKER = CrossEncoder(reranker_path, device='cpu')
 
 # 建议在类外部定义缓存，避免重复加载
 PDF_CACHE = {}
@@ -444,8 +459,11 @@ class AcademicSearchTool(Tool):
         except Exception:
             return "Abstract parsing error."
 
-    def forward(self, search_queries: list, engine: str = "arxiv", sort_by: str = "date", max_results_per_query: int = 10) -> list:
-        engine = (engine or "arxiv").lower()
+    def forward(self, search_queries: list, engine: str = "openalex", sort_by: str = "date", max_results_per_query: int = 10) -> list:
+        import time
+        import urllib.error
+        
+        engine = (engine or "openalex").lower()
         sort_by = (sort_by or "date").lower()
         max_results = max_results_per_query or 10
         all_papers = {} 
@@ -456,7 +474,7 @@ class AcademicSearchTool(Tool):
                     encoded_query = urllib.parse.quote(query.strip())
                     sort_param = "cited_by_count:desc" if sort_by == "citation" else "relevance_score:desc"
                     url = f"https://api.openalex.org/works?search={encoded_query}&sort={sort_param}&per-page={max_results}"
-                    headers = {'User-Agent': 'mailto:open_deep_research@example.com'}
+                    headers = {'User-Agent': 'mailto:wangchao@example.com'}
                     req = urllib.request.Request(url, headers=headers)
                     with urllib.request.urlopen(req, timeout=15) as response:
                         data = json.loads(response.read().decode('utf-8'))
@@ -508,41 +526,72 @@ class AcademicSearchTool(Tool):
                                 "standard_citation": std_cite,
                             }
                 else: 
-                    encoded_query = urllib.parse.quote(f'all:{query.strip()}')
+                    # ==========================================
+                    # 🚀 ArXiv 专属抗压优化方案
+                    # ==========================================
+                    
+                    # 1. 净化检索词：ArXiv 原生检索引擎处理括号和布尔符极易 502，做降级打平处理
+                    safe_query = query.replace(" AND ", " ").replace(" OR ", " ").replace("(", "").replace(")", "")
+                    encoded_query = urllib.parse.quote(f'all:{safe_query.strip()}')
                     url = f"http://export.arxiv.org/api/query?search_query={encoded_query}&start=0&max_results={max_results}&sortBy=relevance&sortOrder=descending"
-                    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                    with urllib.request.urlopen(req, timeout=15) as response:
-                        root = ET.fromstring(response.read().decode('utf-8'))
-                        ns = {'atom': 'http://www.w3.org/2005/Atom'}
-                        for entry in root.findall('atom:entry', ns):
-                            title = entry.find('atom:title', ns).text.strip().replace('\n', ' ')
-                            if not title or title in all_papers: continue
+                    
+                    # 2. 加入重试机制
+                    max_retries = 3
+                    success = False
+                    for attempt in range(max_retries):
+                        try:
+                            # 3. 规范 User-Agent（留下真实邮箱标识，ArXiv 官方对此类请求更宽容，不易拉黑）
+                            headers = {'User-Agent': 'open_deep_research_agent/1.0 (mailto:wangchao@example.com)'}
+                            req = urllib.request.Request(url, headers=headers)
                             
-                            # 🚀 提取作者并拼装 standard_citation
-                            author_elements = entry.findall('atom:author/atom:name', ns)
-                            authors = [a.text.strip() for a in author_elements if a.text]
-                            author_display = ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else "") if authors else "Unknown Author"
+                            with urllib.request.urlopen(req, timeout=15) as response:
+                                root = ET.fromstring(response.read().decode('utf-8'))
+                                ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                                for entry in root.findall('atom:entry', ns):
+                                    title = entry.find('atom:title', ns).text.strip().replace('\n', ' ')
+                                    if not title or title in all_papers: continue
+                                    
+                                    # 🚀 提取作者并拼装 standard_citation
+                                    author_elements = entry.findall('atom:author/atom:name', ns)
+                                    authors = [a.text.strip() for a in author_elements if a.text]
+                                    author_display = ", ".join(authors[:3]) + (" et al." if len(authors) > 3 else "") if authors else "Unknown Author"
+                                    
+                                    year = entry.find('atom:published', ns).text.split('-')[0]
+                                    paper_id = entry.find('atom:id', ns).text.strip()
+                                    pdf_url = paper_id.replace('/abs/', '/pdf/') + ".pdf" 
+                                    abstract = entry.find('atom:summary', ns).text.strip().replace('\n', ' ')
+                                    
+                                    # 组装 IEEE 风格引用
+                                    std_cite = f'{author_display}. "{title}." *arXiv preprint*, {year}. 取自: {paper_id}'
+                                    
+                                    all_papers[title] = {
+                                        "id": paper_id,
+                                        "title": title,
+                                        "year": year,
+                                        "author": author_display,
+                                        "abstract": abstract,
+                                        "pdf_url": pdf_url,
+                                        "source_query": query,
+                                        "standard_citation": std_cite # <=== 新增入库标准格式
+                                    }
+                            success = True
+                            break # 成功则跳出重试循环
                             
-                            year = entry.find('atom:published', ns).text.split('-')[0]
-                            paper_id = entry.find('atom:id', ns).text.strip()
-                            pdf_url = paper_id.replace('/abs/', '/pdf/') + ".pdf" 
-                            abstract = entry.find('atom:summary', ns).text.strip().replace('\n', ' ')
+                        except urllib.error.HTTPError as e:
+                            print(f"  [ArXiv API] 第 {attempt+1} 次请求失败: HTTP {e.code} ({query[:20]}...)")
+                            time.sleep(4) # 遇到 HTTP 错误多等一会
+                        except Exception as e:
+                            print(f"  [ArXiv API] 第 {attempt+1} 次请求发生异常: {e}")
+                            time.sleep(2)
                             
-                            # 组装 IEEE 风格引用
-                            std_cite = f'{author_display}. "{title}." *arXiv preprint*, {year}. 取自: {paper_id}'
-                            
-                            all_papers[title] = {
-                                "id": paper_id,
-                                "title": title,
-                                "year": year,
-                                "author": author_display,
-                                "abstract": abstract,
-                                "pdf_url": pdf_url,
-                                "source_query": query,
-                                "standard_citation": std_cite # <=== 新增入库标准格式
-                            }
+                    if not success:
+                        print(f"  ⚠️ 检索词 '{query[:30]}...' 连续 {max_retries} 次获取失败，已跳过。")
+                        
+                    # 4. 强制频控排队：不论成功失败，请求下一个词之前强制休眠 3.5 秒
+                    time.sleep(3.5)
+
             except Exception as e:
-                print(f"[AcademicSearchTool] 检索词 '{query}' 发生异常: {e}")
+                print(f"[AcademicSearchTool] 检索词 '{query}' 发生全局异常: {e}")
 
         # ====================================================================
         # 🚀 核心架构升级：双路数据入库
@@ -559,7 +608,6 @@ class AcademicSearchTool(Tool):
                 GLOBAL_MEMORY["PAPER_DB"][paper_id] = paper_data
 
         # 2. 追加至 retrieved_papers (流水线列表 - 供提纯智能体做并发摘要使用)
-        # 2. 追加至 retrieved_papers 并严格去重
         if "retrieved_papers" not in GLOBAL_MEMORY:
             GLOBAL_MEMORY["retrieved_papers"] = []
             
@@ -782,9 +830,22 @@ class PaperDownloaderTool(Tool):
             paper_info = db_dict.get(pid)
             if not paper_info: 
                 continue
+                
+            # ==========================================
+            # 🚀 补丁：保护本地注入的文献，防止被误杀为 online_only
+            # ==========================================
+            if paper_info.get("status") == "local_success" and paper_info.get("local_path"):
+                import os # 确保 os 模块可用
+                if os.path.exists(paper_info["local_path"]):
+                    success_count += 1
+                    print(f"  [+] 命中本地免下载文献: {pid}")
+                    continue  # 直接跳过，不走后面的 http 校验和下载逻辑
+            # ==========================================
             
             # 兼容不同字段名
             url = paper_info.get("pdf_url") or paper_info.get("url")
+            
+            # 这里的 http 校验原来会误杀本地文件，现在因为上面的 continue，本地文件不会走到这里了
             if not url or not str(url).startswith("http") or url.lower().endswith(('.jpg', '.png', '.gif')):
                 # 更新全局字典状态
                 if isinstance(paper_db, dict) and pid in paper_db:
@@ -828,7 +889,7 @@ class PaperDownloaderTool(Tool):
                     print(f"  [-] 仅保留在线引用 {pid}")
                     paper_db[pid]["status"] = "online_only"
 
-        return f"文献库静默更新完毕。共处理 {len(ids_to_download)} 个ID，成功落盘 {success_count} 篇PDF。"
+        return f"文献库静默更新完毕。共处理 {len(ids_to_download)} 个ID，成功落盘或命中本地 {success_count} 篇PDF。"
 class SaveFileTool(Tool):
     name = "save_file"
     description = "安全保存文件工具。支持穿透沙盒写文件，可选择覆盖写入或追加写入。"
@@ -1445,7 +1506,12 @@ class GenerateAbstractTool(Tool):
             GLOBAL_MEMORY["final_report"] = formatted_abstract
 
         print("  ✅ 摘要已成功生成并挂载到报告最开头！")
-        return formatted_abstract
+        
+        # ❌ 原代码：只返回了摘要
+        # return formatted_abstract 
+        
+        # ✅ 修改为：返回拼接完整的全部报告
+        return GLOBAL_MEMORY["final_report"]
 
 
 class GenerateConclusionTool(Tool):
@@ -1503,4 +1569,153 @@ class GenerateConclusionTool(Tool):
             GLOBAL_MEMORY["final_report"] = formatted_conclusion
 
         print("  ✅ 结论已成功生成并挂载到报告末尾！")
-        return formatted_conclusion
+        
+        # ❌ 原代码：只返回了结论
+        # return formatted_conclusion 
+        
+        # ✅ 修改为：返回拼接完整的全部报告
+        return GLOBAL_MEMORY["final_report"]
+class MdToWordTool(Tool):
+    name = "tool_md_to_word"
+    description = "将 Markdown 格式的长文文本转换为标准的 Word (.docx) 文档并保存。适合在学术报告定稿后调用，生成可供直接提交的格式。"
+    inputs = {
+        "md_content": {
+            "type": "string",
+            "description": "要转换的完整 Markdown 文本内容。"
+        },
+        "out_dir": {
+            "type": "string",
+            "description": "输出目录路径（通常是 run_dir）。"
+        },
+        "file_name": {
+            "type": "string",
+            "description": "不含后缀的输出文件名（例如 'final_academic_report'）。"
+        }
+    }
+    output_type = "string"
+
+    def forward(self, md_content: str, out_dir: str, file_name: str) -> str:
+        os.makedirs(out_dir, exist_ok=True)
+        output_path = os.path.join(out_dir, f"{file_name}.docx")
+        
+        try:
+            # 核心：将 markdown 字符串直接转换为 docx 文件
+            # extra_args 可以确保换行和基础样式被正确解析
+            pypandoc.convert_text(
+                md_content, 
+                'docx', 
+                format='md', 
+                outputfile=output_path,
+                extra_args=['--reference-doc=reference.docx'] if os.path.exists('reference.docx') else []
+            )
+            return f"✅ 格式转换成功！Word 文档已生成并保存至: {output_path}"
+        except Exception as e:
+            return f"❌ Word 转换发生异常: {str(e)}\n请确保已通过 'brew install pandoc' 安装了底层依赖。"
+
+class LocalPaperInjectorTool(Tool):
+    name = "tool_local_paper_injector"
+    description = "扫描指定的本地文件夹，读取其中的全部 PDF 文件。自动提取内容并将这些文献注入到系统的全局内存中，供后续的提纯和生成大纲使用。必须传入绝对或相对的文件夹路径。"
+    inputs = {
+        "folder_path": {
+            "type": "string",
+            "description": "存放本地 PDF 文件的文件夹路径（例如：'./local_papers'）"
+        }
+    }
+    output_type = "string"
+
+    def forward(self, folder_path: str) -> str:
+        import os
+        import fitz  # PyMuPDF
+        import re
+        
+        # 确保全局内存已经初始化
+        if "PAPER_DB" not in GLOBAL_MEMORY:
+            GLOBAL_MEMORY["PAPER_DB"] = {}
+        if "retrieved_papers" not in GLOBAL_MEMORY:
+            GLOBAL_MEMORY["retrieved_papers"] = []
+            
+        abs_folder_path = os.path.abspath(folder_path)
+            
+        if not os.path.exists(abs_folder_path):
+            return f"❌ 错误：找不到文件夹绝对路径 {abs_folder_path}"
+
+        pdf_files = [f for f in os.listdir(abs_folder_path) if f.lower().endswith('.pdf')]
+        if not pdf_files:
+            return f"⚠️ 警告：在 {abs_folder_path} 中没有找到任何 PDF 文件。"
+
+        print(f"[LocalInjector] 发现 {len(pdf_files)} 篇本地 PDF，开始提取元数据与精准摘要...")
+        
+        success_count = 0
+        for idx, filename in enumerate(pdf_files):
+            abs_file_path = os.path.join(abs_folder_path, filename)
+            paper_id = f"local_paper_{idx}"
+            
+            try:
+                title = filename.replace(".pdf", "")
+                author = "未知作者"
+                year = "未知年份"
+                final_abstract = ""
+                
+                with fitz.open(abs_file_path) as doc:
+                    meta = doc.metadata
+                    
+                    # 1. 提取元数据 (标题、作者、年份)
+                    if meta.get("title") and meta.get("title").strip():
+                        title = meta.get("title").strip()
+                    if meta.get("author") and meta.get("author").strip():
+                        author = meta.get("author").strip()
+                        
+                    creation_date = meta.get("creationDate", "")
+                    if creation_date.startswith("D:") and len(creation_date) >= 6:
+                        year = creation_date[2:6]
+                    else:
+                        year_match = re.search(r'(19|20)\d{2}', filename)
+                        if year_match:
+                            year = year_match.group(0)
+
+                    # ==========================================
+                    # 🚀 核心更新：正则精准提取真实摘要
+                    # ==========================================
+                    # 先读取前两页的全部生肉文本
+                    raw_text = ""
+                    for page in doc[:2]:
+                        raw_text += page.get_text("text") + "\n"
+                        
+                    # 使用正则匹配：从 "Abstract" 或 "摘要" 开始，到 "Introduction", "引言", "Keywords" 或 "1. " 结束
+                    abstract_pattern = r'(?i)(?:abstract|摘\s*要)\s*[:\n]?\s*(.*?)(?:\n\s*(?:introduction|引\s*言|1\.\s|keywords|关键\s*词))'
+                    match = re.search(abstract_pattern, raw_text, re.DOTALL)
+                    
+                    if match and len(match.group(1).strip()) > 50:
+                        # 命中正则：获得了非常干净的纯摘要！
+                        final_abstract = match.group(1).strip()
+                        # 清理掉多余的换行符，让段落连贯
+                        final_abstract = re.sub(r'\n+', ' ', final_abstract)
+                    else:
+                        # 兜底降级方案：如果排版太奇葩没匹配到 Abstract，就砍掉前 1500 个字符充当摘要
+                        final_abstract = raw_text[:1500].strip()
+                        final_abstract = re.sub(r'\n+', ' ', final_abstract)
+                
+            except Exception as e:
+                print(f"  [-] 解析 {filename} 失败: {e}")
+                continue
+                
+            # 组装动态获取到的论文元数据
+            paper_data = {
+                "id": paper_id,
+                "title": title,
+                "abstract": final_abstract if final_abstract else "【无摘要，需依赖RAG正文提取】",
+                "local_path": abs_file_path,          
+                "status": "local_success",            
+                "year": year,                     
+                "author": author,                 
+                "pdf_url": abs_file_path,             
+                "source_query": "local_injection"     
+            }
+            
+            GLOBAL_MEMORY["PAPER_DB"][paper_id] = paper_data
+            GLOBAL_MEMORY["retrieved_papers"].append(paper_data)
+            success_count += 1
+            
+        result_msg = f"✅ 成功扫描 {abs_folder_path}，已精准提取 {success_count} 篇本地文献的摘要与元数据！"
+        print(f"[LocalInjector] {result_msg}")
+        return result_msg

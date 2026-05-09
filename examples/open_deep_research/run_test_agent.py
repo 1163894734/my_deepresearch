@@ -6,35 +6,22 @@ from smolagents import CodeAgent
 from scripts.skill_loader import load_skills_from_directory
 from smolagents.models import OpenAIModel
 import utils.common_utils as common_utils
-from multiple_tools import get_current_time, get_random_fact, search_wikipedia
+from scripts.custom_tools import MdToWordTool, SaveFileTool, GetVariableTool, SetVariableTool, LoadFileTool, GenerateAbstractTool, GenerateBibliographyTool, GenerateConclusionTool, ParseJsonTool, FlattenOutlineTool
 
-# =========================
-# 1. 初始化运行目录与全量日志
-# =========================
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-run_timestamp = time.strftime('%Y%m%d_%H%M%S')
-run_dir = os.path.join(base_dir, "outputs", f"identification_{run_timestamp}")
+run_dir = "/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260423_101758"
 
 def main():
-    print(f"📁 本次任务专属目录已创建: {run_dir}")
-    # =========================
-    # 2. 加载技能与模型
-    # =========================
+    
     model = common_utils.ModelProvider.get_model()
-    skills = load_skills_from_directory("skills", model=model)
-
-    GENERIC_INSTRUCTIONS = """
-    今天是什么天气
-    """
-
     agent = CodeAgent(
-        tools=skills + [],
+        tools=[MdToWordTool(),SaveFileTool(), GetVariableTool(), SetVariableTool(), LoadFileTool(), GenerateAbstractTool(), GenerateBibliographyTool(), GenerateConclusionTool(), ParseJsonTool(), FlattenOutlineTool()],
         model=model,
-        instructions=GENERIC_INSTRUCTIONS,
+        instructions="使用提供的工具将run_dir下的final_academic_report_final.md文件转换为word文档，run_dir变量已注入环境，直接使用即可。",
         additional_authorized_imports=["json", "time"]
     )
 
-    agent.run()
-
+    
+    agent.state["run_dir"] = run_dir
+    agent.run("干活")
 if __name__ == "__main__":
     main()

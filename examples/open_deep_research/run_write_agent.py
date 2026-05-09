@@ -4,7 +4,7 @@ import logging
 from smolagents import CodeAgent, CustomAgent
 from scripts.skill_loader import load_skills_from_directory
 # 引入所有所需工具
-from scripts.custom_tools import AcademicRAGTool, GenerateBibliographyTool, GetVariableTool, SaveFileTool, ParseJsonTool, FlattenOutlineTool, ReportAssemblerTool, SetVariableTool, UniversalRAGTool, LoadFileTool
+from scripts.custom_tools import AcademicRAGTool, GenerateAbstractTool, GenerateBibliographyTool, GenerateConclusionTool, GetVariableTool, SaveFileTool, ParseJsonTool, FlattenOutlineTool, ReportAssemblerTool, SetVariableTool, UniversalRAGTool, LoadFileTool, MdToWordTool
 import utils.common_utils as common_utils
 
 # =========================
@@ -12,7 +12,7 @@ import utils.common_utils as common_utils
 # =========================
 base_dir = os.path.dirname(os.path.abspath(__file__))
 # ⚠️ 注意替换目录
-run_dir = "/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260423_101758"
+run_dir = "/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260509_164615"
 
 smol_logger = logging.getLogger("writer_agent")
 smol_logger.setLevel(logging.INFO)
@@ -62,7 +62,7 @@ def main():
     # rag_tool = AcademicRAGTool()
     rag_tool = UniversalRAGTool()
     assembler_tool = ReportAssemblerTool(writer_agent=section_writer_agent, rag_tool=rag_tool)
-    tools = [ParseJsonTool(), FlattenOutlineTool(), assembler_tool, SaveFileTool(),SetVariableTool(),GetVariableTool(), GenerateBibliographyTool(), LoadFileTool()]
+    tools = [ParseJsonTool(), FlattenOutlineTool(), assembler_tool, SaveFileTool(),SetVariableTool(),GetVariableTool(), GenerateBibliographyTool(), LoadFileTool(), GenerateAbstractTool(), GenerateConclusionTool(), MdToWordTool()]
     skills = load_skills_from_directory("skills", model=model)
     tools.extend(skills)
     # =========================

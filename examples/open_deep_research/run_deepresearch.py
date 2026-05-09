@@ -36,7 +36,7 @@ def main():
         description="用于在陌生领域快速建立认知锚点。必须传入 'task' 参数（宏观主题）。",
         instructions="""你是一个跨学科领域标定专家。面对一个陌生的领域，你需要快速建立认知体系。
         请严格按以下步骤执行：
-        1. 调用 `tool_academic_search` 工具，使用检索词 "{task} comprehensive review OR state of the art survey" 获取最多 5 篇顶级文献。
+        1. 调用 `tool_academic_search` 工具，使用检索词 "{task} comprehensive review OR state of the art survey" 获取最多 5 篇顶级文献，使用openalex进行检索。
         2. 阅读摘要后，提取出该领域的三个核心元数据。
         3. 【强制红线】使用 `tool_set_var` 工具将提取出的元数据存入变量 `calibrator_agent_result`，以供总控和其他智能体调用。存入的必须是一个纯净的 Python 字典对象（dict），格式如下：
         {
@@ -62,6 +62,7 @@ def main():
         3. context 中提及的 critical_bottleneck 的失效分析与妥协方案
         4. 试图颠覆 context 中 core_metrics 的前沿黑天鹅技术
         【防漂移强制红线】：为了防止检索引擎返回其他领域的无关高引论文，你生成的每一个 Query 都【必须】包含领域限定后缀！
+        生成检索词时核心专有名词必须使用双引号包裹以进行精确匹配
         具体做法：从 context 中提取 `domain_limiters`，并在每个 Query 末尾加上 `AND (limiter1 OR limiter2)`。
         例如：`historical paradigm shifts in composite materials AND (aerospace OR aviation)`。
         使用``tool_set_var``工具将生成的 8 个 Query 存入变量 `forager_agent_result`，格式必须是一个纯正的 Python List[str] 对象.
@@ -118,7 +119,7 @@ def main():
     # =========================
     # 3. 实例化底层工具与总控
     # =========================
-    tools = [AcademicSearchTool(), InsightExtractorTool(), SemanticClusterTool(), PaperDownloaderTool(), SaveFileTool(), ParseJsonTool(),SetVariableTool(),GetVariableTool()]
+    tools = [AcademicSearchTool(), InsightExtractorTool(), SemanticClusterTool(), PaperDownloaderTool(), SaveFileTool(), ParseJsonTool(),SetVariableTool(),GetVariableTool(),LocalPaperInjectorTool()]  # 基础工具
     skills = load_skills_from_directory("skills", model=model)
     tools.extend(skills)
 
@@ -135,7 +136,7 @@ def main():
     )
 
     # 测试通用性：这里可以换成任何陌生领域
-    target_topic = "Automated Scientific Discovery with Large Language Models"
+    target_topic = "三维异构集成技术综述"
     director_agent.state["target_topic"] = target_topic
     director_agent.state["run_dir"] = run_dir
 

@@ -25,8 +25,22 @@ from utils.common_utils import ModelProvider
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ["HF_HUB_OFFLINE"] = "1"
 from sentence_transformers import SentenceTransformer, CrossEncoder
-EMBEDDER = SentenceTransformer('BAAI/bge-m3', device='mps')
-RERANKER = CrossEncoder('BAAI/bge-reranker-base', device='cpu')
+# 1. 动态获取当前脚本 (custom_tools.py) 的绝对路径
+current_script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 2. 往上一级推算到 open_deep_research 根目录，然后拼上 models 文件夹
+project_root = os.path.dirname(os.path.dirname(current_script_dir))
+models_dir = os.path.join(project_root, "models")
+
+# 3. 动态拼装模型的绝对物理路径
+embedder_path = os.path.join(models_dir, "bge-m3")
+reranker_path = os.path.join(models_dir, "bge-reranker-base")
+# 4. 加载模型（如果本地路径不存在，可以留个优雅的报错提示）
+if not os.path.exists(embedder_path) or not os.path.exists(reranker_path):
+    raise FileNotFoundError(f"❌ 找不到本地模型！请确保把模型下载并解压到了: {models_dir}")
+
+EMBEDDER = SentenceTransformer(embedder_path, device='cpu') 
+RERANKER = CrossEncoder(reranker_path, device='cpu')
 # ==================== 聚类工具 (独立解耦) ====================
 class TechnologyClustererTool(Tool):
     """

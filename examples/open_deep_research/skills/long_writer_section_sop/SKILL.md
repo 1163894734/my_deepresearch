@@ -21,8 +21,9 @@ save_file(content=full_report, out_dir=run_dir, file_name="final_academic_report
 # 3. 归档落盘
 formatted_content = tool_generate_bibliography(report_content=full_report, tasks_data=flat_data['tasks'])
 save_file(content=formatted_content, out_dir=run_dir, file_name="final_academic_report_final", out_type="md")
+在 Markdown 保存成功后，立即调用 `tool_md_to_word` 工具，将完整的报告转化为word文档
 
-final_answer("全篇万字学术报告已完美撰写并保存！")
+final_answer("综述已撰写并保存！")
 
 【注意】
 环境中已经注入了变量 `outline_str`（大纲字符串）和 `run_dir`（当前运行目录），请直接使用，不要通过工具获取这两个变量的值。
