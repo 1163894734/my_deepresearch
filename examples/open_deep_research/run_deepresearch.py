@@ -87,6 +87,7 @@ def main():
 
     # 2.3 编排者智能体 (Outliner) - 升级为“通用因果编排”
     # 2.3 编排者智能体 (Outliner) - 升级为“极简主键引用”架构
+    # 2.3 编排者智能体 (Outliner) - 升级为“纯逻辑结构编排”
     outliner_agent = CustomAgent(
         model=model,
         tools=[ParseJsonTool(),SetVariableTool(),GetVariableTool()],
@@ -94,26 +95,32 @@ def main():
         description="基于洞察生成具有因果递进逻辑的三级大纲树。必须传入 'task' 参数。",
         instructions="""你是一个顶级综述架构师。请基于输入的洞察数据，构建深度调研的三级大纲。
         【逻辑红线】：大纲章节之间必须呈现强烈的因果递进关系（从旧范式 -> 当前主流 -> 痛点 -> 前沿破局点）。
-        【主键引用红线 (CRITICAL)】：每一个最底层的章节节点（如 level_2），必须包含一个 `supporting_papers` 字段。
-        该字段是一个严格的列表，里面 **只允许存放从 context 中提取的文献 id (例如 ["https://openalex.org/W123...", "paper_456"])**！
-        绝对严禁在列表里存放字典、URL路径或作者名！所有的元数据都在外部数据库中，大纲只负责存 ID 建立映射。
-        🚀【严禁偷懒 (CRITICAL)】：
-        作为深度研究报告，文献引用必须丰满！你必须尽可能穷尽式地利用输入的 raw_data。
-        1. 每一个底层小节的 `supporting_papers` 列表中，必须至少分配 3 到 6 篇文献 ID。
-        2. 整份大纲引用的【不重复文献总数】绝对不能低于 raw_data。中文献数量的一半！
-        3. 仔细审查每一篇文献的洞察，把它们分类塞进最合适的章节中，不要只挑几篇代表作。
-        4. 覆盖所有的洞察点！每一个洞察都必须在大纲中找到它的归宿，绝不能有遗漏！
-        期望的节点格式范例：
-        {
-            "chapter_title": "1.1 纳米尺度精准调控",
-            "core_argument": "纳米材料实现靶向递送，但面临毒性挑战",
-            "supporting_papers": [
-                "https://openalex.org/W3126951392",
-                "https://openalex.org/W2620160911"
-            ]
-        }
-        大纲必须是合法的JSON格式。在生成完大纲的时候，使用 `tool_set_var` 工具将大纲对象存入变量 `outliner_agent_result`，
-        最后使用 `final_answer` 宣告完成。""",
+        
+        【纯逻辑架构与强制字段命名要求】：
+        1. 你不需要在这一步分配具体的参考文献！你只需要专注于生成深度、详实的章节树。
+        2. 嵌套子章节时，列表的键名必须严格命名为 `sections` 。
+        3. 每一个最底层的章节节点，必须包含 `chapter_title` 和 `core_argument` (本节核心论点/摘要)。
+        4. `core_argument` 请写得尽量详细，包含具体的学术关键词，因为后续的 RAG 引擎会使用这段话去全局文献库中进行精准召回。
+
+        期望的完整JSON节点格式范例（必须严格遵循此结构）：
+        [
+            {
+                "chapter_title": "1. 纳米材料技术概述",
+                "sections": [
+                    {
+                        "chapter_title": "1.1 纳米尺度精准调控",
+                        "core_argument": "探讨纳米材料如何实现靶向递送，分析其在物理层面的机制，以及当前面临的毒性挑战和失效分析。"
+                    },
+                    {
+                        "chapter_title": "1.2 当前主流的制备工艺",
+                        "core_argument": "详细论述CVD与原子层沉积（ALD）等主流工艺在良率与成本控制上的核心瓶颈与具体数据对比。"
+                    }
+                ]
+            }
+        ]
+        
+        请基于对材料的深度理解，尽可能把大纲写得细致。大纲必须是合法的JSON格式。
+        使用 `tool_set_var` 工具将大纲对象存入变量 `outliner_agent_result`，最后使用 `final_answer` 宣告完成。""",
         additional_authorized_imports=["json", "collections"]
     )
     # =========================

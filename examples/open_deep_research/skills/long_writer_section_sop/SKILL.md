@@ -26,6 +26,6 @@ save_file(content=formatted_content, out_dir=run_dir, file_name="final_academic_
 final_answer("综述已撰写并保存！")
 
 【注意】
-环境中已经注入了变量 `outline_str`（大纲字符串）和 `run_dir`（当前运行目录），请直接使用，不要通过工具获取这两个变量的值。
+环境中已经注入了变量 `outline_str`（大纲字符串）和 `run_dir`（当前运行目录），请直接使用，严禁通过工具获取这两个变量的值，严禁对变量重新赋值。
 你需要做的就是按照上面提供的代码框架，调用工具完成写作任务。
 所有复杂的循环、RAG、调度逻辑都已经被封装在了 `tool_assemble_report` 这个自动化装配引擎中，你只需要正确传入参数即可。

@@ -71,7 +71,7 @@ def execute_agent_task(task_id: str, request_data: TaskRequest):
             tasks_db[task_id]["result"] = result
             
         elif request_data.task_type == "test":
-            from run_test import run_test_core
+            from examples.open_deep_research.run_frontier import run_test_core
             result = run_test_core(
                 search_tasks=request_data.search_tasks, 
                 run_dir=run_dir, 

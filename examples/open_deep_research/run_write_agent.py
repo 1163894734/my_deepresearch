@@ -12,7 +12,7 @@ import utils.common_utils as common_utils
 # =========================
 base_dir = os.path.dirname(os.path.abspath(__file__))
 # ⚠️ 注意替换目录
-run_dir = "/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260509_164615"
+run_dir = "/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260511_205655"
 
 smol_logger = logging.getLogger("writer_agent")
 smol_logger.setLevel(logging.INFO)
