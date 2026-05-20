@@ -4,7 +4,7 @@ import logging
 from smolagents import CodeAgent, CustomAgent
 from scripts.skill_loader import load_skills_from_directory
 # 引入所有所需工具
-from scripts.custom_tools import AcademicRAGTool, GenerateAbstractTool, GenerateBibliographyTool, GenerateConclusionTool, GetVariableTool, SaveFileTool, ParseJsonTool, FlattenOutlineTool, ReportAssemblerTool, SetVariableTool, UniversalRAGTool, LoadFileTool, MdToWordTool
+from scripts.custom_tools import GenerateAbstractTool, GenerateBibliographyTool, GenerateConclusionTool, GetVariableTool, SaveFileTool, ParseJsonTool, FlattenOutlineTool, ReportAssemblerTool, SetVariableTool, UniversalRAGTool, LoadFileTool, MdToWordTool
 import utils.common_utils as common_utils
 
 # =========================

@@ -3,6 +3,7 @@
 import json
 import re
 import ast
+import time
 from typing import Union, Dict, List, Any, Optional
 
 import re
@@ -276,7 +277,7 @@ class ModelProvider:
     _instances = {}
 
     @classmethod
-    def get_model(cls, model_type="main"):
+    def get_model(cls, model_type="main", temperature=None):
         """
         获取模型单例。支持 'main' (大模型) 和 'small' (小模型)
         """
@@ -286,7 +287,8 @@ class ModelProvider:
                     model_id="Qwen3-235B-A22B-Instruct-2507",
                     api_base="https://llmapi.paratera.com/v1",
                     api_key=os.environ.get("DYM_API_KEY", ""),
-                    max_tokens=8192
+                    max_tokens=8192,
+                    temperature=temperature if temperature is not None else 0.5
                 )
             elif model_type == "small":
                 # 对应 run_agent3.py 中的本地小模型逻辑
@@ -294,6 +296,7 @@ class ModelProvider:
                     model_id="local-model",
                     api_base="http://localhost:1234/v1",
                     api_key="not-needed",
+                    temperature=temperature if temperature is not None else 0.5
                 )
         return cls._instances[model_type]
 

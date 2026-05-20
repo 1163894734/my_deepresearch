@@ -126,7 +126,7 @@ def main():
     # =========================
     # 3. 实例化底层工具与总控
     # =========================
-    tools = [AcademicSearchTool(), InsightExtractorTool(), SemanticClusterTool(), PaperDownloaderTool(), SaveFileTool(), ParseJsonTool(),SetVariableTool(),GetVariableTool(),LocalPaperInjectorTool()]  # 基础工具
+    tools = [AcademicSearchTool(), InsightExtractorTool(), SemanticClusterTool(), SaveFileTool(), ParseJsonTool(),SetVariableTool(),GetVariableTool(),LocalPaperInjectorTool()]  # 基础工具
     skills = load_skills_from_directory("skills", model=model)
     tools.extend(skills)
 

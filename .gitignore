@@ -156,5 +156,5 @@ tool_output/
 
 examples/open_deep_research/downloads_folder/
 examples/open_deep_research/output/
-examples/paper_db/
+examples/paper_db*
 examples/models/

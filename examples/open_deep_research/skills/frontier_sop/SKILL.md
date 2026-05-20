@@ -5,59 +5,39 @@ enabled: true
 type: sop
 ---
 
-# 【全链路前沿技术遴选与态势感知标准作业程序 (Frontier Tech Sensing SOP)】
+请按以下步骤顺序执行任务，每个步骤的输出需通过print打印，**严禁省略任何步骤**：
+【注意】`run_dir` 变量已注入环境，指向当前运行目录，请直接使用，不要通过工具获取该变量的值，并且请不要写成"run_dir"这样的字符串。
+0. 定义变量(必须执行)：
+origin_paper_dir = "../paper_db"
+paper_meta_dir = run_dir + "/papers"
 
-你是一个高级 AI 技术情报总管。系统已升级为“五步串联”数据流转架构。你必须在一个 Python 沙盒环境中，严格按照以下阶段编写 Python 代码并调度工具，**严禁跳过或篡改逻辑顺序**：
+1. 解析论文检索任务并批量检索保存：
+调用工具 `tool_local_paper_injector(folder_path=origin_paper_dir)` 加载本地论文（此路径必须硬编码，绝不允许修改）。
+调用工具 `paper_data = tool_get_var(key="retrieved_papers")` 获取注入后的结果数据。
+调用工具 `save_file(content=paper_data, out_dir=paper_meta_dir, file_name="local_papers_injected", out_type="json")` 将动作B获取的数据保存。打印保存成功的信息。
 
-【注意】：系统已为你自动注入全局变量 `target_topic`（技术主题名，例如"脑机接口"）和 `run_dir`（工作目录）。严禁在代码中 `print` 巨型数据列表（如完整 JSON 数组）！
+2. 合并所有检索结果并标准化字段：
+遍历`paper_meta_dir`目录中的所有文件，用load_file读取每个文件（结果为文献的元数据列表，参数as_json设置为True）。将所有文件的results列表拼接成一个总列表。然后调用heterogeneous_data_mapping工具对总列表进行字段转化（统一字段命名），最后将转化后的结果使用save_file工具保存到`run_dir`目录下，文件名为1_heterogeneous_data.json。打印保存成功信息。
 
----
+3. 技术主题聚类分析：
+从`run_dir`目录下读取1_heterogeneous_data.json文件（内容为列表，每个元素是论文元信息字典）。打印第一条数据并简要分析其结构。从每条数据中提取与内容高度相关的字段（至少包含：'标题'、'关键词'、'所属技术领域'）。将这些提取的字段作为参数调用technology_clusterer工具进行聚类。聚类结果中每个类别包含"cluster_label"字段。将聚类结果保存到`run_dir`目录下，文件名为2_heterogeneous_clusters.json。打印输出聚类簇的个数及每个簇的基本信息。
 
-### 阶段零：多源数据采集 (Data Source & Collection)
-1. 调用数据采集工具 `tool_multi_source_data_collector(domain=target_topic)`。
-   *(注：该工具将跨越学术论文库、专利数据库、科技新闻、行业智库报告和项目数据等多源渠道进行定点采集)*
-2. 获取返回的原始多源数据集，赋值给变量 `raw_multi_source_data`。
+4. 技术信号评估：
+从`run_dir`目录下读取2_heterogeneous_clusters.json文件（内容为列表，每个元素是一个聚类簇，簇包含papers字段记录该簇的论文列表）。调用tech_signal_evaluator工具对这些聚类簇进行技术信号评估（如成熟度、影响力、活跃度等）。将工具输出保存为3_technology_signals.json文件到`run_dir`目录。打印评估完成信息和关键指标摘要。
 
----
+5. 技术内涵提取：
+从`run_dir`目录下读取3_technology_signals.json文件。调用tech_connotation_extractor工具提取每个技术簇的技术内涵（如核心技术原理、关键使能技术、应用场景等）。将结果保存为4_technology_connotations.json文件到`run_dir`目录。打印提取完成信息。
 
-### 第一阶段：信息的结构化处理 (Information Structuring)
-此阶段将碎片化、非结构化数据归一化为后续分析的标准底座。
-1. 调用工具 `tool_fragmented_info_aggregator(multi_source_data=raw_multi_source_data, output_formats=["json", "excel", "markdown"], out_dir=run_dir, file_stem="01_structured_info")`。
-2. 将工具返回的字典赋值给 `structured_data_result`。
-3. 从结果中提取核心数据表：在代码中声明 `structured_table = structured_data_result["table"]`。
+6. 技术演进路径分析：
+从`run_dir`目录下读取4_technology_connotations.json文件。调用tech_evolution_analyzer工具分析技术演进路径（如技术代际划分、关键里程碑、发展趋势等）。将结果保存为5_technology_evolution.json文件到`run_dir`目录。打印分析完成信息及演进路径概要。
 
----
+7.总结前沿技术：
+从`run_dir`目录下读取5_technology_evolution.json文件。调用frontier_report_generator工具撰写《关键前沿技术识别与分析报告》
+使用save_file工具将《关键前沿技术识别与分析报告》保存为`run_dir`目录下的`key_frontier_technologies_report.md`
+调用weak_signal_report_generator工具撰写《弱信号技术识别与分析报告》
+使用save_file工具将《弱信号技术识别与分析报告》保存为`run_dir`目录下的`weak_signal_technologies_report.md`
 
-### 第二阶段：技术识别 (Technology Identification)
-此阶段包含“关键前沿”与“弱信号”的双轨并行挖掘，必须依次执行：
-
-**A. 关键前沿技术挖掘**
-1. 调用工具 `tool_key_frontier_technology_mining(structured_table=structured_table, domain_keywords=[target_topic], output_format="dict", min_criteria=2, out_dir=run_dir, file_stem="02_key_frontier")`。
-2. 将结果字典赋值给 `frontier_result`。此操作将自动抽取基本定义、解决痛点、核心原理、参数指标与作用价值。
-
-**B. 弱信号技术识别**
-1. 调用工具 `tool_weak_signal_technology_mining(structured_table=structured_table, domain_keywords=[target_topic], output_format="dict", min_criteria=2, out_dir=run_dir, file_stem="03_weak_signal")`。
-2. 将结果字典赋值给 `weak_signal_result`。此操作将专门针对研究数量少、处于早期探索阶段的技术点进行聚类与抽取。
-
----
-
-### 第三阶段：技术分析研判 (Analysis & Judgment)
-此阶段基于上述成果，还原完整发展路径并研判未来态势：
-
-**A. 演进路径分析**
-1. 调用工具 `tool_evolution_path_analysis(frontier_list=frontier_result, weak_signal_list=weak_signal_result, structured_table=structured_table, output_format="dict", out_dir=run_dir, file_stem="04_evolution_path")`。
-2. 将结果字典赋值给 `evolution_result`。*(该工具将自动提取主流技术路线、实现方案、难题瓶颈及优缺点)*。
-
-**B. 重点技术演进态势感知**
-1. 调用工具 `tool_key_technology_evolution_sensing(frontier_list=frontier_result, weak_signal_list=weak_signal_result, structured_table=structured_table, technology_name=target_topic, output_format="dict", out_dir=run_dir, file_stem="05_tech_sensing")`。
-2. 将结果字典赋值给 `sensing_result`。*(该工具将评估技术的成熟度阶段，如早期探索/规模验证/工程化应用，并研判未来趋势)*。
-
----
-
-### 第四阶段：成果输出与报告整合 (Result Output)
-（注意：之前的工具执行时，若传入了 `out_dir`，文件已自动静默落盘。本阶段负责汇总并宣告任务完成）
-1. 在 Python 代码中，从 `sensing_result` 提取两份核心专报的 Markdown 内容：
-   ```python
-   frontier_report = sensing_result.get("frontier_special_report", "")
-   weak_signal_report = sensing_result.get("weak_signal_special_report", "")
-   final_report = frontier_report + "\n\n---\n\n" + weak_signal_report
+8.转为word格式输出：
+调用markdown_to_word工具将`key_frontier_technologies_report.md`转换为`key_frontier_technologies_report.docx`，并保存到`run_dir`目录下
+调用markdown_to_word工具将`weak_signal_technologies_report.md`转换为`weak_signal_technologies_report.docx`，并保存到`run_dir`目录下
+并使用final_answer返回简短的完成信号结束整个流程。

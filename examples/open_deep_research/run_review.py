@@ -2,34 +2,24 @@ import os
 import json
 import time
 import logging
+from utils.agent_helper import setup_run_env
 from smolagents import CodeAgent, CustomAgent
 from scripts.skill_loader import load_skills_from_directory
 from scripts.custom_tools import *
 # 引入所有所需工具 (合并自 run_write_agent.py)
-from scripts.custom_tools import AcademicRAGTool, GenerateAbstractTool, GenerateBibliographyTool, GenerateConclusionTool, GetVariableTool, SaveFileTool, ParseJsonTool, FlattenOutlineTool, ReportAssemblerTool, SetVariableTool, UniversalRAGTool, LoadFileTool, MdToWordTool
+from scripts.custom_tools import *
 import utils.common_utils as common_utils
 
 # =========================
 # 1. 基础配置与日志
 # =========================
-base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-run_timestamp = time.strftime('%Y%m%d_%H%M%S')
-run_dir = os.path.join(base_dir, "outputs", f"deep_research_review_{run_timestamp}")
-os.makedirs(run_dir, exist_ok=True)
-os.makedirs(os.path.join(run_dir, "pdfs"), exist_ok=True)
-
-smol_logger = logging.getLogger("smolagents")
-smol_logger.setLevel(logging.INFO)
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(message)s'))
-smol_logger.addHandler(console_handler)
-file_handler = logging.FileHandler(os.path.join(run_dir, "agent_run.log"), encoding='utf-8')
-file_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(message)s'))
-smol_logger.addHandler(file_handler)
 
 def main():
-    print(f"📁 通用深度研究专属目录已创建: {run_dir}")
+    run_dir, logger = setup_run_env("deep_research_review")
+    os.makedirs(os.path.join(run_dir, "pdfs"), exist_ok=True)
     model = common_utils.ModelProvider.get_model()
+    skills = load_skills_from_directory("skills", model=model)
+    print(f"📁 通用深度研究专属目录已创建: {run_dir}")
 
     # =========================
     # 2. 实例化深度研究子智能体 (从 run_deepresearch.py 原封不动搬运)
@@ -39,10 +29,10 @@ def main():
         model=model,
         tools=[AcademicSearchTool(),SetVariableTool(),GetVariableTool()], 
         name="calibrator_agent",
-        description="用于在陌生领域快速建立认知锚点。必须传入 'task' 参数（宏观主题）。",
+        description="用于在陌生领域快速建立认知锚点。必须传入 'task' 参数（宏观主题）。输入目标主题target_topic，输出字典格式的结果并存入 calibrator_agent_result 全局变量",
         instructions="""你是一个跨学科领域标定专家。面对一个陌生的领域，你需要快速建立认知体系。
         请严格按以下步骤执行：
-        1. 调用 `tool_academic_search` 工具，使用检索词 "{task} comprehensive review OR state of the art survey" 获取最多 5 篇顶级文献，使用openalex进行检索。
+        1. 调用 `tool_academic_search` 工具，使用检索词 "{task} comprehensive review OR state of the art survey" 获取最多 5 篇顶级文献，使用semanticscholar进行检索。
         2. 阅读摘要后，提取出该领域的三个核心元数据。
         3. 【强制红线】使用 `tool_set_var` 工具将提取出的元数据存入变量 `calibrator_agent_result`，以供总控和其他智能体调用。存入的必须是一个纯净的 Python 字典对象（dict），格式如下：
         {
@@ -57,10 +47,12 @@ def main():
 
     forager_agent = CustomAgent(
         model=model,
-        tools=[SetVariableTool(),GetVariableTool()],
+        tools=[SetVariableTool(),GetVariableTool(),ParseJsonTool()],
         name="forager_agent",
-        description="基于领域锚点，将宏观主题拆解为四维检索词。必须传入 'task' (主题) 和 'context' (标定字典)。",
-        instructions="""你是一个高级情报检索专家。请结合用户的原主题和传入的 context，生成 8 个正交的英文检索 Query。
+        description="基于领域锚点，将宏观主题拆解为四维检索词。必须传入 'task' (主题)。并将 forager_agent_result 存入全局变量",
+        instructions="""
+        首先使用context = tool_get_var(calibrator_agent_result)获取context。
+        你是一个高级情报检索专家。请结合用户的原主题和传入的 context，生成 8 个正交的英文检索 Query。然后请严格覆盖以下四个通用维度（每个维度2个Query）：
         必须严格覆盖以下四个通用维度（每个维度2个Query）：
         1. 历史范式转移 (Paradigm Shifts)
         2. context 中提及的 dominant_paradigms 的最新突破
@@ -79,13 +71,14 @@ def main():
         model=model,
         tools=[ParseJsonTool(),SetVariableTool(),GetVariableTool()],
         name="analyst_agent",
-        description="用于分析聚类后的情报数据。必须传入 'task' 参数。",
-        instructions="""你是一个行业分析师。你将接收到文献聚类数据。请为每个聚类写一段 100 字的核心洞察。要求如下：
-            1. 直接分析输入数据即可，绝不要调用任何外部工具或编写爬虫代码。
-            2. 在输出完主题和瓶颈后，你必须作为裁判评估这些文献是否足够支撑写出一份深度大纲。
-            3. 如果文献充分且覆盖了核心维度，请在最后单起一行输出：STATUS: PASS。
-            4. 如果文献严重缺失某个关键维度（例如缺乏最新的破局点技术，或都是老旧文章），请在最后单起一行输出：STATUS: FAIL | MISSING: [用英文写出需要补充检索的1-2个具体关键词]。
-            5. 使用 `tool_set_var` 工具将你的完整分析文本存入变量 `analyst_agent_result`，以供总控和其他智能体调用。最后通过 final_answer 提交任务完成的提示。""",
+        description="用于分析聚类后的情报数据。必须传入 'task' 参数。输出分析结果存入 analyst_agent_result 全局变量",
+        instructions=f"""你是一个严苛的文献质检员。当前研究的终极目标已经注入变量 `target_topic`。你将接收到文献聚类数据。请为每个聚类写一段 100 字的核心洞察。要求如下：                                 
+            用domain_context = tool_get_var(calibrator_agent_result)获取该领域的基准标定信息。                                                                       
+            使用raw_data = tool_get_var(clustered_data)获取原始聚类数据。                                                                                              
+            请你遍历 raw_data 中的每个 cluster 进行【相关度交叉验证】：                                                           
+            对每一个聚类簇提取核心洞察                                                                                
+            最后单起一行严格输出 STATUS: PASS 或 STATUS: FAIL | MISSING: [需补充的关键词]。
+            将结果使用 tool_set_var 存入'analyst_agent_result'，再调用 final_answer 结束。""",
         additional_authorized_imports=["json", "collections"]
     )
 
@@ -93,7 +86,7 @@ def main():
         model=model,
         tools=[ParseJsonTool(),SetVariableTool(),GetVariableTool()],
         name="outliner_agent",
-        description="基于洞察生成具有因果递进逻辑的三级大纲树。必须传入 'task' 参数。",
+        description="基于洞察生成具有因果递进逻辑的三级大纲树。必须传入 'task' 参数。输出大纲对象存入 outliner_agent_result 全局变量",
         instructions="""你是一个顶级综述架构师。请基于输入的洞察数据，构建深度调研的三级大纲。
         【逻辑红线】：大纲章节之间必须呈现强烈的因果递进关系（从旧范式 -> 当前主流 -> 痛点 -> 前沿破局点）。
         
@@ -125,8 +118,7 @@ def main():
         additional_authorized_imports=["json", "collections"]
     )
 
-    tools = [AcademicSearchTool(), InsightExtractorTool(), SemanticClusterTool(), PaperDownloaderTool(), SaveFileTool(), ParseJsonTool(),SetVariableTool(),GetVariableTool(),LocalPaperInjectorTool()]  # 基础工具
-    skills = load_skills_from_directory("skills", model=model)
+    tools = [AcademicSearchTool(), InsightExtractorTool(), SemanticClusterTool(), SaveFileTool(), ParseJsonTool(),SetVariableTool(),GetVariableTool(),LocalPaperInjectorTool()]  # 基础工具
     tools.extend(skills)
 
     director_agent = CustomAgent(
@@ -205,18 +197,15 @@ def main():
     target_topic = "三维异构集成"
     
     # 向所有需要环境信息的 Agent 注入一致的字典变量
-    director_agent.state["target_topic"] = target_topic
-    director_agent.state["run_dir"] = run_dir
-    writer_director_agent.state["run_dir"] = run_dir
-    review_agent.state["target_topic"] = target_topic
-    review_agent.state["run_dir"] = run_dir
+    for agent in [director_agent, writer_director_agent, review_agent]:
+        agent.state.update({"target_topic": target_topic, "run_dir": run_dir})
 
     try:
-        smol_logger.info("🎬 Review Agent 端到端全流程主引擎启动...")
+        logger.info("🎬 Review Agent 端到端全流程主引擎启动...")
         review_agent.run("请依次调度 director_agent 和 writer_director_agent，完成从深度研究大纲生成到长文撰写的全流程。")
         print(f"\n🎉 规划与撰写全部完成！产出物已落盘至: {run_dir}")
     except Exception as e:
-        smol_logger.error(f"❌ 发生致命错误: {e}", exc_info=True)
+        logger.error(f"❌ 发生致命错误: {e}", exc_info=True)
 
 if __name__ == "__main__":
     main()
