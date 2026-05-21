@@ -119,18 +119,20 @@ class TechnologyClustererTool(Tool):
             # 3. UMAP 降维 (关键步骤：高维空间下密度聚类容易失效，降到 15-50 维最佳)
             print("🧠 正在使用 UMAP 进行向量降维优化...")
             reducer = umap.UMAP(
-                n_neighbors=5,      # 关注局部结构（设小一点能分出更细的簇，建议 3-10）
+                n_neighbors=30,      # 关注局部结构（设小一点能分出更细的簇，建议 3-10）
                 n_components=15,    # 降维后的维度
                 metric='cosine',    # 文本特征使用余弦距离效果更好
                 random_state=42     # 固定随机种子保证结果可复现
             )
             reduced_vectors = reducer.fit_transform(vectors)
+
+            # reduced_vectors = vectors #测试一下去掉umap
             
             # 4. HDBSCAN 密度聚类
             print("🧠 正在使用 HDBSCAN 进行细粒度密度聚类...")
             # min_cluster_size 控制一个技术簇最少需要几篇论文
             # 动态调整：如果数据量很少，则降低门槛
-            min_cluster_size = 3 if len(records) > 20 else 2
+            min_cluster_size = 10 if len(records) > 20 else 5
             
             clusterer = hdbscan.HDBSCAN(
                 min_cluster_size=min_cluster_size, 

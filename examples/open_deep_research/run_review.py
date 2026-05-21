@@ -72,11 +72,11 @@ def main():
         tools=[ParseJsonTool(),SetVariableTool(),GetVariableTool()],
         name="analyst_agent",
         description="用于分析聚类后的情报数据。必须传入 'task' 参数。输出分析结果存入 analyst_agent_result 全局变量",
-        instructions=f"""你是一个严苛的文献质检员。当前研究的终极目标已经注入变量 `target_topic`。你将接收到文献聚类数据。请为每个聚类写一段 100 字的核心洞察。要求如下：                                 
+        instructions=f"""你是一个严苛的文献质检员。当前研究的终极目标已经注入变量 `target_topic`。你将接收到由 UMAP+HDBSCAN 层次聚类生成的聚类树数据（包含多层级 items）。请为最顶层的每个大聚类写一段 100 字的核心洞察。要求如下：                                 
             用domain_context = tool_get_var(calibrator_agent_result)获取该领域的基准标定信息。                                                                       
-            使用raw_data = tool_get_var(clustered_data)获取原始聚类数据。                                                                                              
-            请你遍历 raw_data 中的每个 cluster 进行【相关度交叉验证】：                                                           
-            对每一个聚类簇提取核心洞察                                                                                
+            使用raw_data = tool_get_var(clustered_data)获取原始层次聚类数据。                                                                                              
+            请你遍历 raw_data 中的每个顶级 cluster 进行【相关度交叉验证】：                                                           
+            对每一个顶级聚类簇提取核心洞察                                                                                
             最后单起一行严格输出 STATUS: PASS 或 STATUS: FAIL | MISSING: [需补充的关键词]。
             将结果使用 tool_set_var 存入'analyst_agent_result'，再调用 final_answer 结束。""",
         additional_authorized_imports=["json", "collections"]
@@ -86,35 +86,120 @@ def main():
         model=model,
         tools=[ParseJsonTool(),SetVariableTool(),GetVariableTool()],
         name="outliner_agent",
-        description="基于洞察生成具有因果递进逻辑的三级大纲树。必须传入 'task' 参数。输出大纲对象存入 outliner_agent_result 全局变量",
-        instructions="""你是一个顶级综述架构师。请基于输入的洞察数据，构建深度调研的三级大纲。
-        【逻辑红线】：大纲章节之间必须呈现强烈的因果递进关系（从旧范式 -> 当前主流 -> 痛点 -> 前沿破局点）。
+        description="基于动态深度的聚类树生成嵌套大纲。必须传入 'task' 参数。输出大纲对象存入 outliner_agent_result",
+        instructions="""你是一个顶级学术综述架构师兼 Python 数据处理专家。
+        你接收到的 `raw_data` 是一棵【动态深度】的 JSON 嵌套聚类树。树的深度取决于文献总量。
         
-        【纯逻辑架构与强制字段命名要求】：
-        1. 你不需要在这一步分配具体的参考文献！你只需要专注于生成深度、详实的章节树。
-        2. 嵌套子章节时，列表的键名必须严格命名为 `sections` 。
-        3. 每一个最底层的章节节点，必须包含 `chapter_title` 和 `core_argument` (本节核心论点/摘要)。
-        4. `core_argument` 请写得尽量详细，包含具体的学术关键词，因为后续的 RAG 引擎会使用这段话去全局文献库中进行精准召回。
+        【大纲生成红线 - 必须严格遵守】：
+        1. 递归嵌套：无论树有几层，你都需要将其映射为 JSON 大纲。所有的非叶子节点必须使用 `sections` 包含下一级节点。
+        2. 叶子节点定义：当你在 `items` 列表中遇到直接包含 `paper_id` 的对象时，说明到达了最底层小节（叶子节点）。
+        3. 绝不单篇成节：绝对不能把单篇论文变成一个独立的小节！你必须把同一个底层簇内的所有论文归为一个 `section`。
+        4. 挂载 ID 与摘要：对于每个【叶子节点】，你需要在 Python 代码中提取该簇内所有论文的 `paper_id`，合并成一个列表挂载在 `paper_ids` 字段；同时基于前几篇论文的 title/insight 提取一段 80 字的核心论点，赋值给 `core_argument` 字段。
+        5. 非叶子节点（如章、大节）只保留 `chapter_title` 和 `sections` 字段，绝不挂载 `paper_ids` 或 `core_argument`。
 
-        期望的完整JSON节点格式范例（必须严格遵循此结构）：
+        【期望的最终 JSON 大纲结构示例】：
         [
             {
-                "chapter_title": "1. 纳米材料技术概述",
+                "chapter_title": "1. 全局架构与方法论",
                 "sections": [
                     {
-                        "chapter_title": "1.1 纳米尺度精准调控",
-                        "core_argument": "探讨纳米材料如何实现靶向递送，分析其在物理层面的机制，以及当前面临的毒性挑战和失效分析。"
+                        "chapter_title": "1.1 硬件层的突破",
+                        "core_argument": "本节重点探讨了 3D 封装与 TSV 技术带来的散热瓶颈与高带宽增益...",
+                        "paper_ids": ["p1", "p5", "p9", "p12", "p30", "p35", "p44", "p56", "p68", "p77"]
                     },
                     {
-                        "chapter_title": "1.2 当前主流的制备工艺",
-                        "core_argument": "详细论述CVD与原子层沉积（ALD）等主流工艺在良率与成本控制上的核心瓶颈与具体数据对比。"
+                        "chapter_title": "1.2 软件协议栈演进",
+                        "core_argument": "讨论编译器层面的软硬件协同设计以及神经网络量化带来的收益...",
+                        "paper_ids": ["p2", "p8", "p15", "p22", "p29", "p31", "p49", "p60", "p71", "p88", "p91"]
                     }
                 ]
             }
         ]
         
-        请基于对材料的深度理解，尽可能把大纲写得细致。大纲必须是合法的JSON格式。
-        使用 `tool_set_var` 工具将大纲对象存入变量 `outliner_agent_result`，最后使用 `final_answer` 宣告完成。""",
+        请编写 Python 代码解析这棵树，动态生成符合上述要求的列表对象。
+        最后使用 `tool_set_var("outliner_agent_result", outline)` 将列表存入全局变量，并调用 `final_answer("大纲生成完毕")` 宣告完成。""",
+        additional_authorized_imports=["json", "collections"]
+    )
+    outliner_agent = CustomAgent(
+        model=model,
+        tools=[ParseJsonTool(),SetVariableTool(),GetVariableTool()],
+        name="outliner_agent",
+        description="基于动态深度的聚类树生成嵌套大纲。必须传入 'task' 参数。输出大纲对象存入 outliner_agent_result",
+        instructions="""你是一个顶级学术综述架构师兼 Python 数据处理专家。
+        你接收到的 `raw_data` 是一棵【动态深度】的 JSON 嵌套聚类树（通常包含：顶级大簇 -> 次级小簇 -> 论文）。
+        
+        【核心痛点】：由于文献多达数百篇，如果你在代码中直接手写组装所有的 paper_ids 会导致输出超长被截断；但如果你只写一个极简的 for 循环，章节标题又会变成毫无意义的占位符，失去学术价值。
+        
+        【终极解决方案（混合编程法） - 必须严格遵守】：
+        在编写 Python 代码时，你必须采用“先思考建立字典，后循环映射数据”的策略：
+        
+        第一步：在 Python 代码的开头，基于你对 `raw_data` 真实内容的阅读和学术理解，**手写一个主题映射字典**。为每一个顶级大簇和次级小簇构思极具学术深度的 `title` 和 `core_argument`。
+        【红线警告】：必须严格确保小节序号和大章序号级联绑定！例如第1章下的小节是1.1, 1.2；第2章下的小节必须是2.1, 2.2；第3章下的小节必须是3.1, 3.2，绝不能全部写成1.x！
+        
+        第二步：编写一个递归的 `for` 循环去解析 `raw_data`，在循环中通过索引（index）去映射你在第一步写好的主题字典，同时自动提取底层的 `paper_id` 列表。
+        
+        你输出的 Python 代码结构必须严格类似于以下范例：
+        ```python
+        import json
+        
+        # 1. 你大脑中构思的学术主题字典（请务必根据各章节的大章序号级联编写，绝不能全部机械模仿 1.x ！）
+        theme_mapping = {
+            "top_0": {"title": "1. XXXX的底层物理机制", "core_argument": ""},
+            "top_0_sub_0": {"title": "1.1 XXXX的界面热阻研究", "core_argument": "探讨了..."},
+            "top_0_sub_1": {"title": "1.2 XXXX的键合工艺突破", "core_argument": "分析了..."},
+            "top_1": {"title": "2. XXXX的前沿系统级应用", "core_argument": ""},
+            "top_1_sub_0": {"title": "2.1 XXXX在高性能计算中的应用", "core_argument": "探讨了..."},
+            "top_1_sub_1": {"title": "2.2 XXXX在光子集成领域的扩展", "core_argument": "分析了..."},
+            # ... 务必覆盖真实数据中所有的簇索引，并保证序号严格逐级递增绑定
+        }
+        
+        # 2. 读取传入的全局变量
+        raw_data_dict = json.loads(tool_get_var("clustered_data"))
+        
+        # 3. 编写动态组装逻辑
+        outline = []
+        for i, top_cluster in enumerate(raw_data_dict['clusters']):
+            top_key = f"top_{i}"
+            fallback_title = f"第{i+1}章 " + top_cluster.get('items', [{}])[0].get('items', [{}])[0].get('title', '未知主题')[:20]
+            chapter_info = theme_mapping.get(top_key, {"title": fallback_title, "core_argument": ""})
+            
+            chapter_node = {
+                "chapter_title": chapter_info["title"],
+                "sections": []
+            }
+            
+            for j, sub_cluster in enumerate(top_cluster.get('items', [])):
+                sub_key = f"top_{i}_sub_{j}"
+                
+                # 🚀 核心修复点：通过 f"{i+1}.{j+1} " 将小节的兜底序号与当前大章索引进行彻底的动态化强制绑定，不再有写死的 1.
+                first_item = sub_cluster.get('items', [{}])[0]
+                fallback_text = first_item.get('core_breakthrough', first_item.get('insight', '未知核心突破'))[:30]
+                sub_fallback = f"{i+1}.{j+1} " + fallback_text
+                
+                sub_info = theme_mapping.get(sub_key, {"title": sub_fallback, "core_argument": "综合分析本节文献核心规律。"})
+                
+                # 自动提取 paper_ids (绝不允许把单篇文献独立成节)
+                pids = []
+                for paper in sub_cluster.get('items', []):
+                    if 'paper_id' in paper:
+                        pids.append(paper['paper_id'])
+                
+                chapter_node['sections'].append({
+                    "chapter_title": sub_info["title"],
+                    "core_argument": sub_info["core_argument"],
+                    "paper_ids": pids
+                })
+                
+            outline.append(chapter_node)
+            
+        # 4. 落盘
+        tool_set_var("outliner_agent_result", outline)
+        ```
+        
+        【绝对严禁】：
+        1. 绝不允许使用我示例中的假名字，必须根据你读取到的真实文献数据去起标题！
+        2. 最后必须调用 `final_answer("大纲生成完毕")`。
+        """,
         additional_authorized_imports=["json", "collections"]
     )
 
@@ -143,15 +228,15 @@ def main():
         name="section_writer_agent",
         description="学术长文主笔。",
         instructions="""你是一名世界级的科技领域首席研究员。
-        【任务】：根据传入的标题、核心论点和 RAG 语料，撰写学术报告的一个小节。
-        【写作红线】：
-        1. 严禁无营养废话。所有数据和结论必须直接来源于语料。
-        2. 强制学术引用：必须在句末对所有使用的数据和观点进行文献引用。
-           - 若语料来源为本地文献，使用 [paper_id]。
-           - 若语料来源为在线网页，直接使用该 URL 作为引用标号（如 [https://www.mdpi.com/...]）。
-        3. 绝对禁止输出“[注: 无本地文献支撑]”这类免责声明！只要 RAG 语料中提供了信息（不管是本地还是网页），请正常完成推演和引用。
-        4. 严禁尝试调用 visit_webpage 等网页浏览工具！所有网页的内容系统已经提前抓取并放在了【RAG 精准提取语料】中，你只需要直接阅读 Prompt 里的文本。
-        5. 格式要求：你必须且只能使用 python 代码块来提交结果，即 `final_answer("你的正文字符串")`，严禁直接输出纯文本。
+        【任务】：根据传入的标题、核心论点、上下文逻辑和 RAG 语料，撰写学术报告的一个小节。
+        
+        【核心写作红线 —— 彻底消除拼接感】：
+        1. 拒绝机械罗列：绝对不允许出现“论文A指出...另外论文B发现...”这种记流水账的句式。你必须将多篇文献的信息**深度融合成一个有机的学术观点**。
+           - ❌ 错误示范：“[REF:p1]提出了一种新型冷却技术。同时，[REF:p2]指出了成本过高的问题。”
+           - ✅ 正确示范：“尽管新型冷却技术在热管理上展现出显著优势[REF:p1]，但其居高不下的制备成本仍是当前规模化应用的主要瓶颈[REF:p2]。”
+        2. 建立文献对话感：运用高级学术转折词（如：然而、相较之下、进一步地、本质上），让不同文献的数据和观点产生碰撞与对比。
+        3. 强制学术引用：必须在具体的数据、实验或观点句末使用 [REF:pX] 格式进行引用。
+        4. 格式要求：你必须且只能使用 python 代码块来提交结果，即 `final_answer("你的正文字符串")`，严禁直接输出纯文本。
         """
     )
 
@@ -181,7 +266,7 @@ def main():
         tools=[],
         managed_agents=[director_agent, writer_director_agent],
         model=model,
-        instructions="""你是一个极简的总控调度智能体 (Review Agent)。你的唯一任务是按顺序触发两个子智能体，绝不要干涉它们的内部执行逻辑。
+        instructions="""
         请严格执行以下 Python 代码逻辑：
         1. 呼叫 `director_agent`，传入 task="请根据全局主题启动深度研究，并执行你的标准大纲生成SOP"，等待其完成。
         2. 呼叫 `writer_director_agent`，传入 task="大纲已就绪，请执行你的标准长文撰写、排版及导出SOP"，等待其完成。
@@ -202,7 +287,7 @@ def main():
 
     try:
         logger.info("🎬 Review Agent 端到端全流程主引擎启动...")
-        review_agent.run("请依次调度 director_agent 和 writer_director_agent，完成从深度研究大纲生成到长文撰写的全流程。")
+        review_agent.run("请依照指令完成任务")
         print(f"\n🎉 规划与撰写全部完成！产出物已落盘至: {run_dir}")
     except Exception as e:
         logger.error(f"❌ 发生致命错误: {e}", exc_info=True)
