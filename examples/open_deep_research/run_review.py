@@ -74,7 +74,8 @@ def main():
         description="用于分析聚类后的情报数据。必须传入 'task' 参数。输出分析结果存入 analyst_agent_result 全局变量",
         instructions=f"""你是一个严苛的文献质检员。当前研究的终极目标已经注入变量 `target_topic`。你将接收到由 UMAP+HDBSCAN 层次聚类生成的聚类树数据（包含多层级 items）。请为最顶层的每个大聚类写一段 100 字的核心洞察。要求如下：                                 
             用domain_context = tool_get_var(calibrator_agent_result)获取该领域的基准标定信息。                                                                       
-            使用raw_data = tool_get_var(clustered_data)获取原始层次聚类数据。                                                                                              
+            使用raw_data = tool_get_var(clustered_data)获取原始层次聚类数据，，你需要再用raw_data['clusters']获取簇列表。                                                                                              
+            打印列表中的第一条数据并查看结构。
             请你遍历 raw_data 中的每个顶级 cluster 进行【相关度交叉验证】：                                                           
             对每一个顶级聚类簇提取核心洞察                                                                                
             最后单起一行严格输出 STATUS: PASS 或 STATUS: FAIL | MISSING: [需补充的关键词]。
