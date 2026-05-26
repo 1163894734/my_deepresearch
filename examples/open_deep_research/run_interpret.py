@@ -54,15 +54,17 @@ def parse_args():
     )
     return parser.parse_args()
 
-def main():
-    args = parse_args()
-    target_term = args.question
+def run_interpret_core(target_term="具身智能", run_timestamp=None, run_dir=None, logger=None):
 
     # =========================
     # 1. 初始化运行目录与全量日志 (✨ 使用 agent_helper 精简)
     # =========================
     # 这里的 prefix 使用 "interpretation"，以便和 deep_research 区分
-    run_dir, smol_logger = setup_run_env("interpretation")
+    if run_dir is None or logger is None:
+        run_dir, smol_logger = setup_run_env("interpretation", run_timestamp=run_timestamp)
+    else:
+        os.makedirs(run_dir, exist_ok=True)
+        smol_logger = logger
     smol_logger.info(f"🚀 启动技术名词解读 Agentic Workflow... 目标名词: {target_term}")
 
     # =========================
@@ -129,9 +131,16 @@ def main():
         smol_logger.info("✅ 任务圆满完成。")
         print("\n================ 最终解读报告 ================\n")
         print(result)
+        return {"run_dir": run_dir, "result": result}
         
     except Exception as e:
         smol_logger.error(f"❌ 执行过程中发生致命错误: {e}", exc_info=True)
+        raise
+
+
+def main():
+    args = parse_args()
+    run_interpret_core(target_term=args.question)
 
 if __name__ == "__main__":
     main()

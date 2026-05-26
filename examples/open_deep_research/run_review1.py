@@ -12,17 +12,19 @@ import utils.common_utils as common_utils
 from utils.state_manager import ResearchStateManager
 from outline_builder import OutlineBuilder
 
-def main():
+def run_review1_core(target_topic="三维异构集成", run_timestamp="20260522_131108", resume_stage=None, run_dir=None, logger=None):
     # ==========================================
     # 1. 基础配置与环境初始化
     # ==========================================
-    run_dir, logger = setup_run_env("deep_review_pipeline_dag", run_timestamp="20260522_131108")
+    if run_dir is None or logger is None:
+        run_dir, logger = setup_run_env("deep_review_pipeline_dag", run_timestamp=run_timestamp)
+    else:
+        os.makedirs(run_dir, exist_ok=True)
     os.makedirs(os.path.join(run_dir, "pdfs"), exist_ok=True)
     model = common_utils.ModelProvider.get_model()
     state = ResearchStateManager()
     
-    target_topic = "三维异构集成"
-    resume_stage = os.environ.get("REVIEW1_START_STAGE", "auto").strip().lower()
+    resume_stage = (resume_stage or os.environ.get("REVIEW1_START_STAGE", "auto")).strip().lower()
     logger.info(f"📁 启动工业级 Python DAG 工作流 | 目标主题: {target_topic}")
 
     # ==========================================
@@ -443,9 +445,15 @@ def main():
 
     try:
         ReviewPipelineStateMachine().run()
+        return {"run_dir": run_dir, "success": True}
 
     except Exception as e:
         logger.error(f"\n❌ 工作流致命异常: {str(e)}", exc_info=True)
+        raise
+
+
+def main():
+    run_review1_core()
 
 if __name__ == "__main__":
     main()

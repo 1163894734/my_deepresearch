@@ -15,9 +15,11 @@ app = FastAPI(title="Deep Research API Server")
 
 # 2. 定义接口接收的 JSON 参数格式
 class TaskRequest(BaseModel):
-    task_type: str  # 可选: "deepresearch" 或 "test"
+    task_type: str  # 可选: "deepresearch" / "frontier" / "review1" / "interpret" / "test"
     target_topic: Optional[str] = "Automated Scientific Discovery with Large Language Models"
     search_tasks: Optional[str] = None  # 用于 run_test.py 的指令段
+    question: Optional[str] = None  # 用于技术名词解读
+    resume_stage: Optional[str] = None  # 用于 deep_review_pipeline_dag 的起始阶段
 
 # 3. 自定义日志处理器：将 Agent 运行时的日志精准推送到对应任务的缓存中
 class TaskLogHandler(logging.Handler):
@@ -58,9 +60,10 @@ def execute_agent_task(task_id: str, request_data: TaskRequest):
 
     try:
         task_logger.info(f"🚀 任务 {task_id} 开始执行，类型: {request_data.task_type}")
+        task_type = request_data.task_type.lower().strip()
         
         # 动态路由到对应的业务逻辑
-        if request_data.task_type == "deepresearch":
+        if task_type == "deepresearch":
             # 导入你改造后的业务函数
             from run_deepresearch import run_deepresearch_core
             result = run_deepresearch_core(
@@ -70,12 +73,31 @@ def execute_agent_task(task_id: str, request_data: TaskRequest):
             )
             tasks_db[task_id]["result"] = result
             
-        elif request_data.task_type == "test":
-            from examples.open_deep_research.run_frontier import run_test_core
-            result = run_test_core(
-                search_tasks=request_data.search_tasks, 
-                run_dir=run_dir, 
-                logger=task_logger
+        elif task_type in {"frontier", "test"}:
+            from run_frontier import run_frontier_core
+            result = run_frontier_core(
+                search_tasks=request_data.search_tasks,
+                run_dir=run_dir,
+                logger=task_logger,
+            )
+            tasks_db[task_id]["result"] = result
+
+        elif task_type == "review1":
+            from run_review1 import run_review1_core
+            result = run_review1_core(
+                target_topic=request_data.target_topic,
+                resume_stage=request_data.resume_stage,
+                run_dir=run_dir,
+                logger=task_logger,
+            )
+            tasks_db[task_id]["result"] = result
+
+        elif task_type == "interpret":
+            from run_interpret import run_interpret_core
+            result = run_interpret_core(
+                target_term=request_data.question or request_data.target_topic,
+                run_dir=run_dir,
+                logger=task_logger,
             )
             tasks_db[task_id]["result"] = result
             

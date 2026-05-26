@@ -8,10 +8,11 @@ from smolagents import CodeAgent
 from scripts.frontier_tools import *
 from scripts.custom_tools import LocalPaperInjectorTool, SaveFileTool,LoadFileTool, SetVariableTool, GetVariableTool, MdToWordTool
 
-run_dir, logger = setup_run_env("frontier_identify",run_timestamp="20260519_151853")
-# run_dir, logger = setup_run_env("frontier_identify",run_timestamp="20260517_150338")
-
-def main():
+def run_frontier_core(search_tasks=None, run_timestamp="20260519_151853", run_dir=None, logger=None):
+    if run_dir is None or logger is None:
+        run_dir, logger = setup_run_env("frontier_identify", run_timestamp=run_timestamp)
+    else:
+        os.makedirs(run_dir, exist_ok=True)
     model = common_utils.ModelProvider.get_model()
     skills = load_skills_from_directory("skills", model=model)
     tools=[AcademicSearchTool(), SaveFileTool(), LLMDataMappingTool(),LoadFileTool(), TechnologyClustererTool(), TechSignalEvaluatorTool(), TechConnotationExtractorTool(), TechEvolutionAnalyzerTool(),LocalPaperInjectorTool(), SetVariableTool(), GetVariableTool(),FrontierReportGeneratorTool(), WeakSignalReportGeneratorTool(), MdToWordTool()]
@@ -63,7 +64,16 @@ paper_meta_dir = run_dir + "/papers"
 
     # 设置运行目录并执行
     director_agent.state["run_dir"] = run_dir
-    director_agent.run(f"请执行以下任务：\n{search_tasks}")
+    result = director_agent.run(f"请执行以下任务：\n{search_tasks}")
+    return {"run_dir": run_dir, "result": result}
+
+
+def run_test_core(search_tasks=None, run_timestamp="20260519_151853"):
+    return run_frontier_core(search_tasks=search_tasks, run_timestamp=run_timestamp)
+
+
+def main():
+    run_frontier_core()
 
 if __name__ == "__main__":
     main()

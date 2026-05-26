@@ -1,34 +1,28 @@
+# ========== 标准库 ==========
 import json
 import os
-import re
-import ssl
-import time
-import ast
-import urllib.parse
-import xml.etree.ElementTree as ET
-from collections import Counter, defaultdict
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-
-import pandas as pd
-import requests
-import feedparser
-from duckduckgo_search import DDGS
-from sklearn.cluster import DBSCAN
-from smolagents import Tool
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
-
-from smolagents import Tool
-import utils.common_utils as common_utils
-from utils.common_utils import ModelProvider
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ["HF_HUB_OFFLINE"] = "1"
-from sentence_transformers import SentenceTransformer, CrossEncoder
-from sklearn.cluster import AgglomerativeClustering
+import re
+import time
+import ast
+import threading
+import urllib.parse
+import xml.etree.ElementTree as ET
+from collections import defaultdict
+from typing import Any, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# ========== 第三方库 ==========
+import requests
 import hdbscan
 import umap
-from sklearn.preprocessing import normalize
+import numpy as np  # 如果后续用到
+from smolagents import Tool
+from sentence_transformers import SentenceTransformer, CrossEncoder
+
+# ========== 项目内部模块 ==========
+from utils.common_utils import ModelProvider
 # 1. 动态获取当前脚本 (custom_tools.py) 的绝对路径
 current_script_dir = os.path.dirname(os.path.abspath(__file__))
 

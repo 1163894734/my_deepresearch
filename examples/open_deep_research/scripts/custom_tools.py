@@ -1,3 +1,4 @@
+# ========== 标准库 ==========
 import os
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -17,19 +18,22 @@ import urllib.error
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Dict, Any, Optional
 
+# ========== 第三方库 ==========
 import numpy as np
 import fitz  # PyMuPDF
-
 import pypandoc
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from smolagents import Tool
-
-# 引入你的统一模型提供者
+import umap
+from sklearn.cluster import KMeans
+import numpy as np
+# ========== 项目内部模块 ==========
 import utils.common_utils as common_utils
-from utils.state_manager import ResearchStateManager # 引入刚才写好的管理器
+from utils.state_manager import ResearchStateManager
 # 全局单例加载模型，利用 Mac M 系列芯片的 MPS 加速（或 CPU）
 # 推荐使用 BAAI 针对学术优化的轻量级模型
 # 1. 动态获取当前脚本 (custom_tools.py) 的绝对路径
@@ -425,14 +429,14 @@ class AcademicSearchTool(Tool):
                     encoded_query = urllib.parse.quote(query.strip())
                     sort_param = "cited_by_count:desc" if sort_by == "citation" else "relevance_score:desc"
                     # 强制加入 mailto 进入高优礼貌池
-                    url = f"https://api.openalex.org/works?search={encoded_query}&sort={sort_param}&per-page={max_results}&mailto=wangchao@example.com"
+                    url = f"https://api.openalex.org/works?search={encoded_query}&sort={sort_param}&per-page={max_results}&mailto=one@example.com"
                     
                     max_retries = 3
                     success = False
                     
                     for attempt in range(max_retries):
                         try:
-                            headers = {'User-Agent': 'open_deep_research_agent/1.0 (mailto:wangchao@example.com)'}
+                            headers = {'User-Agent': 'open_deep_research_agent/1.0 (mailto:one@example.com)'}
                             req = urllib.request.Request(url, headers=headers)
                             with urllib.request.urlopen(req, timeout=15) as response:
                                 data = json.loads(response.read().decode('utf-8'))
@@ -609,7 +613,7 @@ class AcademicSearchTool(Tool):
                     success = False
                     for attempt in range(max_retries):
                         try:
-                            headers = {'User-Agent': 'open_deep_research_agent/1.0 (mailto:wangchao@example.com)'}
+                            headers = {'User-Agent': 'open_deep_research_agent/1.0 (mailto:one@example.com)'}
                             req = urllib.request.Request(url, headers=headers)
                             
                             with urllib.request.urlopen(req, timeout=15) as response:
@@ -786,12 +790,6 @@ class SemanticClusterTool(Tool):
     output_type = "any"
 
     def forward(self, compressed_papers: list) -> dict:
-        try:
-            import umap
-            from sklearn.cluster import KMeans
-            import numpy as np
-        except ImportError:
-            return {"error": "缺少依赖，请在终端运行: pip install umap-learn scikit-learn"}
 
         if not compressed_papers:
             return {"clusters": []}
@@ -1049,11 +1047,6 @@ class ParseJsonTool(Tool):
                 except Exception as e:
                     return {"error": f"AST解析失败: {str(e)}", "raw": text}
         return {"error": "未发现有效的数据结构", "raw": text}
-
-
-import os, hashlib, ssl, urllib.request
-import numpy as np
-from typing import List, Dict, Any, Optional
 
 class FlattenOutlineTool(Tool):
     name = "tool_flatten_outline"
@@ -1940,7 +1933,11 @@ class LocalPaperInjectorTool(Tool):
                     # ==========================================
                     raw_text = ""
                     for page in doc[:2]:
-                        raw_text += page.get_text("text") + "\n"
+                        try:
+                            raw_text += page.get_text("text") + "\n"
+                        except Exception as e:
+                            print(f"⚠️ 解析某页 PDF 时发生错误，已跳过。原因: {e}")
+                            continue # 跳过当前页的提取错误，但继续尝试提取剩余页面的文本
                         
                     abstract_pattern = r'(?i)(?:abstract|摘\s*要)\s*[:\n]?\s*(.*?)(?:\n\s*(?:introduction|引\s*言|1\.\s|keywords|关键\s*词))'
                     match = re.search(abstract_pattern, raw_text, re.DOTALL)

@@ -11,7 +11,7 @@ from scripts.custom_tools import PDFVisionParserTool
 # =========================
 base_dir = os.path.dirname(os.path.abspath(__file__))
 # ⚠️ 注意替换目录
-run_dir = "/Users/wangchao/project/my_deepresearch/examples/outputs/deep_research_20260423_101758"
+run_dir = "../outputs/deep_research_20260423_101758"
 
 def main():
     model = common_utils.ModelProvider.get_model()

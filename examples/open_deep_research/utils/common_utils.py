@@ -10,7 +10,8 @@ import re
 import json
 import ast
 from typing import Union, Dict, List, Any
-
+from dotenv import load_dotenv
+load_dotenv()
 def safe_json_parse(text: str, fallback_type: type = dict) -> Union[Dict, List, Any]:
     """
     终极 JSON 解析工具：处理大模型输出的各种奇葩格式。
@@ -284,18 +285,18 @@ class ModelProvider:
         if model_type not in cls._instances:
             if model_type == "main":
                 cls._instances[model_type] = OpenAIModel(
-                    model_id="Qwen3-235B-A22B-Instruct-2507",
-                    api_base="https://llmapi.paratera.com/v1",
-                    api_key=os.environ.get("DYM_API_KEY", ""),
+                    model_id=os.environ.get("MODEL_NAME", ""),
+                    api_base=os.environ.get("MODEL_BASE_URL", ""),
+                    api_key=os.environ.get("MODEL_API_KEY", ""),
                     max_tokens=8192,
                     temperature=temperature if temperature is not None else 0.5
                 )
             elif model_type == "small":
                 # 对应 run_agent3.py 中的本地小模型逻辑
                 cls._instances[model_type] = OpenAIModel(
-                    model_id="local-model",
-                    api_base="http://localhost:1234/v1",
-                    api_key="not-needed",
+                    model_id=os.environ.get("MODEL_NAME", ""),
+                    api_base=os.environ.get("MODEL_BASE_URL", ""),
+                    api_key=os.environ.get("MODEL_API_KEY", ""),
                     temperature=temperature if temperature is not None else 0.5
                 )
         return cls._instances[model_type]
@@ -344,61 +345,3 @@ def execute_tool_call(tool_name: str, arguments: Dict[str, Any], available_tools
         if logger:
             logger.error(f"❌ [Tool失败] {tool_name} 耗时 {cost_ms}ms，错误: {e}")
         raise
-
-class PipelineLogger:
-    """
-    专为多智能体并发框架设计的标准 Logger。
-    完美兼容 smolagents 底层的 agent.logger.log() 调用。
-    """
-    def __init__(self, agent_name: str, log_file: str = None):
-        self.logger = logging.getLogger(agent_name)
-        
-        # 避免重复添加 Handler 导致日志打印多次
-        if not self.logger.handlers:
-            self.logger.setLevel(logging.INFO)
-            
-            # 定义高可读性的日志格式（加上了线程/Agent名字区分并发上下文）
-            formatter = logging.Formatter(
-                '%(asctime)s | %(name)-15s | %(levelname)-7s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            )
-            
-            # 1. 输出到控制台
-            console_handler = logging.StreamHandler(sys.stdout)
-            console_handler.setFormatter(formatter)
-            self.logger.addHandler(console_handler)
-            
-            # 2. (可选) 输出到文件，用于赛后复盘
-            if log_file:
-                file_handler = logging.FileHandler(log_file, encoding='utf-8')
-                file_handler.setFormatter(formatter)
-                self.logger.addHandler(file_handler)
-
-    # ==========================================
-    # 兼容 smolagents 专属接口
-    # ==========================================
-    def log(self, msg: str, level=None):
-        """兼容底层 smolagents.monitoring.LogLevel 的调用"""
-        if level == LogLevel.ERROR:
-            self.logger.error(msg)
-        elif level == LogLevel.DEBUG:
-            self.logger.debug(msg)
-        elif level == LogLevel.WARNING:
-            self.logger.warning(msg)
-        else:
-            self.logger.info(msg)
-
-    # ==========================================
-    # 兼容标准 Python Logging 接口
-    # ==========================================
-    def info(self, msg, *args, **kwargs):
-        self.logger.info(msg, *args, **kwargs)
-
-    def error(self, msg, *args, **kwargs):
-        self.logger.error(msg, *args, **kwargs)
-
-    def warning(self, msg, *args, **kwargs):
-        self.logger.warning(msg, *args, **kwargs)
-
-    def debug(self, msg, *args, **kwargs):
-        self.logger.debug(msg, *args, **kwargs)
